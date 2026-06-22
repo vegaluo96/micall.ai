@@ -56,13 +56,25 @@ sudo nginx -t && sudo systemctl reload nginx
 
 **5) 放行端口 + HTTPS**
 - 阿里云安全组放行 80 / 443。
-- 证书（把两个域名一起签）：
+- 证书（把三个域名一起签）：
   ```bash
   sudo apt-get install -y certbot python3-certbot-nginx
   sudo certbot --nginx -d zsky.com -d www.zsky.com -d admin.zsky.com
   ```
 
 打开 `http(s)://admin.zsky.com` → 输 Basic Auth 账号密码 → 进入后台。
+
+### 后台没配上 HTTPS？逐项排查
+1. **DNS**：`dig +short admin.zsky.com` 必须返回你的公网 IP（A 记录没加/没生效，certbot 取不到证）。
+2. **Basic Auth 挡了校验**：Let's Encrypt 的 HTTP-01 校验要访问
+   `/.well-known/acme-challenge/...`，会被后台的 `auth_basic` 挡成 401 → 取证失败。
+   `micall-admin.conf` 已加 `location ^~ /.well-known/acme-challenge/ { auth_basic off; }` 放行；
+   确认你用的是仓库里这份最新配置后 `sudo nginx -t && sudo systemctl reload nginx`，再单独补签：
+   ```bash
+   sudo certbot --nginx -d admin.zsky.com
+   ```
+3. **80 端口**：certbot HTTP 校验走 80，安全组/防火墙要放行；大陆 ECS 用域名还需 ICP 备案。
+4. 签好后 certbot 会自动加 443 跳转；`sudo certbot certificates` 可看已签域名。
 
 ---
 

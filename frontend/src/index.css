@@ -79,3 +79,13 @@ body {
     padding-top: 0 !important;
   }
 }
+
+/* ── Desktop 三栏顶部对齐（产品方变更）──────────────────────────────────────
+   宽屏 ≥1100px 是「左侧栏 | 中间手机 | 右侧栏」三栏。中间手机隐藏了状态栏后，
+   顶部第一行（场景 pill 那排）距顶 18px，而两个侧栏（.deskside）内容距顶 24px，
+   导致侧栏比中间顶栏低 6px。把侧栏 padding-top 抬到 18px，三栏顶部对齐到同一线。 */
+@media (min-width: 1100px) {
+  .deskside {
+    padding-top: 18px !important;
+  }
+}
