@@ -42,7 +42,9 @@ def _measure_once(node: NodeConfig, messages: list[dict], max_tokens: int) -> tu
     ttft: float | None = None
     with httpx.Client(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
         with client.stream("POST", node.endpoint, headers=headers, json=payload) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                detail = resp.read().decode("utf-8", "ignore")[:400].replace("\n", " ")
+                raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
             for line in resp.iter_lines():
                 if not line or not line.startswith("data:"):
                     continue
