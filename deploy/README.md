@@ -189,5 +189,8 @@ cd ~/micall.ai/backend && set -a; . config/micall.env; set +a
 PYTHONPATH=src python3 -m micall.cli selfcheck                 # 看各节点是否「已配置」
 PYTHONPATH=src python3 -m micall.cli spike                     # LLM TTFT
 PYTHONPATH=src python3 scripts/tts_once.py "你好，我今天心情还不错。" sample.mp3   # TTS 首块/整句
-PYTHONPATH=src python3 scripts/asr_once.py sample.mp3          # ASR 识别延迟（可复用上面合的 mp3）
+PYTHONPATH=src python3 scripts/asr_once.py sample.mp3 --label 北京               # ASR 北京区 p50/p95
+# 注册国际站(新加坡)账号拿独立 key 后，同一段音频对比：
+MICALL_ASR_ENDPOINT=https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions \
+MICALL_ASR_API_KEY=<国际站key> PYTHONPATH=src python3 scripts/asr_once.py sample.mp3 --label 新加坡
 ```
