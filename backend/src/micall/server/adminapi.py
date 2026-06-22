@@ -21,7 +21,7 @@ import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from ..config import NodeConfig, _REPO_DEFAULT, load_config
+from ..config import NodeConfig, _REPO_DEFAULT, _header_safe, load_config
 
 OVERRIDES_PATH = _REPO_DEFAULT.parent / "admin_overrides.json"
 
@@ -101,7 +101,12 @@ def write_config_from_admin(payload: dict) -> None:
             if bfield == "api_key":
                 if _is_mask(val) or not val.strip():
                     continue                       # 未改：保留原值
-                node["api_key"] = val.strip()
+                node["api_key"] = _header_safe(val)   # 清洗粘贴带进的 U+2028/零宽/换行等头非法字符
+            elif bfield == "endpoint":
+                sval = _header_safe(val)
+                if not sval:
+                    continue
+                node["endpoint"] = sval
             else:
                 sval = val.strip()
                 if not sval:

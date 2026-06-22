@@ -1,10 +1,19 @@
 import os
 import unittest
 
-from micall.config import NODE_KEYS, load_config, resolve_runtime, resolve_voice
+from micall.config import NODE_KEYS, NodeConfig, load_config, resolve_runtime, resolve_voice
 
 
 class TestConfig(unittest.TestCase):
+    def test_node_strips_header_unsafe_chars(self):
+        # 复制粘贴常把 U+2028 行分隔符/不间断空格/零宽/换行带进 key → Authorization 头 ascii 编码崩。
+        n = NodeConfig(name="t", endpoint=" https://api.x/v1  ",
+                       api_key="sk-ab cd\xa0ef​gh\n")
+        self.assertEqual(n.api_key, "sk-abcdefgh")
+        self.assertEqual(n.endpoint, "https://api.x/v1")
+        # 清洗后能正常进 latin-1/ascii 头，不再抛 UnicodeEncodeError。
+        (f"Bearer {n.api_key}").encode("ascii")
+
     def test_load_defaults(self):
         c = load_config()
         self.assertEqual(set(c.nodes), set(NODE_KEYS))

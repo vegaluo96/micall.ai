@@ -24,6 +24,14 @@ _REPO_DEFAULT = Path(__file__).resolve().parents[2] / "config" / "default.json"
 NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding")
 
 
+def _header_safe(s: str) -> str:
+    """清洗将进 HTTP 头的字段（endpoint/key）：去掉复制粘贴常带进来的 U+2028/2029 行段分隔符、
+    不间断空格(\\xa0)、零宽字符(\\u200b-\\u200d/\\ufeff)、换行/制表等。否则塞进 Authorization 头时
+    httpx 报「'ascii' codec can't encode character '\\u2028'」→ 测试连接/通话直接失败。
+    endpoint/key 本就是可见 ASCII，过滤到 0x21-0x7E（连内部空白一起去掉，键里不该有空格）。"""
+    return "".join(ch for ch in (s or "") if 0x21 <= ord(ch) <= 0x7E)
+
+
 @dataclass
 class NodeConfig:
     """单个供应商节点（endpoint + key + 其余参数）。"""
@@ -33,6 +41,11 @@ class NodeConfig:
     endpoint: str = ""
     api_key: str = ""
     params: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # endpoint/key 统一清洗：无论来自 load_config 还是后台测试直接构造，都不带非法头字符。
+        self.endpoint = _header_safe(self.endpoint)
+        self.api_key = _header_safe(self.api_key)
 
     @property
     def configured(self) -> bool:
