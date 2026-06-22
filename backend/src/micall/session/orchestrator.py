@@ -19,10 +19,21 @@ from typing import AsyncIterator, Awaitable, Callable
 
 _NON_WORD = re.compile(r"\W+", re.UNICODE)
 
+# 语气词/backchannel 单字集：回声、呼吸、口水音常被 ASR 识成「嗯」这类，老误打断 AI
+# （用户实测：asr 老觉得我在嗯）。纯由这些字（含重复/带标点）组成的识别结果视为非实质，
+# 不打断、不触发轮次、不上字幕。真说话（哪怕「嗯…我觉得」）一旦带实义词照常处理。
+_FILLER_CHARS = set("嗯唔呃啊哦噢喔哼唉诶欸呢吧嘛啦呀哟嗷呣姆")
+
 
 def _norm(s: str) -> str:
     """去标点/空白，保留中英文字符，用于回声重叠判定。"""
     return _NON_WORD.sub("", s or "")
+
+
+def _is_filler(s: str) -> bool:
+    """纯语气词/backchannel（嗯/啊/哦…，含重复与标点）→ True（非实质语音）。"""
+    nt = _norm(s)
+    return not nt or all(ch in _FILLER_CHARS for ch in nt)
 
 from ..config import Config
 from ..protocol import ServerEvent
@@ -145,6 +156,8 @@ class CallSession:
                     continue
                 if self._looks_like_echo(t):
                     continue  # AI 自己的声音回灌麦克风，忽略（不打断、不触发新一轮）
+                if _is_filler(t):
+                    continue  # 纯语气词「嗯/啊/哦…」（多为回声/呼吸误识）：不打断、不触发轮次、不上字幕
                 if not is_final:
                     # 用户开口（首个实质中间结果）→ 立刻打断：停后端生成 + 让前端停播。
                     # 关键：后端可能已把整句音频发完、状态回 listening，但前端还在播缓冲，

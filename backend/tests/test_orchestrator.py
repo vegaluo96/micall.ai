@@ -22,6 +22,17 @@ def _make_session(emit, llm=None):
     )
 
 
+class TestFiller(unittest.TestCase):
+    def test_filler_detection(self):
+        from micall.session.orchestrator import _is_filler
+        # 纯语气词/backchannel（含重复、带标点）→ 非实质（回声/呼吸常被识成这些，老误打断）。
+        for x in ("嗯", "嗯嗯", "嗯。", "啊", "哦哦", "嗯哼", "  唉 ", "呃…"):
+            self.assertTrue(_is_filler(x), x)
+        # 带实义词 → 实质，照常处理（哪怕以语气词开头）。
+        for x in ("嗯我觉得", "累了", "今天好烦", "嗯，对的呀好的"):
+            self.assertFalse(_is_filler(x), x)
+
+
 class TestOrchestrator(unittest.TestCase):
     def test_turn_event_sequence(self):
         events: list[dict] = []
