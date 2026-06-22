@@ -82,7 +82,8 @@ check("dark theme attribute", dark, ['data-theme="dark"']);
 
 // 7) Every sheet renders its sc-for lists without throwing.
 const sheets: [string, (l: any) => void, string[]][] = [
-  ["menu", (l) => { l.state.menuOpen = true; }, ["账单", "邀请好友", "深色模式", "语言"]],
+  ["menu", (l) => { l.state.menuOpen = true; }, ["账单", "邀请好友", "深色模式", "语言", "dcx-drawer-left"]],
+  ["history drawer", (l) => { l.state.historyOpen = true; }, ["通话记录", "dcx-drawer-right"]],
   ["scenario list", (l) => { l.state.scenarioOpen = true; }, ["选择场景", "随便聊聊", "心情树洞"]],
   ["scenario custom", (l) => { l.state.scenarioOpen = true; l.state.sceneTab = "custom"; }, ["应用场景", "试试这些"]],
   ["bills", (l) => { l.state.billsOpen = true; }, ["畅聊会员", "交易记录", "分钟剩余"]],

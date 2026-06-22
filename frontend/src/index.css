@@ -26,11 +26,17 @@ body {
 
    We override only layout chrome here (app-level CSS), never the prototype's
    inner UI. !important is required because the bezel sizing lives in inline
-   styles — same technique the prototype uses for its own desktop media query. */
+   styles — same technique the prototype uses for its own desktop media query.
+
+   IMPORTANT: .screen is the positioning context for every overlay (drawers,
+   sheets, dialogs) — they anchor to its padding box with top/bottom/inset:0.
+   So we must NOT pad .screen, or every popup gets shifted/clipped (that was
+   the "弹窗没对齐" bug). Safe-area handling is left to the browser (we don't
+   set viewport-fit=cover), so content already stays clear of the notch. */
 @media (max-width: 1099.98px) {
   .appwrap {
     padding: 0 !important;
-    background: #000 !important;
+    background: var(--bg) !important;
     align-items: stretch !important;
     justify-content: stretch !important;
     min-height: 100vh !important;
@@ -53,13 +59,17 @@ body {
     min-height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    /* keep content clear of the device notch / rounded corners */
-    padding-top: env(safe-area-inset-top) !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
   }
-  /* fake iOS chrome — the real device already has these */
+  /* fake iOS chrome — the real device already has its own */
   .notch,
   .statusbar {
     display: none !important;
+  }
+  /* The two slide-in drawers carry 48px corners meant to hug the phone screen's
+     rounded edge. Full-bleed they'd expose the background at the viewport edge,
+     so square them into clean edge-to-edge panels. */
+  .dcx-drawer-left,
+  .dcx-drawer-right {
+    border-radius: 0 !important;
   }
 }

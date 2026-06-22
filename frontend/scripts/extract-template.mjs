@@ -18,6 +18,19 @@ const start = open.index + open[0].length;
 const end = html.lastIndexOf("</x-dc>");
 if (end < 0 || end < start) throw new Error("no </x-dc> close tag found");
 
-const template = html.slice(start, end).replace(/^\n/, "");
+let template = html.slice(start, end).replace(/^\n/, "");
+
+// Production-only hooks (product-directed responsive change): tag the two side
+// drawers so app-level CSS can square their phone-frame corners on real devices.
+// Pure class injection — no visual change vs. the prototype on its own.
+template = template.replace(
+  '<div style="position:absolute;top:0;bottom:0;left:0;width:74%;z-index:9;',
+  '<div class="dcx-drawer-left" style="position:absolute;top:0;bottom:0;left:0;width:74%;z-index:9;',
+);
+template = template.replace(
+  '<div style="position:absolute;top:0;bottom:0;right:0;width:74%;z-index:11;',
+  '<div class="dcx-drawer-right" style="position:absolute;top:0;bottom:0;right:0;width:74%;z-index:11;',
+);
+
 writeFileSync(OUT, template, "utf8");
 console.log(`Wrote ${OUT} (${template.split("\n").length} lines) from prototype.`);
