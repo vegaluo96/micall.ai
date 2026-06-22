@@ -163,5 +163,31 @@ npm run build && sudo cp -r dist/* /var/www/micall/
 打开 zsky.com 发起通话即走真实后端（当前是 stub 编排，接入密钥后即真实对话）。
 
 **接真实供应商密钥（铁律2）**：在 `backend/config/micall.env` 写各节点 endpoint/key
-（见 `deploy/micall-backend.service` 注释），`sudo systemctl restart micall-backend`，
-再 `PYTHONPATH=src python3 -m micall.cli spike` 实测 TTFT（地基生死验证）。
+（不入库、不进命令行、不进截图），`sudo systemctl restart micall-backend`。模板（按已选最快链路）：
+
+```bash
+# 快脑 LLM —— DeepSeek 官方直连（实测 TTFT≈709ms，聚合网关都被卡在 ~2.2s）
+MICALL_LLM_FAST_ENDPOINT=https://api.deepseek.com/v1/chat/completions
+MICALL_LLM_FAST_API_KEY=sk-xxxx
+
+# TTS —— MiniMax 国内域名 api.minimax.chat（实测首块≈550ms，比国际 minimaxi.com 快≈280ms）
+# endpoint 把 GroupId 拼在 query 里；国内/国际是不同账号体系，key 不通用。
+MICALL_TTS_ENDPOINT=https://api.minimax.chat/v1/t2a_v2?GroupId=你的GroupId
+MICALL_TTS_API_KEY=你的MiniMax国内key
+
+# ASR —— 百炼 Qwen3-ASR-Flash（默认北京区；香港跨境慢就换下面注释的新加坡区+国际站key）
+MICALL_ASR_ENDPOINT=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+MICALL_ASR_API_KEY=你的百炼key
+# 新加坡区（离香港近，常更快，需国际站独立账号/独立 key）：
+# MICALL_ASR_ENDPOINT=https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
+```
+
+各链路单独实测（地基生死验证）：
+
+```bash
+cd ~/micall.ai/backend && set -a; . config/micall.env; set +a
+PYTHONPATH=src python3 -m micall.cli selfcheck                 # 看各节点是否「已配置」
+PYTHONPATH=src python3 -m micall.cli spike                     # LLM TTFT
+PYTHONPATH=src python3 scripts/tts_once.py "你好，我今天心情还不错。" sample.mp3   # TTS 首块/整句
+PYTHONPATH=src python3 scripts/asr_once.py sample.mp3          # ASR 识别延迟（可复用上面合的 mp3）
+```

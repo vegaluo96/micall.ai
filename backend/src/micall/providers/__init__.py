@@ -32,7 +32,10 @@ def make_tts(node: NodeConfig) -> TTSProvider:
 def make_asr(node: NodeConfig) -> ASRProvider:
     if not node.configured:
         return StubASR()
-    # 真实：阿里百炼 Qwen3-ASR-Flash 流式直连。骨架未接，回退 stub。
+    if node.provider in ("bailian_qwen3_asr", "bailian", "dashscope_asr", "qwen_asr"):
+        from .bailian_asr import BailianASR
+
+        return BailianASR(node)
     return StubASR()
 
 
