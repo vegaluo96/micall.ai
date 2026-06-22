@@ -29,8 +29,6 @@ export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           MiCall<span style={{ color: "#6E5CFF" }}>.ai</span>
           <span style={S.brandTag}>Admin</span>
         </div>
-        <div style={S.title}>运营管理后台</div>
-        <div style={S.sub}>登录以继续</div>
 
         <label style={S.label}>账号</label>
         <input
@@ -84,10 +82,8 @@ const S: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
   },
-  brand: { fontSize: 24, fontWeight: 700, letterSpacing: "-.3px", color: "#16161A", display: "flex", alignItems: "baseline", gap: 2 },
+  brand: { fontSize: 24, fontWeight: 700, letterSpacing: "-.3px", color: "#16161A", display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2, marginBottom: 22 },
   brandTag: { fontSize: 12, fontWeight: 600, color: "#6E5CFF", background: "rgba(110,92,255,.1)", borderRadius: 8, padding: "2px 8px", marginLeft: 6 },
-  title: { fontSize: 18, fontWeight: 600, color: "#16161A", marginTop: 18 },
-  sub: { fontSize: 13.5, color: "#878B95", marginTop: 4, marginBottom: 14 },
   label: { fontSize: 12, fontWeight: 600, color: "#5A5E6B", margin: "10px 2px 6px" },
   input: {
     boxSizing: "border-box",

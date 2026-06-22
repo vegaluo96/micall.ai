@@ -49,18 +49,20 @@ body {
     border-radius: 0 !important;
     background: var(--bg) !important;
     box-shadow: none !important;
+    /* The screen is `zoom: rootZoom` (1.06 / 1.11 at 大/特大). Rather than fight
+       the zoom with height math (which iOS Safari handles inconsistently → cut-off
+       content + a dead gap), let the phone scroll INTERNALLY. The body/page never
+       page-scrolls; enlarged content stays reachable inside the phone. */
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   .screen {
     position: relative !important;
     inset: 0 !important;
     width: 100% !important;
-    /* The screen is `zoom: rootZoom` (1 / 1.06 / 1.11 for 标准/大/特大). A bare
-       100dvh height would then render ~6–11% taller than the viewport and the
-       page would scroll at larger fonts. Divide by the zoom so it renders to
-       exactly one viewport — the same trick the prototype uses for .deskside. */
-    height: calc(100vh / var(--fz, 1)) !important;
-    height: calc(100dvh / var(--fz, 1)) !important;
-    min-height: calc(100dvh / var(--fz, 1)) !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
@@ -92,6 +94,11 @@ body {
     padding-bottom: 0 !important;
     display: flex !important;
     align-items: center !important;
+  }
+  /* 底部滚动列表（场景/角色/账单… 的 .nobar）留出余量，最后一项不贴底被遮挡。
+     无 !important，已自带内边距的 .nobar（如角色详情）保持原值。 */
+  .nobar {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
 }
 

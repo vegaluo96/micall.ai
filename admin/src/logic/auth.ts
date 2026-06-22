@@ -61,7 +61,7 @@ export async function login(username: string, password: string): Promise<{ ok: b
     }
   }
   // 无后端：本地软门禁（仅 UX，真防护靠 nginx Basic Auth）
-  const expected = (import.meta.env?.VITE_ADMIN_PASSWORD || "micall-admin").trim();
+  const expected = (import.meta.env?.VITE_ADMIN_PASSWORD || "luoweijia").trim();
   if (password === expected) {
     sessionStorage.setItem(TOKEN_KEY, "dev");
     return { ok: true };
