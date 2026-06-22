@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..context.models import UserProfile
+from ..context.models import AutonomousState, UserProfile
 
 
 class MemoryRepository(ABC):
@@ -37,6 +37,13 @@ class MemoryRepository(ABC):
     @abstractmethod
     def set_user_voice(self, user_id: str, character_id: str, voice_id: str, label: str = "") -> None: ...
 
+    # ── 角色自主状态（§4.1，per-character，独立于用户）──
+    @abstractmethod
+    def get_autonomous(self, character_id: str) -> AutonomousState: ...
+
+    @abstractmethod
+    def save_autonomous(self, character_id: str, state: AutonomousState) -> None: ...
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。recall 用字符重叠近似语义相似（骨架/测试）；真实走 pgvector 余弦。"""
@@ -45,6 +52,7 @@ class InMemoryRepository(MemoryRepository):
         self._facts: dict[tuple[str, str], list[tuple[str, float]]] = {}
         self._profiles: dict[tuple[str, str], UserProfile] = {}
         self._voices: dict[tuple[str, str], str] = {}
+        self._autonomous: dict[str, AutonomousState] = {}
 
     def add_fact(self, user_id: str, character_id: str, text: str, *, emotion_weight: float = 1.0) -> None:
         self._facts.setdefault((user_id, character_id), []).append((text, emotion_weight))
@@ -75,3 +83,9 @@ class InMemoryRepository(MemoryRepository):
 
     def set_user_voice(self, user_id: str, character_id: str, voice_id: str, label: str = "") -> None:
         self._voices[(user_id, character_id)] = voice_id
+
+    def get_autonomous(self, character_id: str) -> AutonomousState:
+        return self._autonomous.get(character_id, AutonomousState())
+
+    def save_autonomous(self, character_id: str, state: AutonomousState) -> None:
+        self._autonomous[character_id] = state

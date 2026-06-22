@@ -94,6 +94,7 @@ class SignalingServer:
         assembler = ContextAssembler(
             char,
             profile=profile,
+            autonomous=self.repo.get_autonomous(char.character_id),  # §4.1 TA 今天的状态
             memory=self.repo,
             memory_top_k=int(self.config.global_defaults.get("memory_depth", 5)),
         )

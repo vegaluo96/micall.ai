@@ -1,3 +1,9 @@
+from .autonomy import (
+    AutonomyEngine,
+    build_autonomy_prompt,
+    describe_gap,
+    parse_autonomous_state,
+)
 from .understanding import (
     UnderstandingEngine,
     build_understanding_prompt,
@@ -12,4 +18,8 @@ __all__ = [
     "build_understanding_prompt",
     "parse_profile_update",
     "merge_profile",
+    "AutonomyEngine",
+    "build_autonomy_prompt",
+    "describe_gap",
+    "parse_autonomous_state",
 ]
