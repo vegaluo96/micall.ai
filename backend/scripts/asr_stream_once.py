@@ -57,6 +57,7 @@ async def main() -> None:
         raise SystemExit(f"{args.audio} 是 0 字节空文件。先用 tts_once 重新合一个非空 sample.mp3。")
 
     pcm = _pcm16_mono_16k(args.audio)
+    pcm = pcm + b"\x00\x00" * int(SR * 1.2)  # 尾部补 1.2s 静音 → server_vad 判句
     nframes = (len(pcm) + FRAME_BYTES - 1) // FRAME_BYTES
 
     cfg = load_config()

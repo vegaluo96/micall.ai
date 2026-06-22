@@ -36,6 +36,7 @@ async def main() -> None:
     if not Path(src).exists():
         raise SystemExit(f"找不到 {src}。先用 tts_once 合一个 sample.mp3。")
     pcm = _pcm16(src)
+    pcm = pcm + b"\x00\x00" * int(SR * 1.2)  # 尾部补 1.2s 静音 → server_vad 判到"说完"才结句
     from websockets.asyncio.client import connect
 
     audio = bytearray()
