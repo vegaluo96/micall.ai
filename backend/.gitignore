@@ -7,3 +7,5 @@ venv/
 # 真实密钥配置（铁律2：永不入库）
 config/secret.json
 config/*.local.json
+config/*.env
+config/micall.env
