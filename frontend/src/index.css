@@ -34,34 +34,32 @@ body {
    the "弹窗没对齐" bug). Safe-area handling is left to the browser (we don't
    set viewport-fit=cover), so content already stays clear of the notch. */
 @media (max-width: 1099.98px) {
+  /* Natural document flow: the screen fills one viewport via min-height and the
+     BODY scrolls normally (no fixed-height internal scroll container). This is
+     what makes it feel native on iOS — the URL bar collapses, rubber-band works,
+     and there's no dead white gap from fighting `zoom` against `dvh`. */
   .appwrap {
+    display: block !important;
     padding: 0 !important;
     background: var(--bg) !important;
-    align-items: stretch !important;
-    justify-content: stretch !important;
     min-height: 100vh !important;
     min-height: 100dvh !important;
   }
   .phone {
     width: 100% !important;
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
     border-radius: 0 !important;
     background: var(--bg) !important;
     box-shadow: none !important;
-    /* The screen is `zoom: rootZoom` (1.06 / 1.11 at 大/特大). Rather than fight
-       the zoom with height math (which iOS Safari handles inconsistently → cut-off
-       content + a dead gap), let the phone scroll INTERNALLY. The body/page never
-       page-scrolls; enlarged content stays reachable inside the phone. */
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
   }
   .screen {
     position: relative !important;
-    inset: 0 !important;
+    inset: auto !important;
     width: 100% !important;
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: auto !important;
+    min-height: 100vh !important;
     min-height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
