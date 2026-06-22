@@ -15,3 +15,51 @@ body {
   font: inherit;
   color: inherit;
 }
+
+/* ── Real-device full-bleed (产品方变更：移除手机外壳) ──────────────────────
+   The DC prototype frames the app inside a phone-bezel mockup (.appwrap gray
+   backdrop + 390×844 .phone bezel + fake notch/status bar). That mockup is a
+   design-preview device, not product chrome — on an actual phone it shows up
+   as a "phone inside a phone". The prototype already drops the bezel at
+   ≥1100px (desktop side-panel layout); this rule does the same for everything
+   below that breakpoint so real phones/tablets render edge-to-edge.
+
+   We override only layout chrome here (app-level CSS), never the prototype's
+   inner UI. !important is required because the bezel sizing lives in inline
+   styles — same technique the prototype uses for its own desktop media query. */
+@media (max-width: 1099.98px) {
+  .appwrap {
+    padding: 0 !important;
+    background: #000 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+  }
+  .phone {
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    background: var(--bg) !important;
+    box-shadow: none !important;
+  }
+  .screen {
+    position: relative !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    /* keep content clear of the device notch / rounded corners */
+    padding-top: env(safe-area-inset-top) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+  /* fake iOS chrome — the real device already has these */
+  .notch,
+  .statusbar {
+    display: none !important;
+  }
+}
