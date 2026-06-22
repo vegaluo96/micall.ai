@@ -158,6 +158,9 @@ function walkElement(el: Element): Builder {
   const tag = el.tagName.toLowerCase();
   const { propGetters, pseudoSpecs } = collectProps(el);
   const kids = walkChildren(el);
+  // 伪类（:active/:hover…）生成的 class 名是编译期常量 —— 在此 prepare 阶段算一次并
+  // 插入样式规则，render 时直接拼字符串，不再每帧重建 key/查表（pseudoClass 自带去重）。
+  const pseudoClassName = pseudoSpecs.map(([p, css]) => pseudoClass(p, css)).join(" ");
   return (vals, key) => {
     const props: Record<string, unknown> = { key };
     for (const [k, g] of propGetters) {
@@ -168,9 +171,10 @@ function walkElement(el: Element): Builder {
       }
       props[k] = v;
     }
-    if (pseudoSpecs.length) {
-      const cls = pseudoSpecs.map(([p, css]) => pseudoClass(p, css));
-      props.className = [props.className, ...cls].filter(Boolean).join(" ");
+    if (pseudoClassName) {
+      props.className = props.className
+        ? props.className + " " + pseudoClassName
+        : pseudoClassName;
     }
     return createElement(tag, props, ...kids.map((b, j) => b(vals, j)));
   };

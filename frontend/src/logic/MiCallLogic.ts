@@ -406,7 +406,6 @@ export class MiCallLogic {
   renderVals(): Vals {
     const p = this.state.phase;
     const theme = this.state.theme ?? this.props.theme ?? "light";
-    const name = this.props.aiName || "林晚";
     const tint = this.props.orbColor || "#AAB8FF";
     const connected = p === "listening" || p === "thinking" || p === "speaking";
     const edgeOpacity = ({ idle: 0, calling: 0.35, listening: 0.62, thinking: 0.45, speaking: 0.95, ended: 0 } as Record<string, number>)[p];
@@ -478,7 +477,7 @@ export class MiCallLogic {
     })).filter((o) => charTab === "fav" ? this.state.favorites.includes(o._i) : (charTab === "hot" ? ((o._i * 31 + 7) % 100) < 52 : (o._i < 5 || o._i % 4 === 1)))
       .filter((o) => { const q = (this.state.searchQ || "").trim(); return !q || o.name.includes(q) || o.desc.includes(q); });
     const charListEmpty = charList.length === 0;
-    const charDots = this.chars.map((c, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 }));
+    const charDots = this.chars.map((_, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 }));
     const curFav = this.state.favorites.includes(this.state.charIndex);
     const favCurFill = curFav ? "#FF4F7B" : "none";
     const favCurStroke = curFav ? "#FF4F7B" : "var(--fg)";
@@ -549,6 +548,9 @@ export class MiCallLogic {
       theme,
       edgeOpacity: theme === "dark" ? edgeOpacity : edgeOpacity * 0.7,
       edgeBlend: theme === "dark" ? "screen" : "normal",
+      // 边缘光在 idle/ended（应用最常驻态）不可见——此时不渲染那层 blur(34px) 的旋转
+      // 锥形渐变，省掉持续的 GPU 合成（仅通话各阶段才挂载）。
+      edgeVisible: edgeOpacity > 0,
       title: p === "ended" ? "通话结束" : charName,
       orbHue, showOrbStatus, charDots,
       charTagline: char.desc,

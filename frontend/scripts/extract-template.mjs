@@ -65,5 +65,13 @@ template = template.replace(
   },
 );
 
+// 性能：边缘光（旋转锥形渐变 + blur(34px) + mix-blend）在 idle/ended（应用最常驻态）
+// edgeOpacity 为 0、本就不可见，却始终挂载并持续旋转，白白占用 GPU 合成。用 sc-if 按
+// edgeVisible 挂载——常驻态彻底不渲染这层，仅通话各阶段才出现。零可见变化（不可见态移除）。
+template = template.replace(
+  /<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;mix-blend-mode:\{\{ edgeBlend \}\};opacity:\{\{ edgeOpacity \}\};transition:opacity \.9s ease;">[\s\S]*?<\/div>\s*<\/div>/,
+  (m) => `<sc-if value="{{ edgeVisible }}">\n      ${m}\n      </sc-if>`,
+);
+
 writeFileSync(OUT, template, "utf8");
 console.log(`Wrote ${OUT} (${template.split("\n").length} lines) from prototype.`);

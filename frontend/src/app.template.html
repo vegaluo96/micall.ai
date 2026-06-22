@@ -936,9 +936,11 @@
         <div style="position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:17;background:rgba(26,20,38,.82);color:#fff;font-size:13.5px;font-weight:500;letter-spacing:.3px;padding:9px 18px;border-radius:14px;max-width:calc(100% - 48px);box-sizing:border-box;text-align:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:toastIn .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.25);">{{ toast }}</div>
       </sc-if>
 
+      <sc-if value="{{ edgeVisible }}">
       <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;mix-blend-mode:{{ edgeBlend }};opacity:{{ edgeOpacity }};transition:opacity .9s ease;">
         <div style="position:absolute;inset:-35%;background:conic-gradient(from 0deg,#2E7BFF,#6E5CFF,#FF4FA0,#FFB45C,#27E0D6,#2E7BFF);filter:blur(34px);animation:spin 13s linear infinite;-webkit-mask:radial-gradient(circle at 50% 50%,transparent 56%,#000 82%);mask:radial-gradient(circle at 50% 50%,transparent 56%,#000 82%);"></div>
       </div>
+      </sc-if>
 
     </div>
   </div>
