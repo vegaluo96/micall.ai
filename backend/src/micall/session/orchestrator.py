@@ -215,13 +215,18 @@ class CallSession:
             await self._generate_turn(text)
 
     async def _embed_query(self, text: str) -> list[float] | None:
-        """把本轮用户话向量化用于情节记忆余弦召回。仅配了 Embedding 节点时；失败不影响通话。"""
+        """把本轮用户话向量化用于情节记忆余弦召回。仅配了 Embedding 且库里有可检索记忆时才嵌入，
+        否则纯属给实时路径白加一次网络往返（开场/新会话尤其明显，对话发钝）。带紧超时兜底。"""
         if self._embedder is None or not (text or "").strip():
             return None
+        mem, prof = self.assembler.memory, self.assembler.profile
+        if mem is None or prof is None or not mem.has_facts(prof.user_id, self.character_id):
+            return None  # 没有可召回的记忆 → 不嵌入，省一次往返（recall 也只会返回空）
         try:
-            return await self._embedder.embed_one(text)
-        except Exception as e:  # 网络/鉴权/超时：静默退回关键词召回，不拖累实时路径。
-            log.warning("query 向量化失败，退关键词召回：%r", e)
+            # 实时路径硬上限：嵌入慢/卡也不拖累对话，超时即退关键词召回。
+            return await asyncio.wait_for(self._embedder.embed_one(text), timeout=1.0)
+        except Exception as e:  # 超时/网络/鉴权：静默退关键词召回（asyncio.TimeoutError 也是 Exception）。
+            log.warning("query 向量化跳过（超时/失败），退关键词召回：%r", e)
             return None
 
     async def _generate_turn(self, user_text: str) -> None:

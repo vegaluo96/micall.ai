@@ -48,6 +48,10 @@ class MemoryRepository(ABC):
         """向量检索（余弦相似 × 情感权重 × 新近）。默认实现回退关键词 recall（子类可覆写）。"""
         return self.recall(user_id, character_id, query, top_k=top_k)
 
+    def has_facts(self, user_id: str, character_id: str) -> bool:
+        """是否有可检索的事实。无则编排层跳过 query 向量化（省一次实时往返）。默认保守返 True。"""
+        return True
+
     # ── 理解层 ──
     @abstractmethod
     def get_profile(self, user_id: str, character_id: str) -> UserProfile: ...
@@ -86,6 +90,9 @@ class InMemoryRepository(MemoryRepository):
         emotion_weight: float = 1.0, vector: list[float] | None = None,
     ) -> None:
         self._facts.setdefault((user_id, character_id), []).append((text, emotion_weight, vector))
+
+    def has_facts(self, user_id: str, character_id: str) -> bool:
+        return bool(self._facts.get((user_id, character_id)))
 
     def recall(self, user_id: str, character_id: str, query: str, *, top_k: int = 5) -> list[str]:
         items = self._facts.get((user_id, character_id), [])
