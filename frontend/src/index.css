@@ -34,35 +34,49 @@ body {
    the "弹窗没对齐" bug). Safe-area handling is left to the browser (we don't
    set viewport-fit=cover), so content already stays clear of the notch. */
 @media (max-width: 1099.98px) {
-  /* Natural document flow: the screen fills one viewport via min-height and the
-     BODY scrolls normally (no fixed-height internal scroll container). This is
-     what makes it feel native on iOS — the URL bar collapses, rubber-band works,
-     and there's no dead white gap from fighting `zoom` against `dvh`. */
+  /* Locked single screen: the app is exactly one viewport tall and the page
+     does NOT scroll (only inner lists / .nobar do). The call button stays
+     pinned at the bottom, no dead white gap.
+
+     We also neutralize the prototype's `zoom`-based font scaling on mobile:
+     `zoom` × viewport units fights a locked full-bleed layout (it was the
+     source of the white gap / overflow / iOS jank). The 字体大小 setting stays
+     functional on desktop. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden !important;
+  }
   .appwrap {
     display: block !important;
     padding: 0 !important;
     background: var(--bg) !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
   }
   .phone {
     width: 100% !important;
-    height: auto !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    height: 100vh !important;
+    height: 100dvh !important;
     border-radius: 0 !important;
     background: var(--bg) !important;
     box-shadow: none !important;
+    overflow: hidden !important;
   }
   .screen {
     position: relative !important;
     inset: auto !important;
     width: 100% !important;
-    height: auto !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    height: 100vh !important;
+    height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    overflow: hidden !important;
+  }
+  .screen,
+  .screen * {
+    zoom: 1 !important;
   }
   /* fake iOS chrome — the real device already has its own */
   .notch,
