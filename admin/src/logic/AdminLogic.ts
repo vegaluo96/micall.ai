@@ -46,7 +46,7 @@ export class AdminLogic {
 
   state: State = {
     section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
-    testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "",
+    testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
     apiCfg: {
       asr: { provider: "阿里云", endpoint: "https://nls-gateway.aliyuncs.com/stream/v1/asr", key: "sk-ali-••••••a3f9", model: "paraformer-realtime-v2", lang: "中文 / 自动" },
       fast: { provider: "DeepSeek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "sk-ds-••••••7c2d", model: "deepseek-v4-flash", temp: "0.8", maxTokens: "256" },
@@ -243,12 +243,24 @@ export class AdminLogic {
     this.toastMsg(ok ? name + " 配置已保存" : name + " 保存失败，请重试");
   }
 
-  /** 连通性测试：有后端实测该节点；无后端时无法跨域直连，沿用乐观提示。 */
+  /** 连通性测试：有后端实测该节点；结果写进 apiStatus，驱动卡片状态徽标（不再写死「已连接」）。 */
   async testApi(sectionKey: string, name: string) {
+    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: "testing" } }));
     const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
+    const st = res.ok === false ? "fail" : "ok";   // ok===null（无后端）当通过；false 才算失败
+    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: st } }));
     if (res.ok === null) this.toastMsg(name + " 连接测试成功");
     else if (res.ok) this.toastMsg(name + " 测试成功" + (res.ms ? ` · ${res.ms}ms` : ""));
     else this.toastMsg(name + " 测试失败：" + (res.error || "未知错误"));
+  }
+
+  /** 卡片连接状态徽标：未测过=未知（中性），测过按真实结果显示已连接/连接失败。 */
+  _apiStatusBadge(key: string) {
+    const st = (this.state.apiStatus || {})[key];
+    if (st === "ok") return { statusLabel: "已连接", statusColor: "#1FA971", statusBg: "rgba(31,169,113,.1)" };
+    if (st === "fail") return { statusLabel: "连接失败", statusColor: "#E0594F", statusBg: "rgba(224,89,79,.1)" };
+    if (st === "testing") return { statusLabel: "测试中…", statusColor: "#E0954F", statusBg: "rgba(224,149,79,.12)" };
+    return { statusLabel: "未测试", statusColor: "#878B95", statusBg: "#F0F0F3" };
   }
 
   toastMsg(m: string) {
@@ -400,7 +412,7 @@ export class AdminLogic {
       name: sec.name, desc: sec.desc, icon: sec.icon, req: sec.req,
       chain: sec.chain, chainColor: sec.chain === "快链路" ? "#6E5CFF" : "#1FA971", chainBg: sec.chain === "快链路" ? "rgba(110,92,255,.1)" : "rgba(31,169,113,.1)",
       tileBg: sec.chain === "快链路" ? "linear-gradient(140deg,#8E7BFF,#6E5CFF)" : "linear-gradient(140deg,#5BE0A0,#1FA971)",
-      statusLabel: "已连接", statusColor: "#1FA971", statusBg: "rgba(31,169,113,.1)",
+      ...this._apiStatusBadge(sec.key),
       providers: (sec.providers || []).map((p: string) => ({ name: p, pick: () => this.setCfg(sec.key, "provider", p), bg: cfg.provider === p ? "#16161A" : "#fff", color: cfg.provider === p ? "#fff" : "#5A5E6B", border: cfg.provider === p ? "#16161A" : "#E6E7EB" })),
       fields: sec.fields.map((f: any) => ({ label: f.label, value: cfg[f.k] || "", type: f.pw ? "password" : "text", full: f.full ? "grid-column:1 / -1;" : "", onInput: (e: any) => this.setCfg(sec.key, f.k, e.target.value) })),
       test: () => this.testApi(sec.key, sec.name), save: () => this.saveApi(sec.name),
