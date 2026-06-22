@@ -43,7 +43,7 @@ async def main() -> None:
     if buf:
         print(f"\n✅ 已写 {out}（{len(buf)} bytes）。下载到本地试听。")
         print(f"   ⏱ 首音频块 {first_ms:.0f}ms · 整句合成 {total_ms:.0f}ms · 文本 {len(text)} 字")
-        print("   （当前是非流式=整段一次返回，首块≈整句；真实通话用流式 TTS，首块会低很多）")
+        print("   （流式合成：首块一出即可下行 → 通话里据此抢跑，用户感知的开口≈首块延迟）")
     else:
         print("\n⚠ 没拿到音频，看上面的报错。")
 
