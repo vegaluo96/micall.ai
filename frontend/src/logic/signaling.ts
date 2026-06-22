@@ -35,7 +35,8 @@ export type ClientMessage =
   | { type: "mute"; on: boolean }
   | { type: "switch_character"; character_id: string; scenario: string }
   | { type: "set_scene"; scene: string }
-  | { type: "text_input"; text: string };
+  | { type: "text_input"; text: string }
+  | { type: "reset_memory"; character_id: string };
 
 export type ServerHandler = (ev: ServerEvent) => void;
 /** 下行二进制音频帧（TTS PCM）。媒体归媒体、控制归控制（后端规格 §1.1）。 */

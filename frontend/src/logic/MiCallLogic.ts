@@ -713,7 +713,14 @@ export class MiCallLogic {
         return { mute: next };
       }),
       undoLast: () => { this.setState((s) => ({ lines: s.lines.slice(0, -1), toast: "已撤回上一句", moreOpen: false })); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
-      resetMemory: () => { this.setState({ lines: [], toast: "记忆已重置", resetOpen: false }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      resetMemory: () => {
+        // 真清后端记忆（事实层+理解层），不只是清屏；接了真实信令才发，Mock 下静默。
+        if (!this.usingMockSignaling()) {
+          try { this.send({ type: "reset_memory", character_id: this.characterId(this.state.charIndex) }); } catch { /* 未连接则忽略 */ }
+        }
+        this.setState({ lines: [], toast: "记忆已重置", resetOpen: false });
+        this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600));
+      },
       askReset: () => this.setState({ resetOpen: true, moreOpen: false }),
       moreOpen: this.state.moreOpen,
       moreToggle: () => this.setState((s) => ({ moreOpen: !s.moreOpen })),

@@ -194,6 +194,15 @@ class SignalingServer:
                 elif msg.type == "set_scene":
                     if session and msg.scene:
                         session.set_scene(msg.scene)
+                elif msg.type == "reset_memory":
+                    # 前端「重置记忆」：清该角色的事实层+理解层（持久记忆），并清当前通话滑窗。
+                    char = msg.character_id or (session.character_id if session else None)
+                    if char:
+                        char = self._character(char).character_id  # 归一到出厂 id
+                        self.repo.reset_memory(_ANON, char)
+                        if session and session.character_id == char:
+                            session.history.clear()
+                        log.info("🧹 重置记忆 char=%s", char)
         except Exception:  # 连接异常：尽力清理会话
             pass
         finally:

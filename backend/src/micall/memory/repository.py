@@ -52,6 +52,10 @@ class MemoryRepository(ABC):
         """是否有可检索的事实。无则编排层跳过 query 向量化（省一次实时往返）。默认保守返 True。"""
         return True
 
+    def reset_memory(self, user_id: str, character_id: str) -> None:
+        """忘记这段关系：清空该 user×char 的事实层 + 理解层（画像/关系/策略）。前端「重置记忆」。
+        不动出厂角色定义与用户自定义音色。子类按存储实现。"""
+
     # ── 理解层 ──
     @abstractmethod
     def get_profile(self, user_id: str, character_id: str) -> UserProfile: ...
@@ -93,6 +97,10 @@ class InMemoryRepository(MemoryRepository):
 
     def has_facts(self, user_id: str, character_id: str) -> bool:
         return bool(self._facts.get((user_id, character_id)))
+
+    def reset_memory(self, user_id: str, character_id: str) -> None:
+        self._facts.pop((user_id, character_id), None)       # 事实层
+        self._profiles.pop((user_id, character_id), None)    # 理解层（画像/关系/策略）
 
     def recall(self, user_id: str, character_id: str, query: str, *, top_k: int = 5) -> list[str]:
         items = self._facts.get((user_id, character_id), [])

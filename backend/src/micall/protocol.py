@@ -80,7 +80,8 @@ class ClientMessage:
 
 
 CLIENT_MESSAGE_TYPES = frozenset(
-    {"start_call", "end_call", "mute", "switch_character", "set_scene", "text_input"}
+    {"start_call", "end_call", "mute", "switch_character", "set_scene", "text_input",
+     "reset_memory"}
 )
 
 

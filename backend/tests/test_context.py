@@ -18,6 +18,16 @@ class TestMemory(unittest.TestCase):
         hits = r.recall("u", "lin_wan", "猫怎么样了", top_k=1)
         self.assertTrue(any("团子" in h for h in hits))
 
+    def test_reset_memory_clears_facts_and_profile(self):
+        r = InMemoryRepository()
+        r.add_fact("u", "lin_wan", "养了一只猫叫团子")
+        p = r.get_profile("u", "lin_wan"); p.next_strategy = "接面试线头"; r.save_profile(p)
+        self.assertTrue(r.has_facts("u", "lin_wan"))
+        r.reset_memory("u", "lin_wan")                       # 前端「重置记忆」
+        self.assertFalse(r.has_facts("u", "lin_wan"))         # 事实层清空
+        self.assertEqual(r.recall("u", "lin_wan", "猫", top_k=5), [])
+        self.assertEqual(r.get_profile("u", "lin_wan").next_strategy, "")  # 理解层清空（回到空画像）
+
     def test_per_user_isolation(self):
         r = InMemoryRepository()
         r.add_fact("u1", "c", "u1 的秘密")
