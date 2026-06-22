@@ -129,8 +129,13 @@ body {
     padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
   }
 
-  /* c) 两侧抽屉同理：菜单抽屉无滚动列表→容器负责；历史抽屉有→列表负责，互不叠加。 */
-  .dcx-drawer-left,
+  /* c) 两侧抽屉：历史抽屉有滚动列表→由列表负责底距；菜单抽屉无→由容器负责。
+        菜单抽屉底部留白与顶部标题留白（≈22px）对称——不再「18+safe」叠加出一截
+        明显比顶部大的空白（用户：下面的间距和上面对齐）；safe-area 仅作下限兜底，
+        保证带 home indicator 的真机上按钮也不贴底。 */
+  .dcx-drawer-left {
+    padding-bottom: max(22px, env(safe-area-inset-bottom)) !important;
+  }
   .dcx-drawer-right:not(:has(> .nobar)) {
     padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
   }
