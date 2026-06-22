@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    :root{
+      --bg:linear-gradient(158deg,#F8E6EF 0%,#EFE7F8 42%,#E2ECF9 100%);
+      --fg:#2A2A2E;
+      --dim:rgba(0,0,0,.45); --faint:rgba(0,0,0,.26);
+      --line:rgba(0,0,0,.07); --red:#E0594F; --bezel:#E9DCE6;
+      --pill:rgba(0,0,0,.05); --sheet:rgba(255,255,255,.9); --ctrl:rgba(0,0,0,.06); --seg:#FFFFFF;
+    }
+    [data-theme="dark"]{
+      --bg:radial-gradient(120% 95% at 50% 32%,#16161f 0%,#0b0b11 58%,#070709 100%);
+      --fg:#F5F5F7;
+      --dim:rgba(245,245,247,.55); --faint:rgba(245,245,247,.30);
+      --line:rgba(245,245,247,.10); --red:#E0594F; --bezel:#050506;
+      --pill:rgba(255,255,255,.10); --sheet:rgba(28,28,36,.94); --ctrl:rgba(255,255,255,.12); --seg:rgba(255,255,255,.16);
+    }
+    @keyframes orbBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+    @keyframes orbBreatheSlow{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+    @keyframes orbDiffuse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+    @keyframes orbStill{0%,100%{transform:scale(1)}50%{transform:scale(1.013)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes blobA{0%,100%{transform:translate(-7%,-4%) scale(1)}50%{transform:translate(7%,6%) scale(1.18)}}
+    @keyframes blobB{0%,100%{transform:translate(8%,5%) scale(1.12)}50%{transform:translate(-6%,-8%) scale(.92)}}
+    @keyframes blobC{0%,100%{transform:translate(-5%,7%) scale(1.05)}50%{transform:translate(6%,-5%) scale(1.2)}}
+    @keyframes blobD{0%,100%{transform:translate(6%,-6%) scale(.95)}50%{transform:translate(-7%,5%) scale(1.1)}}
+    @keyframes coreGlow{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+    @keyframes ripple{0%{transform:scale(.82);opacity:.55}100%{transform:scale(1.7);opacity:0}}
+    @keyframes sheetIn{from{opacity:0;transform:scale(.955) translateY(-8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    @keyframes sheetInCenter{from{opacity:0;transform:translateY(-50%) scale(.955)}to{opacity:1;transform:translateY(-50%) scale(1)}}
+    @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    @keyframes drawerLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+    @keyframes drawerRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+    @keyframes vbar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+    @keyframes toastDrop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+    .nobar::-webkit-scrollbar{width:0;height:0;display:none;}
+    .nobar{scrollbar-width:none;-ms-overflow-style:none;}
+    .deskside{display:none;}
+    @media (min-width:1100px){
+      .appwrap{gap:0 !important;padding:0 !important;align-items:stretch !important;}
+      .mobnav{display:none !important;}
+      .deskside{display:flex;flex-direction:column;width:25%;height:calc(100vh / var(--fz,1));overflow-y:auto;border-radius:0;background:#fff;box-shadow:none;padding:24px 14px 24px;box-sizing:border-box;color:#2A2A2E;border-right:.5px solid rgba(0,0,0,.07);border-left:.5px solid rgba(0,0,0,.07);}
+      .phone{flex:1;width:auto !important;height:100vh !important;background:var(--bg) !important;box-shadow:none !important;border-radius:0 !important;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;}
+      .screen{position:relative !important;inset:auto !important;width:100% !important;height:auto !important;min-height:100% !important;flex:1 0 auto !important;border-radius:0 !important;box-shadow:none !important;}
+      .notch{display:none !important;}
+      .statusbar{display:none !important;}
+    }
+    @keyframes backdropIn{from{opacity:0}to{opacity:1}}
+    @keyframes haloPulse{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.8;transform:scale(1.12)}}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;}
+  </style>
+</helmet>
+
+<div class="appwrap" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#86868b;padding:28px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;">
+  <div class="deskside" style="zoom:{{ rootZoom }};--fz:{{ rootZoom }};">
+    <div style="padding:0 14px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span>MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
+    <div onClick="{{ billFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h12l2 2v18l-3-2-3 2-3-2-3 2V4z"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg><span style="font-size:15px;font-weight:500;">账单</span></div>
+    <div onClick="{{ inviteFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span style="font-size:15px;font-weight:500;">邀请好友</span></div>
+    <div onClick="{{ themeToggle }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span style="flex:1;font-size:15px;font-weight:500;">深色模式</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ themeLabel }}</span></div>
+    <div onClick="{{ langFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg><span style="flex:1;font-size:15px;font-weight:500;">语言</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ langCurrent }}</span></div>
+    <div onClick="{{ cycleFont }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h12v2"/><path d="M10 5v14"/><path d="M8 19h4"/></svg><span style="flex:1;font-size:15px;font-weight:500;">字体大小</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ fontLabel }}</span></div>
+    <div onClick="{{ contactFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg><span style="font-size:15px;font-weight:500;">联系我们</span></div>
+    <div onClick="{{ settingsFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span style="font-size:15px;font-weight:500;">设置</span></div>
+    <div style="flex:1;"></div>
+    <sc-if value="{{ loggedOut }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ openLogin }}" style="text-align:center;padding:12px;border-radius:14px;background:#6E5CFF;color:#fff;font-size:15px;font-weight:600;cursor:pointer;" style-active="transform:scale(.98)">登录 / 注册</div>
+    </sc-if>
+    <sc-if value="{{ loggedIn }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ logout }}" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:15px;background:rgba(0,0,0,.05);cursor:pointer;" style-active="transform:scale(.98)">
+        <div style="width:36px;height:36px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 60%);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:600;">{{ accountInitial }}</div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+          <span style="font-size:14.5px;font-weight:500;color:#2A2A2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ accountEmail }}</span>
+          <span style="font-size:12px;color:rgba(0,0,0,.45);">点此退出登录</span>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.26)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+    </sc-if>
+  </div>
+  <div class="phone" data-theme="{{ theme }}" style="position:relative;width:390px;height:844px;border-radius:55px;background:var(--bezel);box-shadow:0 50px 100px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.3),inset 0 0 0 2px rgba(255,255,255,.05);">
+    <div data-theme="{{ theme }}" class="screen" style="position:absolute;inset:7px;border-radius:48px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;color:var(--fg);zoom:{{ rootZoom }};--fz:{{ rootZoom }};transition:background .6s ease,color .6s ease;">
+
+      <div class="statusbar" style="height:56px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 32px 6px 36px;">
+        <span style="font-size:15px;font-weight:600;letter-spacing:.4px;font-variant-numeric:tabular-nums;">9:41</span>
+        <span style="display:flex;align-items:center;gap:7px;color:var(--fg);">
+          <svg width="18" height="12" viewBox="0 0 18 12"><g fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></g></svg>
+          <svg width="17" height="12" viewBox="0 0 17 12"><path fill="currentColor" d="M8.5 2.2c2.6 0 5 1 6.8 2.7l-1.5 1.6A7.4 7.4 0 0 0 8.5 6.3c-2 0-3.9.8-5.3 2.2L1.7 6.9A9.6 9.6 0 0 1 8.5 2.2Zm0 4.1c1.5 0 2.9.6 3.9 1.6l-1.6 1.7c-.6-.6-1.4-1-2.3-1s-1.7.4-2.3 1L4.6 8c1-1 2.4-1.6 3.9-1.6Z"/></svg>
+          <svg width="26" height="13" viewBox="0 0 26 13"><rect x="0.5" y="0.5" width="21" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+        </span>
+      </div>
+      <div class="notch" style="position:absolute;top:13px;left:50%;transform:translateX(-50%);width:110px;height:33px;border-radius:20px;background:#000;"></div>
+
+      <div style="flex:none;height:56px;box-sizing:border-box;padding:18px 22px 0;display:flex;align-items:center;">
+        <div style="display:flex;width:100%;align-items:center;">
+        <div style="flex:1;display:flex;justify-content:flex-start;">
+          <div onClick="{{ menuToggle }}" class="mobnav" style="display:flex;align-items:center;line-height:0;color:var(--faint);cursor:pointer;padding:6px 7px;user-select:none;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="13" y2="17"/></svg>
+          </div>
+        </div>
+        <div style="flex:2;display:flex;justify-content:center;">
+          <div onClick="{{ scenarioToggle }}" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:18px;background:var(--pill);cursor:pointer;user-select:none;font-size:15px;font-weight:500;color:var(--fg);white-space:nowrap;max-width:220px;box-sizing:border-box;">
+            <svg width="14" height="14" viewBox="0 0 15 15" style="flex:none;"><g fill="currentColor"><rect x="0" y="0" width="6.4" height="6.4" rx="2"/><rect x="8.6" y="0" width="6.4" height="6.4" rx="2"/><rect x="0" y="8.6" width="6.4" height="6.4" rx="2"/><rect x="8.6" y="8.6" width="6.4" height="6.4" rx="2"/></g></svg>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">{{ pillLabel }}</span>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;justify-content:flex-end;">
+          <div onClick="{{ historyToggle }}" class="mobnav" style="display:flex;align-items:center;line-height:0;color:var(--faint);cursor:pointer;padding:5px 8px;user-select:none;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3.5 2"/></svg>
+          </div>
+        </div>
+        </div>
+      </div>
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:7px;padding:24px 28px 0;">
+        <div onClick="{{ charDetailToggle }}" style="font-size:28px;font-weight:600;letter-spacing:.5px;cursor:{{ charCursor }};user-select:none;">{{ title }}</div>
+        <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ charDetailToggle }}" style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;user-select:none;font-size:14.5px;color:var(--dim);letter-spacing:.3px;">
+            {{ charTagline }}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7;margin-top:1px;"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showOrbStatus }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:15px;color:var(--dim);letter-spacing:.5px;font-variant-numeric:tabular-nums;">{{ subline }}</div>
+        </sc-if>
+      </div>
+
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+        <sc-if value="{{ showOrb }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;pointer-events:none;">
+        <div style="display:flex;align-items:center;justify-content:center;">
+          <div style="position:relative;width:300px;height:300px;display:flex;align-items:center;justify-content:center;pointer-events:none;zoom:{{ orbCounterZoom }};">
+          <sc-if value="{{ phaseCalling }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,transparent 58%,rgba(110,92,255,.22) 70%,transparent 80%);filter:blur(6px);animation:ripple 3s ease-out infinite;"></div>
+            <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,transparent 58%,rgba(255,79,160,.18) 70%,transparent 80%);filter:blur(6px);animation:ripple 3s ease-out infinite 1.5s;"></div>
+          </sc-if>
+          <div style="position:absolute;width:420px;height:420px;border-radius:50%;background:{{ haloBg }};filter:blur(8px) {{ orbHue }};animation:{{ haloAnim }};"></div>
+          <div onClick="{{ orbTap }}" style="position:relative;width:288px;height:288px;border-radius:50%;overflow:hidden;cursor:{{ orbCursor }};pointer-events:auto;background:radial-gradient(circle at 50% 48%,#16161f,#070709 78%);box-shadow:{{ orbShadow }}, inset 0 0 30px rgba(0,0,0,.6);filter:{{ orbHue }};animation:{{ orbAnim }};">
+            <div style="position:absolute;inset:-22%;animation:{{ fieldAnim }};">
+              <div style="position:absolute;top:-8%;left:-4%;width:78%;height:78%;border-radius:50%;background:radial-gradient(circle,#2E7BFF,transparent 70%);filter:blur(15px);mix-blend-mode:screen;animation:blobA 7s ease-in-out infinite;"></div>
+              <div style="position:absolute;bottom:-12%;right:-8%;width:80%;height:80%;border-radius:50%;background:radial-gradient(circle,#6E5CFF,transparent 70%);filter:blur(16px);mix-blend-mode:screen;animation:blobB 8.5s ease-in-out infinite;"></div>
+              <div style="position:absolute;bottom:-6%;left:-10%;width:72%;height:72%;border-radius:50%;background:radial-gradient(circle,#FF4FA0,transparent 70%);filter:blur(16px);mix-blend-mode:screen;animation:blobC 9.5s ease-in-out infinite;"></div>
+              <div style="position:absolute;top:-6%;right:-6%;width:70%;height:70%;border-radius:50%;background:radial-gradient(circle,#27E0D6,transparent 70%);filter:blur(15px);mix-blend-mode:screen;animation:blobD 8s ease-in-out infinite;"></div>
+            </div>
+            <div style="position:absolute;top:50%;left:50%;width:58%;height:58%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.92),rgba(255,255,255,.25) 42%,transparent 66%);mix-blend-mode:screen;animation:coreGlow 5s ease-in-out infinite;"></div>
+            <div style="position:absolute;top:14%;left:24%;width:42%;height:32%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.35),transparent 70%);filter:blur(4px);"></div>
+          </div>
+          </div>
+        </div>
+        <div style="min-height:28px;display:flex;align-items:center;justify-content:center;">
+          <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ charToggle }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:15px;background:var(--ctrl);cursor:pointer;user-select:none;font-size:13px;font-weight:500;color:var(--dim);transition:background .2s ease;pointer-events:auto;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              换个角色
+            </div>
+          </sc-if>
+          <sc-if value="{{ showOrbStatus }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:18px;font-weight:400;color:var(--fg);letter-spacing:.4px;text-align:center;max-width:300px;line-height:1.45;opacity:{{ underOpacity }};transition:opacity .55s ease;">{{ underOrb }}</div>
+          </sc-if>
+        </div>
+        </div>
+        </sc-if>
+        <sc-if value="{{ showText }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 36px;">
+          <sc-for list="{{ lines }}" as="line" hint-placeholder-count="2">
+            <div style="font-size:21px;line-height:1.5;letter-spacing:.3px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
+          </sc-for>
+          <sc-if value="{{ showTextHint }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:16px;color:var(--dim);letter-spacing:.4px;">{{ textHint }}</div>
+          </sc-if>
+        </div>
+        </sc-if>
+      </div>
+
+      <div style="flex:none;padding:0 28px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;height:{{ bottomH }};box-sizing:border-box;">
+        <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
+            <div style="height:83px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+              <div style="width:280px;height:5px;border-radius:3px;background:var(--ctrl);overflow:hidden;">
+                <div style="width:40%;height:100%;border-radius:3px;background:var(--fg);opacity:.5;"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:11px;font-size:13px;letter-spacing:.4px;">
+                <span style="color:var(--dim);">剩余 12 分钟</span>
+                <div onClick="{{ rechargeToggle }}" style="color:#2E7BFF;cursor:pointer;display:inline-flex;align-items:center;gap:3px;user-select:none;">充值
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px;"><path d="M9 6l6 6-6 6"/></svg>
+                </div>
+              </div>
+            </div>
+            <div onClick="{{ actionTap }}" style="width:70px;height:70px;border-radius:50%;background:#33C376;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(51,195,118,.40);transition:transform .18s ease;" style-active="transform:scale(.93)">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.21z"/></svg>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ inCall }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
+            <div style="display:flex;gap:30px;justify-content:center;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
+                <div onClick="{{ muteToggle }}" style="width:54px;height:54px;border-radius:50%;background:{{ muteBg }};color:{{ muteIcon }};display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,color .2s ease;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21.5"/></svg>
+                </div>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">静音</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
+                <div onClick="{{ textToggle }}" style="width:54px;height:54px;border-radius:50%;background:{{ textBtnBg }};color:{{ textBtnIcon }};display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,color .2s ease;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H4a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 4 16h3v3.2L11 16h9a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 20 5Z"/><line x1="6.5" y1="9.2" x2="14" y2="9.2"/><line x1="6.5" y1="12" x2="11" y2="12"/></svg>
+                </div>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">文字</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
+                <div onClick="{{ moreToggle }}" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                </div>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">更多</span>
+              </div>
+            </div>
+            <div onClick="{{ actionTap }}" style="width:70px;height:70px;border-radius:50%;background:#F2554E;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(242,85,78,.40);transition:transform .18s ease;" style-active="transform:scale(.93)">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" style="transform:rotate(135deg);"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.21z"/></svg>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ phaseEnded }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:300px;max-width:100%;margin-bottom:8px;">
+            <sc-if value="{{ notRated }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:13px;">
+              <sc-for list="{{ stars }}" as="s" hint-placeholder-count="5">
+                <div onClick="{{ s.set }}" style="cursor:pointer;line-height:0;" style-active="transform:scale(.85)">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="{{ s.fill }}" style="transition:fill .25s ease;"><path d="M12 2l2.9 6.26 6.85.7-5.12 4.57 1.43 6.74L12 17.77 6.94 20.27l1.43-6.74L3.25 8.96l6.85-.7z"/></svg>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+            <sc-if value="{{ rated }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:9px;justify-content:center;animation:backdropIn .35s ease;">
+              <sc-for list="{{ feedbackChips }}" as="f" hint-placeholder-count="4">
+                <div onClick="{{ f.pick }}" style="font-size:13px;font-weight:500;white-space:nowrap;padding:8px 13px;border-radius:14px;cursor:pointer;background:{{ f.bg }};color:{{ f.color }};transition:background .2s ease,color .2s ease;">{{ f.name }}</div>
+              </sc-for>
+            </div>
+            <input value="{{ note }}" onInput="{{ onNote }}" placeholder="想对 TA 说点什么…（可选）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:13px;padding:10px 16px;font-size:13.5px;color:var(--fg);font-family:inherit;text-align:center;animation:backdropIn .35s ease;" />
+            </sc-if>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:2px;">
+              <sc-if value="{{ rated }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ finishRating }}" style="font-size:15px;font-weight:600;letter-spacing:.5px;color:#2E7BFF;background:rgba(46,123,255,.10);cursor:pointer;padding:10px 46px;border-radius:16px;transition:transform .15s ease;" style-active="transform:scale(.96)">完成</div>
+              </sc-if>
+              <sc-if value="{{ notRated }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ finishRating }}" style="font-size:14px;color:var(--dim);cursor:pointer;padding:10px 20px;">跳过</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ favOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ favClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.22);backdrop-filter:blur(9px) saturate(1.08);-webkit-backdrop-filter:blur(9px) saturate(1.08);z-index:10;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;"></div>
+          <div style="padding:6px 14px 10px;font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;">我的收藏</div>
+          <sc-if value="{{ hasFavs }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ favList }}" as="c" hint-placeholder-count="2">
+              <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 12px;border-radius:16px;cursor:pointer;">
+                <div style="width:40px;height:40px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};box-shadow:0 4px 10px rgba(0,0,0,.14);"></div>
+                <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+                  <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ c.name }}</span>
+                  <span style="font-size:12.5px;color:var(--dim);">{{ c.desc }}</span>
+                </div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF4F7B" stroke="#FF4F7B" stroke-width="1.8" style="flex:none;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ noFavs }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:22px 16px 28px;text-align:center;font-size:14px;color:var(--dim);line-height:1.7;">还没有收藏的角色<br>在角色资料里点 ♥ 收藏喜欢的 TA</div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ menuClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;top:0;bottom:0;left:0;width:74%;z-index:9;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:drawerLeft .34s cubic-bezier(.16,1,.3,1);border-radius:48px 0 0 48px;box-shadow:14px 0 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:74px 10px 24px;box-sizing:border-box;display:flex;flex-direction:column;">
+          <div style="padding:0 16px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
+          <div onClick="{{ billFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h12l2 2v18l-3-2-3 2-3-2-3 2V4z"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">账单</span>
+          </div>
+          <div onClick="{{ inviteFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">邀请好友</span>
+          </div>
+          <div onClick="{{ themeToggle }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">深色模式</span>
+            <span style="font-size:13px;color:var(--dim);">{{ themeLabel }}</span>
+          </div>
+          <div onClick="{{ langFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">语言</span>
+            <span style="font-size:13px;color:var(--dim);">{{ langCurrent }}</span>
+          </div>
+          <div onClick="{{ cycleFont }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h12v2"/><path d="M10 5v14"/><path d="M8 19h4"/><path d="M16 13v-1.5h6V13"/><path d="M19 11.5V19"/><path d="M17.5 19h3"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">字体大小</span>
+            <span style="font-size:13px;color:var(--dim);">{{ fontLabel }}</span>
+          </div>
+          <div onClick="{{ contactFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">联系我们</span>
+          </div>
+          <div onClick="{{ settingsFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">设置</span>
+          </div>
+          <div style="flex:1;"></div>
+          <sc-if value="{{ loggedOut }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ openLogin }}" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:0 8px;padding:13px;border-radius:15px;background:#6E5CFF;cursor:pointer;" style-active="transform:scale(.98)">
+              <span style="font-size:15px;font-weight:600;color:#fff;">登录 / 注册</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ loggedIn }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ logout }}" style="display:flex;align-items:center;gap:12px;margin:0 8px;padding:11px 12px;border-radius:15px;background:var(--ctrl);cursor:pointer;" style-active="transform:scale(.98)">
+              <div style="width:36px;height:36px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 60%);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:600;">{{ accountInitial }}</div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                <span style="font-size:14.5px;font-weight:500;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ accountEmail }}</span>
+                <span style="font-size:12px;color:var(--dim);">点此退出登录</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ langClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">语言</div>
+          <sc-for list="{{ langs }}" as="lg" hint-placeholder-count="6">
+            <div onClick="{{ lg.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:18px;cursor:pointer;background:{{ lg.bg }};border:{{ lg.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+              <div style="width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:none;font-size:28px;">{{ lg.flag }}</div>
+              <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+                <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ lg.name }}</span>
+                <span style="font-size:12.5px;color:var(--dim);">{{ lg.sub }}</span>
+              </div>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ lg.check }};"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ settingsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 26px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">设置</div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div onClick="{{ resetPassword }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">修改密码</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div onClick="{{ cancelSub }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><rect x="2" y="5" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">取消订阅</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div onClick="{{ openPrivacy }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">隐私政策</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div onClick="{{ openTerms }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">用户协议</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div onClick="{{ settingsClose }}" style="display:flex;align-items:center;gap:13px;padding:14px 6px;cursor:pointer;border-top:1px solid var(--line);margin-top:6px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">关于 MiCall.ai</span>
+              <span style="font-size:13px;color:var(--faint);">v1.0.0</span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ charDetailOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ charDetailClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.24);backdrop-filter:blur(9px) saturate(1.08);-webkit-backdrop-filter:blur(9px) saturate(1.08);z-index:10;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 6px;flex:none;"></div>
+          <div onClick="{{ charDetail.favToggle }}" style="position:absolute;top:18px;right:20px;z-index:2;line-height:0;cursor:pointer;padding:6px;" style-active="transform:scale(.85)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="{{ charDetail.favFill }}" stroke="{{ charDetail.favStroke }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="transition:all .2s ease;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 20px 28px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+              <div style="width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ charDetail.hueFilter }};box-shadow:0 10px 26px rgba(0,0,0,.18);"></div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:23px;font-weight:700;color:var(--fg);letter-spacing:.5px;">{{ charDetail.name }}</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:{{ charDetail.genderColor }};background:var(--ctrl);padding:4px 10px;border-radius:11px;">{{ charDetail.gender }} {{ charDetail.age }}</span>
+              </div>
+              <div style="font-size:13.5px;color:var(--dim);">{{ charDetail.tagline }}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                <sc-for list="{{ charDetail.tags }}" as="tag" hint-placeholder-count="4">
+                  <span style="font-size:12.5px;font-weight:500;color:var(--dim);padding:5px 13px;border-radius:12px;border:1px solid var(--line);">{{ tag }}</span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
+              <div onClick="{{ charDetail.previewVoice }}" style="display:flex;align-items:center;gap:12px;cursor:pointer;" style-active="transform:scale(.99)">
+                <div style="width:40px;height:40px;border-radius:50%;background:rgba(110,92,255,.12);display:flex;align-items:center;justify-content:center;flex:none;">
+                  <sc-if value="{{ charDetail.previewing }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:inline-flex;align-items:flex-end;gap:2px;height:14px;">
+                      <span style="width:3px;height:6px;border-radius:2px;background:#6E5CFF;animation:vbar 0.9s ease-in-out infinite;"></span>
+                      <span style="width:3px;height:13px;border-radius:2px;background:#6E5CFF;animation:vbar 0.9s ease-in-out infinite 0.15s;"></span>
+                      <span style="width:3px;height:9px;border-radius:2px;background:#6E5CFF;animation:vbar 0.9s ease-in-out infinite 0.3s;"></span>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ charDetail.notPreviewing }}" hint-placeholder-val="{{ true }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="#6E5CFF" stroke="none"><path d="M8 5v14l11-7z"/></svg>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+                  <span style="font-size:15px;color:var(--fg);">{{ charDetail.slogan }}</span>
+                  <span style="font-size:12px;color:var(--faint);">{{ charDetail.previewLabel }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
+              <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">音色</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                <sc-for list="{{ charDetail.voiceChips }}" as="vc" hint-placeholder-count="2">
+                  <div onClick="{{ vc.pick }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:8px 13px;border-radius:13px;cursor:pointer;background:{{ vc.bg }};color:{{ vc.color }};transition:all .2s ease;max-width:100%;box-sizing:border-box;" style-active="transform:scale(.96)">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ vc.name }}</span>
+                    <sc-if value="{{ vc.removable }}" hint-placeholder-val="{{ false }}">
+                      <span onClick="{{ vc.remove }}" style="line-height:0;flex:none;opacity:.5;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <input value="{{ charDetail.voiceCustomText }}" onInput="{{ charDetail.onVoiceCustom }}" placeholder="描述想要的声音，如「温柔沙哑的女声」" style="flex:1;min-width:0;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:13px;padding:11px 14px;font-size:13.5px;color:var(--fg);font-family:inherit;" />
+                <div onClick="{{ charDetail.genVoice }}" style="flex:none;font-size:13.5px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:11px 18px;border-radius:13px;display:flex;align-items:center;" style-active="transform:scale(.96)">生成</div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;">
+                <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--faint);">身高</span><span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ charDetail.height }} cm</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--faint);">体重</span><span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ charDetail.weight }} kg</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--faint);">生日</span><span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ charDetail.birthday }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--faint);">国籍</span><span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ charDetail.nationality }}</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--faint);">种族</span><span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ charDetail.race }}</span></div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
+              <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">性格</div>
+              <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.personality }}</div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
+              <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">背景故事</div>
+              <div style="font-size:14.5px;line-height:1.8;color:var(--fg);text-wrap:pretty;">{{ charDetail.bio }}</div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;display:flex;flex-direction:column;gap:14px;">
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:8px;">喜欢</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.likes }}</div>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:8px;">不喜欢</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.dislikes }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ charOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ charClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:72%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:4px 8px 14px;">
+            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择角色</div>
+            <div style="display:flex;gap:3px;padding:3px;border-radius:11px;background:var(--ctrl);">
+              <div onClick="{{ charTabRec }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ charTabRecBg }};color:{{ charTabRecColor }};box-shadow:{{ charTabRecShadow }};transition:all .2s ease;">推荐</div>
+              <div onClick="{{ charTabHot }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ charTabHotBg }};color:{{ charTabHotColor }};box-shadow:{{ charTabHotShadow }};transition:all .2s ease;">热门</div>
+              <div onClick="{{ charTabFav }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ charTabFavBg }};color:{{ charTabFavColor }};box-shadow:{{ charTabFavShadow }};transition:all .2s ease;">收藏</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin:0 4px 12px;padding:10px 14px;border-radius:13px;background:var(--ctrl);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input value="{{ searchQ }}" onInput="{{ onSearch }}" placeholder="搜索角色" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:14px;color:var(--fg);font-family:inherit;" />
+          </div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+          <sc-for list="{{ charList }}" as="c" hint-placeholder-count="6">
+            <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:18px;cursor:pointer;background:{{ c.bg }};border:{{ c.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+              <div style="width:46px;height:46px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};box-shadow:0 4px 10px rgba(0,0,0,.12);"></div>
+              <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+                <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;display:inline-flex;align-items:center;gap:6px;">{{ c.name }}<svg width="13" height="13" viewBox="0 0 24 24" fill="#FF4F7B" stroke="#FF4F7B" stroke-width="1.8" style="opacity:{{ c.favOp }};"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
+                <span style="font-size:12.5px;color:var(--dim);">{{ c.desc }}</span>
+              </div>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ c.check }};"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </sc-for>
+          <sc-if value="{{ charListEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="height:100%;min-height:240px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--dim);">{{ charListEmptyText }}</div>
+          </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ scenarioOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ scenarioClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:72%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;flex:none;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:4px 8px 14px;flex:none;">
+            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择场景</div>
+            <div style="display:flex;gap:3px;padding:3px;border-radius:11px;background:var(--ctrl);">
+              <div onClick="{{ sceneTabRec }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ sceneTabRecBg }};color:{{ sceneTabRecColor }};box-shadow:{{ sceneTabRecShadow }};transition:all .2s ease;">推荐</div>
+              <div onClick="{{ sceneTabHot }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ sceneTabHotBg }};color:{{ sceneTabHotColor }};box-shadow:{{ sceneTabHotShadow }};transition:all .2s ease;">热门</div>
+              <div onClick="{{ sceneTabFav }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ sceneTabFavBg }};color:{{ sceneTabFavColor }};box-shadow:{{ sceneTabFavShadow }};transition:all .2s ease;">自定义</div>
+            </div>
+          </div>
+          <sc-if value="{{ sceneCustomActive }}" hint-placeholder-val="{{ false }}">
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;padding:0 4px;">
+            <textarea value="{{ customSceneText }}" onInput="{{ onCustomScene }}" placeholder="描述你想聊的场景，TA 会照着和你聊…" style="width:100%;box-sizing:border-box;min-height:72px;resize:none;border:none;outline:none;background:var(--ctrl);border-radius:16px;padding:14px 16px;font-size:15px;line-height:1.6;color:var(--fg);font-family:inherit;"></textarea>
+            <div onClick="{{ applyCustomScene }}" style="margin-top:12px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:13px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">应用场景</div>
+            <div style="font-size:12px;color:var(--faint);letter-spacing:1px;padding:18px 2px 10px;">试试这些</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <sc-for list="{{ customSuggestions }}" as="s" hint-placeholder-count="4">
+                <div onClick="{{ s.pick }}" style="font-size:13px;color:var(--fg);padding:8px 13px;border-radius:13px;border:1px solid var(--line);cursor:pointer;" style-active="transform:scale(.96)">{{ s.text }}</div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasCustomHistory }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:12px;color:var(--faint);letter-spacing:1px;padding:20px 2px 10px;">最近使用</div>
+              <div style="display:flex;flex-direction:column;">
+                <sc-for list="{{ customHistory }}" as="h" hint-placeholder-count="3">
+                  <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:11px;padding:12px 2px;cursor:pointer;" style-active="transform:scale(.99)">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3.5 2"/></svg>
+                    <span style="flex:1;min-width:0;font-size:14.5px;color:var(--fg);">{{ h.text }}</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          </sc-if>
+          <sc-if value="{{ sceneListActive }}" hint-placeholder-val="{{ true }}">
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+          <sc-for list="{{ scenarios }}" as="sc" hint-placeholder-count="6">
+            <div onClick="{{ sc.pick }}" style="display:flex;flex-direction:column;gap:6px;padding:15px 16px;margin-bottom:10px;border-radius:16px;cursor:pointer;background:{{ sc.bg }};border:{{ sc.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;flex:1;min-width:0;">{{ sc.name }}</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ sc.check }};"><path d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div style="font-size:13px;line-height:1.6;color:var(--dim);display:-webkit-box;-webkit-line-clamp:{{ sc.clamp }};-webkit-box-orient:vertical;overflow:hidden;">{{ sc.prompt }}</div>
+              <div onClick="{{ sc.toggleExpand }}" style="font-size:12.5px;font-weight:500;color:#6E5CFF;cursor:pointer;align-self:flex-start;">{{ sc.toggleLabel }}</div>
+            </div>
+          </sc-for>
+          </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ billsOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ billsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:74%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 22px;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;flex:none;">账单</div>
+          <div style="flex:none;display:flex;flex-direction:column;gap:16px;padding:20px;border-radius:20px;background:rgba(110,92,255,.08);border:1px solid var(--line);margin-bottom:22px;">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+              <div style="display:flex;flex-direction:column;gap:7px;">
+                <span style="font-size:13px;color:var(--dim);letter-spacing:.5px;">畅聊会员</span>
+                <div style="display:flex;align-items:baseline;gap:6px;">
+                  <span style="font-size:36px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1;">12</span>
+                  <span style="font-size:15px;color:var(--dim);">分钟剩余</span>
+                </div>
+              </div>
+              <div onClick="{{ billsToRecharge }}" style="font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 22px;border-radius:13px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.3);" style-active="transform:scale(.96)">充值</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="height:6px;border-radius:3px;background:rgba(110,92,255,.16);overflow:hidden;"><div style="width:99%;height:100%;border-radius:3px;background:#6E5CFF;"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:12px;color:var(--dim);">已用 1488 / 1500 分钟</span>
+                <span style="font-size:12px;color:var(--faint);">7-18 续费</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding:0 4px 10px;flex:none;">交易记录</div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+            <sc-for list="{{ billsList }}" as="b" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:13px;padding:12px 4px;">
+                <div style="width:38px;height:38px;border-radius:50%;background:{{ b.iconBg }};display:flex;align-items:center;justify-content:center;flex:none;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ b.iconColor }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ b.iconPath }}"/></svg>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+                  <span style="font-size:15px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ b.title }}</span>
+                  <span style="font-size:12px;color:var(--faint);">{{ b.date }}</span>
+                </div>
+                <span style="font-size:14px;font-weight:600;color:{{ b.minsColor }};font-variant-numeric:tabular-nums;flex:none;">{{ b.mins }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ inviteClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 28px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,#FF8FA8,#9277F5);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(146,119,245,.3);">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            </div>
+            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;margin-top:4px;">邀请好友</div>
+            <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">每邀请一位好友,双方各得 <span style="color:#6E5CFF;font-weight:600;">60 分钟</span> 通话时长</div>
+            <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;padding:13px 16px;border-radius:15px;background:var(--ctrl);box-sizing:border-box;">
+              <span style="flex:1;font-size:16px;font-weight:600;color:var(--fg);letter-spacing:2px;">MICALL-7K2F</span>
+              <div onClick="{{ inviteClose }}" style="font-size:13px;font-weight:600;color:#6E5CFF;cursor:pointer;" style-active="transform:scale(.95)">复制</div>
+            </div>
+            <div onClick="{{ inviteClose }}" style="width:100%;box-sizing:border-box;text-align:center;margin-top:6px;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">分享给好友</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
+              <span style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;">邀请记录</span>
+              <span style="font-size:12.5px;color:var(--dim);">已成功 {{ inviteCount }} 位</span>
+            </div>
+            <div style="width:100%;display:flex;flex-direction:column;margin-top:4px;">
+              <sc-for list="{{ inviteList }}" as="iv" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 2px;">
+                  <div style="width:36px;height:36px;border-radius:50%;flex:none;background:linear-gradient(145deg,#FF8FA8,#9277F5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:600;">{{ iv.initial }}</div>
+                  <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+                    <span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ iv.name }}</span>
+                    <span style="font-size:12px;color:{{ iv.statusColor }};">{{ iv.status }} · {{ iv.date }}</span>
+                  </div>
+                  <span style="font-size:13.5px;font-weight:600;color:{{ iv.rewardColor }};flex:none;">{{ iv.reward }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ rechargeOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ rechargeClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 10px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 6px;">
+            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择会员</div>
+            <div style="display:flex;gap:8px;width:100%;">
+              <sc-for list="{{ billOptions }}" as="b" hint-placeholder-count="3">
+                <div onClick="{{ b.pick }}" style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:15px 6px;border-radius:15px;cursor:pointer;border:{{ b.border }};background:{{ b.bg }};transition:all .2s ease;" style-active="transform:scale(.97)">
+                  <sc-if value="{{ b.hasOff }}" hint-placeholder-val="{{ false }}">
+                    <span style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12px;font-weight:600;color:#fff;background:#33A06B;padding:3px 11px;border-radius:9px;box-shadow:0 3px 8px rgba(51,160,107,.3);">{{ b.off }}</span>
+                  </sc-if>
+                  <span style="font-size:15px;font-weight:600;color:{{ b.nameColor }};">{{ b.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;width:100%;margin-top:2px;">
+              <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+                <div onClick="{{ p.pick }}" style="display:flex;align-items:center;gap:13px;padding:14px 15px;border-radius:18px;cursor:pointer;background:var(--ctrl);" style-active="transform:scale(.98)">
+                  <div style="width:46px;height:46px;border-radius:13px;background:{{ p.tile }};display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 10px rgba(0,0,0,.12);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ p.iconPath }}"/></svg>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+                    <span style="font-size:16px;font-weight:600;color:var(--fg);letter-spacing:.2px;">{{ p.name }}</span>
+                    <span style="font-size:12.5px;color:var(--dim);">{{ p.mins }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;">
+                    <span style="font-size:17px;font-weight:700;color:var(--fg);">{{ p.price }}<span style="font-size:12px;font-weight:500;color:var(--dim);">{{ p.unit }}</span></span>
+                    <span style="font-size:11px;color:#33A06B;">{{ p.note }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ historyOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ historyClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;top:0;bottom:0;right:0;width:74%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:drawerRight .34s cubic-bezier(.16,1,.3,1);border-radius:0 48px 48px 0;box-shadow:-14px 0 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:74px 10px 24px;box-sizing:border-box;">
+          <div style="padding:6px 16px 14px;font-size:21px;font-weight:600;color:var(--fg);letter-spacing:.5px;flex:none;">通话记录</div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+          <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="3">
+            <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 12px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
+              <div style="width:42px;height:42px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};box-shadow:0 4px 10px rgba(0,0,0,.14);"></div>
+              <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+                <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ h.name }}</span>
+                <span style="font-size:12.5px;color:var(--faint);">{{ h.when }}</span>
+              </div>
+              <span style="font-size:14px;font-weight:500;color:var(--dim);font-variant-numeric:tabular-nums;flex:none;">{{ h.dur }}</span>
+            </div>
+          </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pendingSwitch }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ cancelSwitch }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">结束当前通话？</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">切换到「{{ pendingName }}」需要先挂断与当前角色的通话。</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ cancelSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">继续通话</div>
+            <div onClick="{{ confirmSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">挂断并切换</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ permOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ permDeny }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:28px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(110,92,255,.12);display:flex;align-items:center;justify-content:center;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6E5CFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
+          </div>
+          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;">允许使用麦克风</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">通话需要使用你的麦克风,我们只在通话时收音,不会保存录音。</div>
+          <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:14px;">
+            <div onClick="{{ grantMic }}" style="text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:13px 0;border-radius:15px;background:#6E5CFF;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">允许</div>
+            <div onClick="{{ permDeny }}" style="text-align:center;font-size:15px;font-weight:500;color:var(--dim);cursor:pointer;padding:11px 0;">暂不允许</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ callFailed }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ dismissFail }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:28px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(224,89,79,.12);display:flex;align-items:center;justify-content:center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E0594F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 18.5 22 22M2 2l3.5 3.5M16 16a13 13 0 0 1-8-8"/><path d="M10.7 5.6A13 13 0 0 1 16 5a1 1 0 0 1 1 1v3.5a1 1 0 0 1-.3.7"/></svg>
+          </div>
+          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;">接通失败</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">网络似乎不太稳定,没能接通。要再试一次吗?</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ dismissFail }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
+            <div onClick="{{ retryDial }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;" style-active="transform:scale(.97)">重试</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ outOfMins }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ dismissOut }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:28px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="width:60px;height:60px;border-radius:50%;background:rgba(245,166,35,.14);display:flex;align-items:center;justify-content:center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;">通话时长已用完</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">本月的通话时长用完了。充值后可以继续和 TA 聊。</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ dismissOut }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">以后再说</div>
+            <div onClick="{{ outToRecharge }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;" style-active="transform:scale(.97)">去充值</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ termsOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ termsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:72%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">用户协议</div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
+            <p style="margin:0 0 14px;">欢迎使用 MiCall.ai。注册或使用即表示你已阅读并同意本协议。</p>
+            <p style="margin:0 0 14px;">1. <b>服务内容</b>:MiCall.ai 提供与 AI 角色的语音通话服务。AI 生成的内容仅供陪伴与娱乐,不构成任何专业(医疗、法律、心理等)建议。</p>
+            <p style="margin:0 0 14px;">2. <b>账户</b>:你需对账户与密码安全负责。请勿将账户用于违法或骚扰用途。</p>
+            <p style="margin:0 0 14px;">3. <b>时长与计费</b>:免费时长与会员时长按实际通话扣减;会员可随时取消,已消耗时长不退。</p>
+            <p style="margin:0 0 14px;">4. <b>行为规范</b>:禁止利用本服务生成违法、仇恨或侵犯他人权益的内容,我们有权暂停违规账户。</p>
+            <p style="margin:0;color:var(--dim);font-size:12.5px;">最近更新:2026 年 6 月</p>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ contactOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ contactClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:78%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:16px;flex:none;">联系我们</div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+          <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1px;padding-bottom:10px;">问题类型</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;">
+            <sc-for list="{{ contactTypes }}" as="ct" hint-placeholder-count="4">
+              <div onClick="{{ ct.pick }}" style="font-size:13px;font-weight:500;padding:8px 14px;border-radius:13px;cursor:pointer;background:{{ ct.bg }};color:{{ ct.color }};transition:all .2s ease;" style-active="transform:scale(.96)">{{ ct.name }}</div>
+            </sc-for>
+          </div>
+          <textarea value="{{ contactMsg }}" onInput="{{ onContactMsg }}" placeholder="详细描述你的问题或建议…" style="width:100%;box-sizing:border-box;min-height:96px;resize:none;border:none;outline:none;background:var(--ctrl);border-radius:16px;padding:14px 16px;font-size:15px;line-height:1.6;color:var(--fg);font-family:inherit;"></textarea>
+          <div onClick="{{ submitContact }}" style="margin-top:14px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">提交工单</div>
+          <sc-if value="{{ hasTickets }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1px;padding:24px 0 12px;border-top:1px solid var(--line);margin-top:22px;">我的工单</div>
+            <sc-for list="{{ ticketList }}" as="tk" hint-placeholder-count="1">
+              <div style="background:var(--ctrl);border-radius:16px;padding:14px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px;">
+                  <span style="font-size:13.5px;font-weight:600;color:var(--fg);">{{ tk.type }}</span>
+                  <span style="font-size:11px;font-weight:600;color:{{ tk.statusColor }};background:{{ tk.statusBg }};padding:2px 8px;border-radius:7px;">{{ tk.status }}</span>
+                  <span style="flex:1;"></span>
+                  <span style="font-size:11.5px;color:var(--faint);">{{ tk.date }}</span>
+                </div>
+                <div style="font-size:13.5px;color:var(--dim);line-height:1.6;">{{ tk.msg }}</div>
+                <sc-if value="{{ tk.replied }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+                    <div style="width:26px;height:26px;border-radius:50%;flex:none;background:linear-gradient(145deg,#7AA8FF,#5B7CF0);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">官</div>
+                    <div style="flex:1;min-width:0;font-size:13.5px;color:var(--fg);line-height:1.65;text-wrap:pretty;">{{ tk.reply }}</div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ privacyOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ privacyClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:72%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">隐私政策</div>
+          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
+            <p style="margin:0 0 14px;">我们非常重视你的隐私。MiCall.ai 仅在通话进行时采集你的语音用于实时对话,<b>不会保存或用于训练</b>;通话结束即丢弃。</p>
+            <p style="margin:0 0 14px;">账户信息仅包含邮箱与加密后的密码,用于登录与时长管理,绝不出售或分享给第三方。</p>
+            <p style="margin:0 0 14px;">我们使用必要的 Cookie 维持登录状态与基本偏好(主题、语言),不用于跨站追踪或广告。</p>
+            <p style="margin:0 0 14px;">你可以随时在设置中退出登录、修改密码或注销账户,届时相关数据将被删除。</p>
+            <p style="margin:0;color:var(--dim);font-size:12.5px;">最近更新:2026 年 6 月</p>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ cookieOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:14px;right:14px;bottom:18px;z-index:18;display:flex;flex-direction:column;gap:12px;padding:16px 16px 14px;border-radius:18px;background:var(--sheet);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 14px 40px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.2);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);">
+          <div style="font-size:13.5px;line-height:1.6;color:var(--fg);text-wrap:pretty;">我们使用必要的 Cookie 维持登录与基本偏好,不用于广告追踪。继续使用即表示同意我们的隐私政策。</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div onClick="{{ openPrivacy }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">隐私政策</div>
+            <div onClick="{{ openTerms }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">用户协议</div>
+            <div style="flex:1;"></div>
+            <div onClick="{{ acceptCookie }}" style="flex:none;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 24px;border-radius:13px;cursor:pointer;" style-active="transform:scale(.96)">同意</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showGuide }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ dismissGuide }}" style="position:absolute;inset:0;z-index:16;background:rgba(20,16,30,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:128px;cursor:pointer;animation:backdropIn .4s ease;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;max-width:240px;text-align:center;">
+            <div style="font-size:18px;font-weight:600;color:#fff;letter-spacing:.3px;">轻点下方按钮开始通话</div>
+            <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.6;">选好角色和场景,绿色按钮拨给 TA,像打电话一样聊天。</div>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:6px;animation:orbBreathe 1.6s ease-in-out infinite;"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div style="margin-top:20px;font-size:14px;font-weight:500;color:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.4);padding:9px 26px;border-radius:16px;">知道了</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ moreOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ moreClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:12;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:13;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 24px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div onClick="{{ undoLast }}" style="display:flex;align-items:center;gap:14px;padding:14px 14px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
+            <div style="width:42px;height:42px;border-radius:50%;background:var(--ctrl);display:flex;align-items:center;justify-content:center;flex:none;color:var(--fg);"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></div>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:16px;font-weight:500;color:var(--fg);">撤回上一句</span><span style="font-size:12.5px;color:var(--dim);">移除 TA 刚说的最近一句</span></div>
+          </div>
+          <div onClick="{{ askReset }}" style="display:flex;align-items:center;gap:14px;padding:14px 14px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
+            <div style="width:42px;height:42px;border-radius:50%;background:rgba(224,89,79,.12);display:flex;align-items:center;justify-content:center;flex:none;color:#E0594F;"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v4h-4"/></svg></div>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:16px;font-weight:500;color:var(--fg);">重置记忆</span><span style="font-size:12.5px;color:var(--dim);">让 TA 忘记这段对话,重新开始</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pendingVoiceDel }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ cancelVoiceDel }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:17;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:18;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除这个音色？</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">「{{ pendingVoiceName }}」将被移除,无法恢复。</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ cancelVoiceDel }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
+            <div onClick="{{ confirmVoiceDel }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">删除</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ logoutConfirmOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ cancelLogout }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:17;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:18;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">退出登录？</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">退出后需重新登录才能继续使用,你的时长和收藏会保留。</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ cancelLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
+            <div onClick="{{ confirmLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">退出</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ resetOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ cancelReset }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">重置这段记忆？</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">TA 会忘记刚才聊的内容，重新开始。此操作无法撤销。</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ cancelReset }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
+            <div onClick="{{ resetMemory }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">重置</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ regPromptVisible }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:88px;left:18px;right:18px;z-index:16;display:flex;align-items:center;gap:12px;padding:13px 14px 13px 16px;border-radius:16px;background:var(--sheet);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 12px 34px rgba(0,0,0,.18),inset 0 0 0 .5px rgba(255,255,255,.2);animation:toastDrop .4s cubic-bezier(.16,1,.3,1);">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+            <span style="font-size:14px;font-weight:600;color:var(--fg);">注册即送 60 分钟</span>
+            <span style="font-size:12px;color:var(--dim);">登录后这段对话和时长都会保留</span>
+          </div>
+          <div onClick="{{ openRegister }}" style="flex:none;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;padding:8px 16px;border-radius:12px;cursor:pointer;" style-active="transform:scale(.96)">注册</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pwResetOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ pwResetClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 16px;"></div>
+          <div style="font-size:20px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:18px;">修改密码</div>
+          <div style="display:flex;flex-direction:column;gap:11px;">
+            <input value="{{ newPw1 }}" onInput="{{ onNewPw1 }}" type="password" placeholder="新密码（至少 6 位）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
+            <input value="{{ newPw2 }}" onInput="{{ onNewPw2 }}" type="password" placeholder="确认新密码" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
+            <div onClick="{{ submitNewPw }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">确认修改</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ authOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ authClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 18px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:20px;">
+            <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
+            <div style="font-size:20px;font-weight:600;color:var(--fg);margin-top:8px;">{{ authTitle }}</div>
+            <div style="font-size:13.5px;color:var(--dim);text-align:center;text-wrap:pretty;">{{ authSubtitle }}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:11px;">
+            <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="邮箱" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
+            <input value="{{ authPw }}" onInput="{{ onAuthPw }}" type="password" placeholder="密码（至少 6 位）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
+            <div onClick="{{ submitAuth }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">{{ authSubmitLabel }}</div>
+            <div onClick="{{ switchAuthMode }}" style="text-align:center;font-size:13.5px;color:var(--dim);cursor:pointer;padding:8px;">{{ authSwitchLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showToast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:96px;left:50%;transform:translateX(-50%);z-index:17;background:rgba(26,20,38,.82);color:#fff;font-size:13.5px;font-weight:500;letter-spacing:.3px;padding:9px 18px;border-radius:14px;max-width:calc(100% - 48px);box-sizing:border-box;text-align:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:toastIn .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.25);">{{ toast }}</div>
+      </sc-if>
+
+      <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;mix-blend-mode:{{ edgeBlend }};opacity:{{ edgeOpacity }};transition:opacity .9s ease;">
+        <div style="position:absolute;inset:-35%;background:conic-gradient(from 0deg,#2E7BFF,#6E5CFF,#FF4FA0,#FFB45C,#27E0D6,#2E7BFF);filter:blur(34px);animation:spin 13s linear infinite;-webkit-mask:radial-gradient(circle at 50% 50%,transparent 56%,#000 82%);mask:radial-gradient(circle at 50% 50%,transparent 56%,#000 82%);"></div>
+      </div>
+
+    </div>
+  </div>
+  <div class="deskside" style="zoom:{{ rootZoom }};--fz:{{ rootZoom }};">
+    <div style="font-size:20px;font-weight:600;padding:0 10px 14px;flex:none;">通话记录</div>
+    <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;">
+      <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="6">
+        <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)">
+          <div style="width:38px;height:38px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};"></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+            <span style="font-size:15px;font-weight:500;">{{ h.name }}</span>
+            <span style="font-size:12px;color:rgba(0,0,0,.4);">{{ h.when }}</span>
+          </div>
+          <span style="font-size:13px;font-weight:500;color:rgba(0,0,0,.45);font-variant-numeric:tabular-nums;">{{ h.dur }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:446,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;\&quot;light\&quot; | \&quot;dark\&quot;&quot;},&quot;orbColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#AAB8FF&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;aiName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;VEGAluo&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  chars = [
+    { name: "林晚", hue: 0, desc: "温柔的深夜倾听者", traits: ["温柔", "耐心", "共情"], bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不评判——只是陪着你。" },
+    { name: "江野", hue: 135, desc: "理性可靠的陪伴", traits: ["理性", "冷静", "务实"], bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚。" },
+    { name: "夏鸣", hue: 60, desc: "元气满满的朋友", traits: ["元气", "幽默", "直率"], bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。" },
+    { name: "顾辞", hue: 225, desc: "沉静睿智的对话者", traits: ["沉静", "睿智", "文艺"], bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书。" },
+    { name: "苏窈", hue: 300, desc: "俏皮灵动的伙伴", traits: ["俏皮", "灵动", "好奇"], bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。" },
+  ];
+  buildChars() {
+    const surnames = "林江夏顾苏沈陆唐许周白温安裴乔程谢卫薛元穆向尹洛祁".split("");
+    const givens = ["晚","野","鸣","辞","窈","川","屿","昭","知","澈","眠","笙","隐","予","屹","央","聿","简","南","序","怀","清","越","见","时","遇","归","宁","深","延","和","愈","暖","念","栖","旧"];
+    const descs = ["温柔的深夜倾听者","理性可靠的陪伴","元气满满的朋友","沉静睿智的对话者","俏皮灵动的伙伴","会讲故事的旅人","耐心的解忧搭子","清冷的疏离感","治愈系暖心人","毒舌但很真诚","安静的陪伴者","爱笑的乐天派","深夜不打烊的朋友","懂你欲言又止","温暖的过来人"];
+    const traitPool = [["温柔","耐心"],["理性","冷静"],["元气","幽默"],["沉静","文艺"],["俏皮","好奇"],["真诚","直率"],["治愈","共情"],["清冷","疏离"],["乐观","松弛"]];
+    const out = [];
+    for (let i = 0; i < 96; i++) {
+      const nm = surnames[i % surnames.length] + givens[(i * 7 + 3) % givens.length];
+      out.push({
+        name: nm,
+        hue: Math.round((i * 47) % 360),
+        desc: descs[(i * 5 + 2) % descs.length],
+        traits: traitPool[(i + 1) % traitPool.length],
+        bio: "性格温和，喜欢在安静里慢慢和你聊。无论是开心还是低落，TA 都愿意陪你说说话。",
+      });
+    }
+    this.chars = [...this.chars, ...out];
+  }
+  state = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: ["陪我练习模拟面试", "假装我们在咖啡馆", "用轻松的语气聊聊天"], settingsOpen: false, setSound: true, setVibrate: true, setSubtitle: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", genVoicesByChar: {}, pendingVoiceDel: null, cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", fontScale: 0, tickets: [{ type: "功能异常", msg: "通话偶尔会有杂音", date: "2026-06-19", status: "已回复", reply: "已优化降噪,请更新到最新版试试,给你补了 30 分钟时长~" }], voiceByChar: {}, voiceCustomOpen: false, voiceCustomText: "", lowWarned: false, micGranted: false, permOpen: false, callFailed: false, remaining: 720, outOfMins: false, searchQ: "", previewing: null, showGuide: false };
+
+  componentDidMount() {
+    let seen = false, cookie = false;
+    try { seen = localStorage.getItem("micall_seen_guide") === "1"; cookie = localStorage.getItem("micall_cookie_ok") === "1"; } catch (e) {}
+    this.setState({ showGuide: !seen, cookieOpen: !cookie });
+  }
+  acceptCookie() { try { localStorage.setItem("micall_cookie_ok", "1"); } catch (e) {} this.setState({ cookieOpen: false }); }
+  dismissGuide() {
+    try { localStorage.setItem("micall_seen_guide", "1"); } catch (e) {}
+    this.setState({ showGuide: false });
+  }
+
+  profileOf(idx) {
+    const c = this.chars[idx];
+    const genders = ["女", "男", "女", "男", "女"];
+    const gender = genders[idx % genders.length];
+    const tagPool = ["治愈系", "深夜", "倾听", "陪伴", "温柔", "理性", "元气", "文艺", "俏皮", "知性", "邻家", "成熟", "腹黑", "高冷", "暖男", "御姐", "学长", "学妹", "病娇", "天然呆"];
+    const likePool = ["安静的深夜", "认真听你说话", "下雨天", "一杯热可可", "你今天的好心情", "老电影", "散步", "手写信"];
+    const dislikePool = ["被敷衍", "嘈杂的人群", "冷场", "被打断", "敷衍的回答", "深夜的孤独", "争吵"];
+    const nats = ["中国", "日本", "美国", "英国", "法国", "韩国"];
+    const races = ["东亚人", "欧裔", "混血", "东亚人"];
+    const pick = (arr, n, seed) => { const out = []; for (let k = 0; k < n; k++) out.push(arr[(seed * 7 + k * 13 + idx * 5) % arr.length]); return [...new Set(out)]; };
+    return {
+      gender,
+      genderColor: gender === "女" ? "#FF6FA5" : "#5B8DEF",
+      age: 18 + (idx * 3) % 13,
+      height: 156 + (idx * 5) % 30,
+      weight: 44 + (idx * 3) % 22,
+      birthday: (2006 - (idx % 12)) + "年" + (1 + idx % 12) + "月" + (1 + (idx * 7) % 27) + "日",
+      nationality: nats[idx % nats.length],
+      race: races[idx % races.length],
+      nickname: c.name,
+      tags: pick(tagPool, 4, idx + 1),
+      slogan: (this.scenarioDefs[idx % 5] && this.scenarioDefs[idx % 5].lines[0]) || "嗯……你好。",
+      likes: pick(likePool, 5, idx + 2).join("、"),
+      dislikes: pick(dislikePool, 4, idx + 3).join("、"),
+      personality: (c.traits || []).join("、"),
+    };
+  }
+
+  bills = [
+    { type: "sub", title: "畅聊会员 · 月付", date: "2026-06-18", amount: "-$9.99", mins: "+1500 分钟" },
+    { type: "call", title: "通话消费 · 林晚", date: "2026-06-18 23:14", amount: "", mins: "-12 分钟" },
+    { type: "call", title: "通话消费 · 夏鸣", date: "2026-06-17 19:02", amount: "", mins: "-4 分钟" },
+    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-06-15", amount: "", mins: "+60 分钟" },
+    { type: "call", title: "通话消费 · 顾辞", date: "2026-06-14 21:35", amount: "", mins: "-9 分钟" },
+    { type: "call", title: "通话消费 · 苏窈", date: "2026-06-14 12:08", amount: "", mins: "-7 分钟" },
+    { type: "call", title: "通话消费 · 林晚", date: "2026-06-13 23:40", amount: "", mins: "-18 分钟" },
+    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-06-12", amount: "", mins: "+60 分钟" },
+    { type: "call", title: "通话消费 · 江野", date: "2026-06-11 20:15", amount: "", mins: "-5 分钟" },
+    { type: "call", title: "通话消费 · 夏鸣", date: "2026-06-10 18:30", amount: "", mins: "-11 分钟" },
+    { type: "call", title: "通话消费 · 顾辞", date: "2026-06-09 22:02", amount: "", mins: "-6 分钟" },
+    { type: "sub", title: "轻享会员 · 月付", date: "2026-05-18", amount: "-$4.99", mins: "+300 分钟" },
+    { type: "call", title: "通话消费 · 林晚", date: "2026-05-17 23:55", amount: "", mins: "-22 分钟" },
+    { type: "call", title: "通话消费 · 苏窈", date: "2026-05-16 13:20", amount: "", mins: "-8 分钟" },
+    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-05-14", amount: "", mins: "+60 分钟" },
+    { type: "call", title: "通话消费 · 江野", date: "2026-05-13 19:48", amount: "", mins: "-3 分钟" },
+    { type: "call", title: "通话消费 · 夏鸣", date: "2026-05-12 21:10", amount: "", mins: "-14 分钟" },
+    { type: "call", title: "通话消费 · 顾辞", date: "2026-05-11 22:33", amount: "", mins: "-9 分钟" },
+    { type: "call", title: "通话消费 · 林晚", date: "2026-05-10 23:18", amount: "", mins: "-16 分钟" },
+    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-05-08", amount: "", mins: "+60 分钟" },
+  ];
+
+  invites = [
+    { name: "小柚", date: "2026-06-15", status: "已注册", reward: "+60 分钟" },
+    { name: "阿哲", date: "2026-06-12", status: "已注册", reward: "+60 分钟" },
+    { name: "Momo", date: "2026-06-08", status: "待激活", reward: "待到账" },
+    { name: "林夕", date: "2026-05-14", status: "已注册", reward: "+60 分钟" },
+  ];
+
+  history = [
+    { name: "林晚", hue: 0, idx: 0, sceneKey: "heart", scene: "心情树洞", dur: "12:08", when: "今天 23:14" },
+    { name: "夏鸣", hue: 60, idx: 2, sceneKey: "chat", scene: "随便聊聊", dur: "04:21", when: "今天 12:30" },
+    { name: "顾辞", hue: 225, idx: 3, sceneKey: "idiom", scene: "成语接龙", dur: "08:47", when: "昨天 21:35" },
+    { name: "苏窈", hue: 300, idx: 4, sceneKey: "chat", scene: "随便聊聊", dur: "03:12", when: "昨天 13:08" },
+    { name: "林晚", hue: 0, idx: 0, sceneKey: "heart", scene: "心情树洞", dur: "18:40", when: "昨天 00:22" },
+    { name: "江野", hue: 135, idx: 1, sceneKey: "interview", scene: "模拟面试", dur: "15:03", when: "周一 20:15" },
+    { name: "夏鸣", hue: 60, idx: 2, sceneKey: "sc0", scene: "睡前故事", dur: "06:55", when: "周一 23:50" },
+    { name: "顾辞", hue: 225, idx: 3, sceneKey: "chat", scene: "随便聊聊", dur: "09:18", when: "周日 22:02" },
+    { name: "苏窈", hue: 300, idx: 4, sceneKey: "english", scene: "英语陪练", dur: "11:27", when: "周日 15:40" },
+    { name: "林晚", hue: 0, idx: 0, sceneKey: "heart", scene: "心情树洞", dur: "22:14", when: "周六 23:58" },
+    { name: "江野", hue: 135, idx: 1, sceneKey: "chat", scene: "随便聊聊", dur: "05:46", when: "周五 19:30" },
+    { name: "顾辞", hue: 225, idx: 3, sceneKey: "idiom", scene: "成语接龙", dur: "07:33", when: "周四 21:12" },
+  ];
+
+  toggleFeedback(tag) { this.setState(s => ({ feedback: s.feedback.includes(tag) ? s.feedback.filter(x => x !== tag) : [...s.feedback, tag] })); }
+
+  selectScenario(key) { this.setState({ scenario: key, scenarioOpen: false }); }
+  selectLang(l) { this.setState({ lang: l, langOpen: false }); }
+  selectChar(i) { this.setState({ charIndex: i, charOpen: false }); }
+  t = [];
+  i = 0;
+  scenarioDefs = [
+    { key: "chat", name: "随便聊聊", desc: "想到什么说什么", prompt: "现在是轻松的闲聊时间。请用自然随意的语气和我聊天，话题不限，可以从今天发生的小事聊起。多倾听、多回应，不用急着给建议，让对话像老朋友一样轻松地流动起来。", tile: "linear-gradient(145deg,#7AA8FF,#5B7CF0)", icon: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z", lines: ["嗯，我在听。", "今天过得怎么样？", "别急，慢慢说。", "我懂，那一定挺累的。"] },
+    { key: "heart", name: "心情树洞", desc: "我会认真听你说", prompt: "我可能心情不太好，需要找人倾诉。请你耐心倾听，不评判也不说教，多共情、多接纳我的情绪，用温柔平静的语气陪着我，在合适的时候轻轻安慰，让我感到被理解。", tile: "linear-gradient(145deg,#FF8FA8,#F56A8C)", icon: "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z", lines: ["我在听，慢慢说。", "没关系，我陪着你。", "今天真的辛苦了。", "把心里的话说出来吧。"] },
+    { key: "interview", name: "模拟面试", desc: "我陪你一起准备", prompt: "请扮演一位专业又友善的面试官，围绕我的经历依次提问，包括自我介绍、项目细节和应对挑战的方式。每次只问一个问题，听完我的回答后给一句简短反馈，帮我从容准备。", tile: "linear-gradient(145deg,#B79CFF,#9277F5)", icon: "M20 7h-4V5l-2-2h-4L8 5v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-6 0h-4V5h4v2z", lines: ["先做个自我介绍吧。", "可以具体讲讲那个项目吗？", "遇到困难时你会怎么处理？", "不错，逻辑很清晰。"] },
+    { key: "english", name: "英语陪练", desc: "快和我用英语聊吧", prompt: "Let's practice English together. Speak naturally but slowly, ask me simple follow-up questions, gently correct only my bigger mistakes, and keep the tone warm so I feel relaxed speaking.", tile: "linear-gradient(145deg,#5FD6C6,#2FB8A8)", icon: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.93 6h-2.95a15.65 15.65 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.92 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a7.96 7.96 0 0 1 0-4h3.38a16.5 16.5 0 0 0 0 4H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.99 7.99 0 0 1 5.08 16zm2.95-8H5.08a7.99 7.99 0 0 1 4.33-3.56A15.65 15.65 0 0 0 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66a14.7 14.7 0 0 1 0-4h4.68a14.7 14.7 0 0 1 0 4zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a7.99 7.99 0 0 1-4.33 3.56zM16.36 14a16.5 16.5 0 0 0 0-4h3.38a7.96 7.96 0 0 1 0 4h-3.38z", lines: ["Tell me about your day.", "Nice! How did that feel?", "Let's try that again, slowly.", "Great, that sounds natural."] },
+    { key: "idiom", name: "成语接龙", desc: "测试你的成语储备", prompt: "我们来玩成语接龙。你先说一个四字成语，我用它的最后一个字开头接下一个，轮流进行。如果我卡住了给我一点提示，遇到生僻成语时简单解释一下意思，让整个游戏轻松又有趣。", tile: "linear-gradient(145deg,#FFC061,#F5A623)", icon: "M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z", lines: ["一心一意。", "意气风发。", "风和日丽，该你了。", "丽质天成，继续。"] },
+  ];
+  buildScenarios() {
+    const tiles = ["linear-gradient(145deg,#7AA8FF,#5B7CF0)","linear-gradient(145deg,#FF8FA8,#F56A8C)","linear-gradient(145deg,#B79CFF,#9277F5)","linear-gradient(145deg,#5FD6C6,#2FB8A8)","linear-gradient(145deg,#FFC061,#F5A623)","linear-gradient(145deg,#8FD3FF,#5BA8F0)"];
+    const icons = ["M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z","M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z","M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z","M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 11a7 7 0 0 1-14 0M12 18v3"];
+    const items = [
+      ["睡前故事","伴你慢慢入睡"],["解压冥想","一起深呼吸放松"],["哄睡晚安","轻声陪你入眠"],["早安叫醒","元气满满开启一天"],["情感倾诉","说说你的心事"],["学习监督","陪你专注一小时"],["旅行规划","聊聊下一趟去哪"],["美食推荐","今天吃点什么好"],["历史漫谈","听段有趣的过往"],["哲学夜谈","深夜聊聊人生"],["诗词鉴赏","读一首给你听"],["职场吐槽","下班来吐吐槽"],["恋爱模拟","体验一段心动"],["方言练习","换个口音聊聊"],["辩论练习","来场观点交锋"],["脱口秀","听个段子乐一乐"],["星座运势","今天的你怎么样"],["读书分享","聊聊最近在读的"],["育儿陪聊","带娃路上不孤单"],["减压陪伴","卸下今天的疲惫"]];
+    const lines = ["嗯，我在听。","慢慢说，不着急。","我懂你的意思。","那我们继续聊聊吧。"];
+    const out = items.map((it, i) => ({ key: "sc" + i, name: it[0], desc: it[1], tile: tiles[i % tiles.length], icon: icons[i % icons.length], lines, prompt: "请进入「" + it[0] + "」的情境和我聊天：" + it[1] + "。用贴合这个场景的语气自然地回应，多关注我的感受和节奏，让整段对话沉浸、舒服，像我们真的身处其中一样陪着我。" }));
+    this.scenarioDefs = [...this.scenarioDefs, ...out];
+  }
+
+  componentWillUnmount() { this.clearTimers(); clearInterval(this.tick); }
+
+  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; }
+
+  startCall() {
+    if (this.state.phase !== "idle") return;
+    if (!this.state.micGranted) { this.setState({ permOpen: true }); return; }
+    this.dial();
+  }
+  grantMic() { this.setState({ micGranted: true, permOpen: false }); this.t.push(setTimeout(() => this.dial(), 250)); }
+  dial() {
+    this.clearTimers();
+    this.setState({ phase: "calling", callFailed: false, lowWarned: false });
+    this.t.push(setTimeout(() => {
+      if (Math.random() < 0.18) { this.setState({ phase: "idle", callFailed: true }); }
+      else { this.connect(); }
+    }, 2200));
+  }
+  retryDial() { this.setState({ callFailed: false }); this.dial(); }
+  connect() {
+    this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
+    clearInterval(this.tick);
+    this.tick = setInterval(() => this.setState(s => {
+      const left = s.remaining - 1;
+      if (left <= 0) { this.clearTimers(); clearInterval(this.tick); return { remaining: 0, outOfMins: true, phase: "idle", subtitle: "", lines: [] }; }
+      const ns = s.seconds + 1;
+      if (ns >= 60 && !s.loggedIn && !s.regPromptShown && !s.regPromptDismissed) { return { seconds: ns, remaining: left, regPromptShown: true }; }
+      if (left <= 60 && !s.lowWarned) { this.t.push(setTimeout(() => this.setState({ toast: "" }), 2400)); return { seconds: ns, remaining: left, lowWarned: true, toast: "时长仅剩 1 分钟" }; }
+      return { seconds: ns, remaining: left };
+    }), 1000);
+    this.toListen();
+  }
+  toListen() {
+    this.setState({ phase: "listening", subtitle: "" });
+    this.t.push(setTimeout(() => this.toThink(), 3000));
+  }
+  toThink() {
+    this.setState({ phase: "thinking" });
+    this.t.push(setTimeout(() => this.toSpeak(), 1900));
+  }
+  toSpeak() {
+    const custom = this.state.scenario === "__custom";
+    const def = custom ? { lines: ["嗯，我懂你的意思。", "我们慢慢聊。", "你想多说说吗？", "我一直在听。"] } : (this.scenarioDefs.find(d => d.key === this.state.scenario) || this.scenarioDefs[0]);
+    const line = def.lines[this.i++ % def.lines.length];
+    this.setState(s => ({ phase: "speaking", subtitle: line, lines: [...s.lines, line].slice(-6) }));
+    this.t.push(setTimeout(() => this.toListen(), 3400));
+  }
+  endCall() { this.clearTimers(); clearInterval(this.tick); this.setState({ phase: "ended", textMode: false, rating: 0, feedback: [] }); }
+  switchTo(idx, sceneKey) {
+    const connected = ["listening", "thinking", "speaking"].includes(this.state.phase);
+    if (connected) { this.setState({ pendingSwitch: { idx, sceneKey }, historyOpen: false }); return; }
+    this.setState({ charIndex: idx, scenario: sceneKey, historyOpen: false });
+  }
+  confirmSwitch() {
+    const ps = this.state.pendingSwitch;
+    this.clearTimers(); clearInterval(this.tick);
+    this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, charIndex: ps.idx, scenario: ps.sceneKey, pendingSwitch: null });
+  }
+  resetIdle() { this.clearTimers(); clearInterval(this.tick); this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, rating: 0, feedback: [], note: "" }); }
+
+  fmt(s) {
+    const m = Math.floor(s / 60), r = s % 60;
+    return String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0");
+  }
+  hexA(hex, a) {
+    const h = (hex || "#AAB8FF").replace("#", "");
+    const n = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+    const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  sheets() {
+    return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, termsOpen: false, privacyOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false };
+  }
+
+  renderVals() {
+    const p = this.state.phase;
+    const theme = this.state.theme ?? this.props.theme ?? "light";
+    const name = this.props.aiName || "林晚";
+    const tint = this.props.orbColor || "#AAB8FF";
+    const connected = p === "listening" || p === "thinking" || p === "speaking";
+    const edgeOpacity = ({ idle: 0, calling: 0.35, listening: 0.62, thinking: 0.45, speaking: 0.95, ended: 0 })[p];
+
+    const orbAnim = ({
+      idle: "orbStill 7s ease-in-out infinite",
+      calling: "orbBreathe 2.6s ease-in-out infinite",
+      listening: "orbStill 5s ease-in-out infinite",
+      thinking: "orbBreatheSlow 4.4s ease-in-out infinite",
+      speaking: "orbDiffuse 1.9s ease-in-out infinite",
+      ended: "orbStill 10s ease-in-out infinite",
+    })[p];
+    const haloDur = ({ idle: 8, calling: 2.6, listening: 6, thinking: 4.4, speaking: 1.9, ended: 11 })[p];
+    const fieldDur = ({ idle: 26, calling: 15, listening: 19, thinking: 22, speaking: 9, ended: 34 })[p];
+
+    let subline = "";
+    if (p === "idle") subline = "在线";
+    else if (p === "calling") subline = "正在呼叫…";
+    else subline = this.fmt(this.state.seconds);
+
+    let underOrb = "";
+    if (p === "listening") underOrb = "正在聆听";
+    else if (p === "thinking") underOrb = "正在思考";
+    else if (p === "speaking") underOrb = this.state.subtitle;
+    else if (p === "ended") underOrb = "这次聊得怎么样？";
+
+    let actionLabel = "轻点呼叫";
+    if (p === "calling") actionLabel = "取消";
+    else if (connected) actionLabel = "挂断";
+    else if (p === "ended") actionLabel = "再次呼叫";
+    const isCall = p === "idle" || p === "ended";
+    const actionBg = isCall ? "#33C376" : "#F2554E";
+    const actionGlow = isCall ? "rgba(51,195,118,.40)" : "rgba(242,85,78,.40)";
+
+    let hint = "";
+    if (p === "idle") hint = "剩余 12 分钟";
+    else if (p === "ended") hint = "已保存";
+
+    const textMode = this.state.textMode;
+    const showOrb = !textMode;
+    const showText = textMode;
+    let textHint = "";
+    if (p === "idle") textHint = "想聊就轻点呼叫";
+    else if (p === "calling") textHint = "正在呼叫…";
+    else if (p === "listening") textHint = "正在聆听";
+    else if (p === "thinking") textHint = "正在思考";
+    else if (p === "ended") textHint = "明天也别硬撑。";
+    const showTextHint = textHint !== "";
+    const displayLines = (this.state.lines || []).map((t, idx, arr) => ({
+      text: t,
+      color: idx === arr.length - 1 ? "var(--fg)" : "var(--dim)"
+    }));
+
+    if (!this._charsBuilt) { this.buildChars(); this._charsBuilt = true; }
+    const char = this.chars[this.state.charIndex % this.chars.length];
+    const charName = char.name;
+    const orbHue = `hue-rotate(${char.hue}deg)`;
+    const charTab = this.state.charTab;
+    const charList = this.chars.map((c, i) => ({
+      name: c.name,
+      desc: c.desc,
+      hueFilter: `hue-rotate(${c.hue}deg)`,
+      bg: "var(--ctrl)",
+      border: i === this.state.charIndex ? "2px solid #6E5CFF" : "2px solid transparent",
+      check: i === this.state.charIndex ? 1 : 0,
+      favOp: this.state.favorites.includes(i) ? 1 : 0,
+      _i: i,
+      pick: () => this.selectChar(i),
+    })).filter(o => charTab === "fav" ? this.state.favorites.includes(o._i) : (charTab === "hot" ? ((o._i * 31 + 7) % 100) < 52 : (o._i < 5 || o._i % 4 === 1)))
+      .filter(o => { const q = (this.state.searchQ || "").trim(); return !q || o.name.includes(q) || o.desc.includes(q); });
+    const charListEmpty = charList.length === 0;
+    const charDots = this.chars.map((c, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 }));
+    const curFav = this.state.favorites.includes(this.state.charIndex);
+    const favCurFill = curFav ? "#FF4F7B" : "none";
+    const favCurStroke = curFav ? "#FF4F7B" : "var(--fg)";
+    const favList = this.chars.map((c, i) => ({ name: c.name, desc: c.desc, hueFilter: `hue-rotate(${c.hue}deg)`, _i: i, pick: () => this.setState({ charIndex: i, favOpen: false }) })).filter(o => this.state.favorites.includes(o._i));
+    const hasFavs = favList.length > 0;
+    const noFavs = favList.length === 0;
+    const phaseIdle = p === "idle";
+    const phaseEnded = p === "ended";
+    const showOrbStatus = p !== "idle";
+    const stars = [1, 2, 3, 4, 5].map(n => ({ fill: n <= this.state.rating ? "#FFB23E" : "var(--faint)", set: () => this.setState({ rating: n }) }));
+    const feedbackChips = ["很温暖", "聊得开心", "答非所问", "反应慢"].map(t => {
+      const sel = this.state.feedback.includes(t);
+      return { name: t, bg: sel ? "rgba(46,123,255,.14)" : "var(--ctrl)", color: sel ? "#2E7BFF" : "var(--dim)", pick: () => this.setState(s => ({ feedback: s.feedback.includes(t) ? s.feedback.filter(x => x !== t) : [...s.feedback, t] })) };
+    });
+    const phaseCalling = p === "calling";
+    const inCall = p === "calling" || connected;
+    const showHeaderChrome = p === "idle";
+    const mute = this.state.mute, speaker = this.state.speaker;
+    const muteBg = mute ? "#fff" : "var(--ctrl)";
+    const muteIcon = mute ? "#1C1C1E" : "var(--fg)";
+    const speakerBg = speaker ? "#fff" : "var(--ctrl)";
+    const speakerIcon = speaker ? "#1C1C1E" : "var(--fg)";
+    const textBtnBg = textMode ? "#fff" : "var(--ctrl)";
+    const textBtnIcon = textMode ? "#1C1C1E" : "var(--fg)";
+
+    const langs = [
+      { name: "中文", sub: "简体中文", flag: "🇨🇳" },
+      { name: "English", sub: "English (US)", flag: "🇺🇸" },
+      { name: "日本語", sub: "Japanese", flag: "🇯🇵" },
+      { name: "한국어", sub: "Korean", flag: "🇰🇷" },
+      { name: "Español", sub: "Spanish", flag: "🇪🇸" },
+      { name: "Français", sub: "French", flag: "🇫🇷" },
+    ].map(o => ({
+      name: o.name,
+      sub: o.sub,
+      flag: o.flag,
+      bg: "var(--ctrl)",
+      border: this.state.lang === o.name ? "2px solid #6E5CFF" : "2px solid transparent",
+      check: this.state.lang === o.name ? 1 : 0,
+      pick: () => this.selectLang(o.name),
+    }));
+
+    if (!this._scenesBuilt) { this.buildScenarios(); this._scenesBuilt = true; }
+    const curDef = this.scenarioDefs.find(d => d.key === this.state.scenario);
+    const pillLabel = this.state.scenario === "__custom" ? (this.state.customScene || "自定义") : (curDef ? curDef.name : "选择场景");
+    const sceneTab = this.state.sceneTab;
+    const scenarios = this.scenarioDefs.map((d, i) => ({
+      name: d.name,
+      desc: d.desc,
+      iconPath: d.icon,
+      tile: d.tile,
+      bg: "var(--ctrl)",
+      border: this.state.scenario === d.key ? "2px solid #6E5CFF" : "2px solid transparent",
+      check: this.state.scenario === d.key ? 1 : 0,
+      prompt: d.prompt || d.desc,
+      expanded: this.state.expandedScene === d.key,
+      clamp: this.state.expandedScene === d.key ? "none" : 2,
+      toggleLabel: this.state.expandedScene === d.key ? "收起" : "展开",
+      toggleExpand: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ expandedScene: s.expandedScene === d.key ? null : d.key })); },
+      _i: i, _key: d.key,
+      pick: () => this.selectScenario(d.key),
+    })).filter(o => sceneTab === "hot" ? ((o._i * 29 + 5) % 100) < 55 : (o._i < 5 || o._i % 3 === 0));
+    const sceneListEmpty = scenarios.length === 0;
+    const sceneCustomActive = sceneTab === "custom";
+    const sceneListActive = sceneTab !== "custom";
+
+    return {
+      theme,
+      edgeOpacity: theme === "dark" ? edgeOpacity : edgeOpacity * 0.7,
+      edgeBlend: theme === "dark" ? "screen" : "normal",
+      title: p === "ended" ? "通话结束" : charName,
+      orbHue, showOrbStatus, charDots,
+      charTagline: char.desc,
+      charDetail: { name: char.name, tagline: char.desc, bio: char.bio, traits: char.traits, hueFilter: orbHue,
+        fav: this.state.favorites.includes(this.state.charIndex),
+        favFill: this.state.favorites.includes(this.state.charIndex) ? "#FF4F7B" : "none",
+        favStroke: this.state.favorites.includes(this.state.charIndex) ? "#FF4F7B" : "var(--dim)",
+        favLabel: this.state.favorites.includes(this.state.charIndex) ? "已收藏" : "收藏",
+        favLabelColor: this.state.favorites.includes(this.state.charIndex) ? "#FF4F7B" : "var(--dim)",
+        favBtnBg: this.state.favorites.includes(this.state.charIndex) ? "rgba(255,79,123,.10)" : "var(--ctrl)",
+        favToggle: () => this.setState(s => ({ favorites: s.favorites.includes(s.charIndex) ? s.favorites.filter(x => x !== s.charIndex) : [...s.favorites, s.charIndex] })),
+        previewing: this.state.previewing === this.state.charIndex,
+        notPreviewing: this.state.previewing !== this.state.charIndex,
+        previewLabel: this.state.previewing === this.state.charIndex ? "正在试听…" : "试听声音",
+        previewVoice: () => { const ci = this.state.charIndex; this.setState({ previewing: ci }); this.t.push(setTimeout(() => this.setState(s => (s.previewing === ci ? { previewing: null } : {})), 2600)); },
+        ...this.profileOf(this.state.charIndex),
+        voiceChips: (() => {
+          const ci = this.state.charIndex;
+          const gen = this.state.genVoicesByChar[ci] || [];
+          const sel = this.state.voiceByChar[ci] ?? "default";
+          const mk = (name, key, rm) => ({ name, removable: !!rm, sel: sel === key, bg: sel === key ? "rgba(110,92,255,.12)" : "var(--ctrl)", color: sel === key ? "#6E5CFF" : "var(--fg)", pick: () => { this.setState(s => ({ voiceByChar: { ...s.voiceByChar, [ci]: key }, previewing: ci })); this.t.push(setTimeout(() => this.setState(s => (s.previewing === ci ? { previewing: null } : {})), 2600)); }, remove: (e) => { if (e) e.stopPropagation(); this.setState({ pendingVoiceDel: { ci, key } }); } });
+          return [mk("原本音色", "default", false), ...gen.map(g => mk(g, g, true))];
+        })(),
+        voiceCustomText: this.state.voiceCustomText,
+        onVoiceCustom: (e) => this.setState({ voiceCustomText: e.target.value }),
+        genVoice: () => { const v = (this.state.voiceCustomText || "").trim(); if (!v) return; const ci = this.state.charIndex; this.setState(s => { const cur = s.genVoicesByChar[ci] || []; const next = cur.includes(v) ? cur : [...cur, v]; return { genVoicesByChar: { ...s.genVoicesByChar, [ci]: next }, voiceByChar: { ...s.voiceByChar, [ci]: v }, previewing: ci, voiceCustomText: "", toast: "音色生成成功" }; }); this.t.push(setTimeout(() => this.setState(s => (s.previewing === ci ? { previewing: null } : {})), 2600)); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000)); } },
+      charDetailOpen: this.state.charDetailOpen,
+      charDetailToggle: () => this.setState(s => ({ charDetailOpen: !s.charDetailOpen })),
+      charDetailClose: () => this.setState({ charDetailOpen: false }),
+      charList,
+      charListEmpty,
+      charTabRecBg: charTab === "rec" ? "var(--seg)" : "transparent",
+      charTabRecColor: charTab === "rec" ? "var(--fg)" : "var(--dim)",
+      charTabRecShadow: charTab === "rec" ? "0 2px 6px rgba(0,0,0,.10)" : "none",
+      charTabHotBg: charTab === "hot" ? "var(--seg)" : "transparent",
+      charTabHotColor: charTab === "hot" ? "var(--fg)" : "var(--dim)",
+      charTabHotShadow: charTab === "hot" ? "0 2px 6px rgba(0,0,0,.10)" : "none",
+      charTabFavBg: charTab === "fav" ? "var(--seg)" : "transparent",
+      charTabFavColor: charTab === "fav" ? "var(--fg)" : "var(--dim)",
+      charTabFavShadow: charTab === "fav" ? "0 2px 6px rgba(0,0,0,.10)" : "none",
+      charTabRec: () => this.setState({ charTab: "rec" }),
+      charTabHot: () => this.setState({ charTab: "hot" }),
+      charTabFav: () => this.setState({ charTab: "fav" }),
+      charListEmptyText: charTab === "fav" ? "还没有收藏的角色" : ((this.state.searchQ || "").trim() ? "没有找到相关角色" : "这里暂时还没有角色"),
+      searchQ: this.state.searchQ,
+      onSearch: (e) => this.setState({ searchQ: e.target.value }),
+      showGuide: this.state.showGuide && p === "idle",
+      dismissGuide: () => this.dismissGuide(),
+      charCount: this.chars.length,
+      charOpen: this.state.charOpen,
+      charCursor: "pointer",
+      charToggle: () => { if (p === "idle") this.setState(s => ({ charOpen: !s.charOpen })); },
+      charClose: () => this.setState({ charOpen: false }),
+      prevChar: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ charIndex: (s.charIndex - 1 + this.chars.length) % this.chars.length })); },
+      nextChar: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ charIndex: (s.charIndex + 1) % this.chars.length })); },
+      subline,
+      underOrb,
+      underOpacity: underOrb ? 1 : 0,
+      actionLabel,
+      isCall,
+      isEnd: !isCall,
+      actionBg,
+      actionGlow,
+      hint,
+      orbCursor: "pointer",
+      orbTap: () => this.setState(s => ({ charDetailOpen: !s.charDetailOpen })),
+      onShuffle: (e) => {
+        if (e) e.stopPropagation();
+        if (p !== "idle") return;
+        const ci = Math.floor(Math.random() * this.chars.length);
+        const sd = this.scenarioDefs[Math.floor(Math.random() * this.scenarioDefs.length)];
+        this.setState({ charIndex: ci, scenario: sd.key });
+      },
+      actionTap: () => {
+        if (p === "idle") this.startCall();
+        else if (p === "calling") this.resetIdle();
+        else if (connected) this.endCall();
+        else if (p === "ended") this.resetIdle();
+      },
+      textMode,
+      showOrb,
+      showText,
+      showTextHint,
+      textHint,
+      lines: displayLines,
+      textToggle: () => this.setState(s => ({ textMode: !s.textMode })),
+      textToggleColor: textMode ? "var(--fg)" : "var(--faint)",
+      phaseIdle, phaseCalling, inCall, showHeaderChrome, phaseEnded,
+      bottomH: "208px",
+      note: this.state.note,
+      onNote: (e) => this.setState({ note: e.target.value }),
+      stars, feedbackChips,
+      rated: this.state.rating > 0,
+      notRated: this.state.rating === 0,
+      finishRating: () => this.resetIdle(),
+      chromeOpacity: phaseIdle ? 1 : 0,
+      chromePE: phaseIdle ? "auto" : "none",
+      muteBg, muteIcon, speakerBg, speakerIcon, textBtnBg, textBtnIcon,
+      muteToggle: () => this.setState(s => ({ mute: !s.mute })),
+      undoLast: () => { this.setState(s => ({ lines: s.lines.slice(0, -1), toast: "已撤回上一句", moreOpen: false })); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      resetMemory: () => { this.setState({ lines: [], toast: "记忆已重置", resetOpen: false }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      askReset: () => this.setState({ resetOpen: true, moreOpen: false }),
+      moreOpen: this.state.moreOpen,
+      moreToggle: () => this.setState(s => ({ moreOpen: !s.moreOpen })),
+      moreClose: () => this.setState({ moreOpen: false }),
+      resetOpen: this.state.resetOpen,
+      cancelReset: () => this.setState({ resetOpen: false }),
+      toast: this.state.toast,
+      showToast: !!this.state.toast,
+      speakerToggle: () => this.setState(s => ({ speaker: !s.speaker })),
+      themeToggle: () => this.setState({ theme: theme === "dark" ? "light" : "dark" }),
+      themeLabel: theme === "dark" ? "深色" : "浅色",
+      menuOpen: this.state.menuOpen,
+      menuToggle: () => this.setState(s => ({ menuOpen: !s.menuOpen })),
+      menuClose: () => this.setState({ menuOpen: false }),
+      favCurFill, favCurStroke,
+      favToggleCur: () => this.setState(s => ({ favorites: s.favorites.includes(s.charIndex) ? s.favorites.filter(x => x !== s.charIndex) : [...s.favorites, s.charIndex] })),
+      favList, hasFavs, noFavs,
+      favOpen: this.state.favOpen,
+      favOpenToggle: () => this.setState(s => ({ favOpen: !s.favOpen })),
+      favClose: () => this.setState({ favOpen: false }),
+      rechargeOpen: this.state.rechargeOpen,
+      rechargeToggle: () => this.setState(s => ({ rechargeOpen: !s.rechargeOpen })),
+      rechargeClose: () => this.setState({ rechargeOpen: false }),
+      billPeriod: this.state.billing,
+      setBillMonth: () => this.setState({ billing: "month" }),
+      setBillQuarter: () => this.setState({ billing: "quarter" }),
+      setBillYear: () => this.setState({ billing: "year" }),
+      billOptions: [
+        { key: "month", label: "月付", off: "" },
+        { key: "quarter", label: "季付", off: "省20%" },
+        { key: "year", label: "年付", off: "省30%" },
+      ].map(o => ({
+        label: o.label, off: o.off, hasOff: o.off !== "",
+        border: this.state.billing === o.key ? "2px solid #6E5CFF" : "2px solid var(--line)",
+        bg: this.state.billing === o.key ? "rgba(110,92,255,.08)" : "transparent",
+        nameColor: this.state.billing === o.key ? "#6E5CFF" : "var(--fg)",
+        pick: () => this.setState({ billing: o.key }),
+      })),
+      plans: (() => {
+        const fmt = n => "$" + (Number.isInteger(n) ? n : (Math.round(n * 100) / 100));
+        const cfg = { month: { mult: 1, off: 1, unit: "/月" }, quarter: { mult: 3, off: 0.8, unit: "/季" }, year: { mult: 12, off: 0.7, unit: "/年" } }[this.state.billing];
+        const tiers = [
+          { tile: "linear-gradient(145deg,#7AA8FF,#5B7CF0)", iconPath: "M12 3l2.2 5.2L20 9.4l-4 3.9 1 5.7L12 16.3 7 19l1-5.7-4-3.9 5.8-1.2L12 3z", name: "轻享会员", mins: "每月 300 分钟", m: 4.99, tag: "" },
+          { tile: "linear-gradient(145deg,#B79CFF,#9277F5)", iconPath: "M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z", name: "畅聊会员", mins: "每月 1500 分钟", m: 9.99, tag: "最受欢迎" },
+          { tile: "linear-gradient(145deg,#FFC061,#F5A623)", iconPath: "M18.5 8.5c-2 0-3.2 1.6-4.2 3-.8 1.1-1.5 2-2.3 2s-1.5-.9-2.3-2c-1-1.4-2.2-3-4.2-3a3.5 3.5 0 1 0 0 7c2 0 3.2-1.6 4.2-3 .8-1.1 1.5-2 2.3-2s1.5.9 2.3 2c1 1.4 2.2 3 4.2 3a3.5 3.5 0 1 0 0-7z", name: "无限会员", mins: "每月不限时", m: 19.99, tag: "" },
+        ];
+        return tiers.map(t => {
+          const total = t.m * cfg.mult * cfg.off;
+          const perMonth = t.m * cfg.off;
+          const note = this.state.billing === "month" ? t.tag : ("约 " + fmt(perMonth) + "/月");
+          return { tile: t.tile, iconPath: t.iconPath, name: t.name, mins: t.mins, price: fmt(total), unit: cfg.unit, note, pick: () => this.setState({ rechargeOpen: false }) };
+        });
+      })(),
+      historyOpen: this.state.historyOpen,
+      historyToggle: () => this.setState(s => ({ historyOpen: !s.historyOpen })),
+      historyClose: () => this.setState({ historyOpen: false }),
+      historyList: this.history.map(h => ({ name: h.name, scene: h.scene, dur: h.dur, when: h.when, hueFilter: `hue-rotate(${h.hue}deg)`, pick: () => this.switchTo(h.idx, h.sceneKey) })),
+      pendingSwitch: this.state.pendingSwitch,
+      pendingName: this.state.pendingSwitch ? this.chars[this.state.pendingSwitch.idx].name : "",
+      confirmSwitch: () => this.confirmSwitch(),
+      cancelSwitch: () => this.setState({ pendingSwitch: null }),
+      pillLabel,
+      scenarios,
+      sceneListEmpty,
+      sceneListEmptyText: "这里暂时还没有场景",
+      sceneCustomActive,
+      sceneListActive,
+      customSceneText: this.state.customSceneText,
+      onCustomScene: (e) => this.setState({ customSceneText: e.target.value }),
+      applyCustomScene: () => { const v = (this.state.customSceneText || "").trim(); if (!v) return; this.setState(s => ({ customScene: v, scenario: "__custom", scenarioOpen: false, customSceneText: "", customHistory: [v, ...s.customHistory.filter(x => x !== v)].slice(0, 8) })); },
+      customSuggestions: ["陪我准备演讲", "假装在海边散步", "哄我睡觉", "听我吐槽工作", "用英文聊天", "玩角色扮演"].map(txt => ({ text: txt, pick: () => this.setState(s => ({ customScene: txt, scenario: "__custom", scenarioOpen: false, customHistory: [txt, ...s.customHistory.filter(x => x !== txt)].slice(0, 8) })) })),
+      customHistory: this.state.customHistory.map(txt => ({ text: txt, pick: () => this.setState(s => ({ customScene: txt, scenario: "__custom", scenarioOpen: false, customHistory: [txt, ...s.customHistory.filter(x => x !== txt)].slice(0, 8) })) })),
+      hasCustomHistory: this.state.customHistory.length > 0,
+      sceneTabRecBg: sceneTab === "rec" ? "var(--seg)" : "transparent",
+      sceneTabRecColor: sceneTab === "rec" ? "var(--fg)" : "var(--dim)",
+      sceneTabRecShadow: sceneTab === "rec" ? "0 2px 6px rgba(0,0,0,.10)" : "none",
+      sceneTabHotBg: sceneTab === "hot" ? "var(--seg)" : "transparent",
+      sceneTabHotColor: sceneTab === "hot" ? "var(--fg)" : "var(--dim)",
+      sceneTabHotShadow: sceneTab === "hot" ? "0 2px 6px rgba(0,0,0,.10)" : "none",
+      sceneTabFavBg: sceneTab === "custom" ? "var(--seg)" : "transparent",
+      sceneTabFavColor: sceneTab === "custom" ? "var(--fg)" : "var(--dim)",
+      sceneTabFavShadow: sceneTab === "custom" ? "0 2px 6px rgba(0,0,0,.10)" : "none",
+      sceneTabRec: () => this.setState({ sceneTab: "rec" }),
+      sceneTabHot: () => this.setState({ sceneTab: "hot" }),
+      sceneTabFav: () => this.setState({ sceneTab: "custom" }),
+      scenarioOpen: this.state.scenarioOpen,
+      scenarioToggle: () => this.setState(s => ({ scenarioOpen: !s.scenarioOpen })),
+      scenarioClose: () => this.setState({ scenarioOpen: false }),
+      langs,
+      langOpen: this.state.langOpen,
+      langToggle: () => this.setState(s => ({ langOpen: !s.langOpen })),
+      langFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, langOpen: true }),
+      permOpen: this.state.permOpen,
+      permDeny: () => this.setState({ permOpen: false }),
+      grantMic: () => this.grantMic(),
+      callFailed: this.state.callFailed,
+      retryDial: () => this.retryDial(),
+      dismissFail: () => this.setState({ callFailed: false }),
+      outOfMins: this.state.outOfMins,
+      outToRecharge: () => this.setState({ outOfMins: false, rechargeOpen: true }),
+      dismissOut: () => this.setState({ outOfMins: false }),
+      settingsFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, settingsOpen: true }),
+      contactFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, contactOpen: true }),
+      fontLabel: ["标准", "大", "特大"][this.state.fontScale],
+      rootZoom: [1, 1.06, 1.11][this.state.fontScale],
+      orbCounterZoom: [1, 0.943, 0.901][this.state.fontScale],
+      cycleFont: () => this.setState(s => ({ fontScale: (s.fontScale + 1) % 3 })),
+      fsTitle: [28, 33, 38][this.state.fontScale] + "px",
+      fsSub: [15, 17, 19][this.state.fontScale] + "px",
+      fsStatus: [18, 21, 24][this.state.fontScale] + "px",
+      fsTagline: [14.5, 16.5, 18.5][this.state.fontScale] + "px",
+      contactOpen: this.state.contactOpen,
+      contactClose: () => this.setState({ contactOpen: false }),
+      contactMsg: this.state.contactMsg,
+      onContactMsg: (e) => this.setState({ contactMsg: e.target.value }),
+      contactTypes: ["建议反馈", "功能异常", "账号/支付", "其他"].map(t => ({ name: t, sel: this.state.contactType === t, bg: this.state.contactType === t ? "rgba(110,92,255,.12)" : "var(--ctrl)", color: this.state.contactType === t ? "#6E5CFF" : "var(--fg)", pick: () => this.setState({ contactType: t }) })),
+      submitContact: () => {
+        if (!(this.state.contactMsg || "").trim()) { this.setState({ toast: "请先描述你的问题" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
+        this.setState(s => ({ tickets: [{ type: s.contactType, msg: s.contactMsg.trim(), date: "刚刚", status: "处理中", reply: "" }, ...s.tickets], contactMsg: "", toast: "已提交，回复会显示在下方" }));
+        this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+      },
+      ticketList: this.state.tickets.map(tk => ({ type: tk.type, msg: tk.msg, date: tk.date, status: tk.status, reply: tk.reply, replied: tk.status === "已回复", statusColor: tk.status === "已回复" ? "#33A06B" : "#E0954F", statusBg: tk.status === "已回复" ? "rgba(51,160,107,.14)" : "rgba(224,149,79,.14)" })),
+      hasTickets: this.state.tickets.length > 0,
+      loggedIn: this.state.loggedIn,
+      authOpen: this.state.authOpen,
+      authIsRegister: this.state.authMode === "register",
+      authTitle: this.state.authMode === "register" ? "注册账号" : "登录",
+      authSubtitle: this.state.authMode === "register" ? "注册即送 60 分钟免费通话时长" : "欢迎回来,继续和 TA 聊聊",
+      authSubmitLabel: this.state.authMode === "register" ? "注册并开始" : "登录",
+      authSwitchLabel: this.state.authMode === "register" ? "已有账号？去登录" : "没有账号？去注册",
+      authEmail: this.state.authEmail,
+      authPw: this.state.authPw,
+      onAuthEmail: (e) => this.setState({ authEmail: e.target.value }),
+      onAuthPw: (e) => this.setState({ authPw: e.target.value }),
+      switchAuthMode: () => this.setState(s => ({ authMode: s.authMode === "register" ? "login" : "register" })),
+      openRegister: () => this.setState({ ...this.sheets(), authOpen: true, authMode: "register", menuOpen: false, regPromptShown: false, regPromptDismissed: true }),
+      openLogin: () => this.setState({ ...this.sheets(), authOpen: true, authMode: "login", menuOpen: false }),
+      authClose: () => this.setState({ authOpen: false }),
+      submitAuth: () => {
+        const ok = /.+@.+\..+/.test((this.state.authEmail || "").trim()) && (this.state.authPw || "").length >= 6;
+        if (!ok) { this.setState({ toast: "请输入有效邮箱和至少 6 位密码" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000)); return; }
+        const reg = this.state.authMode === "register";
+        this.setState(s => ({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: reg ? Math.max(s.remaining, 3600) : s.remaining, toast: reg ? "注册成功，已送 60 分钟免费时长" : "登录成功" }));
+        this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+      },
+      logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
+      logoutConfirmOpen: this.state.logoutConfirmOpen,
+      cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
+      confirmLogout: () => { this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      pendingVoiceDel: this.state.pendingVoiceDel,
+      pendingVoiceName: this.state.pendingVoiceDel ? this.state.pendingVoiceDel.key : "",
+      cancelVoiceDel: () => this.setState({ pendingVoiceDel: null }),
+      confirmVoiceDel: () => { const pv = this.state.pendingVoiceDel; if (!pv) return; this.setState(s => { const next = (s.genVoicesByChar[pv.ci] || []).filter(x => x !== pv.key); const vb = { ...s.voiceByChar }; if (vb[pv.ci] === pv.key) vb[pv.ci] = "default"; return { genVoicesByChar: { ...s.genVoicesByChar, [pv.ci]: next }, voiceByChar: vb, pendingVoiceDel: null, toast: "已删除音色" }; }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1500)); },
+      loggedOut: !this.state.loggedIn,
+      accountEmail: this.state.authEmail || "已登录用户",
+      accountInitial: (this.state.authEmail || "M").trim().charAt(0).toUpperCase(),
+      resetPassword: () => this.setState({ settingsOpen: false, pwResetOpen: true, newPw1: "", newPw2: "" }),
+      pwResetOpen: this.state.pwResetOpen,
+      pwResetClose: () => this.setState({ pwResetOpen: false }),
+      newPw1: this.state.newPw1,
+      newPw2: this.state.newPw2,
+      onNewPw1: (e) => this.setState({ newPw1: e.target.value }),
+      onNewPw2: (e) => this.setState({ newPw2: e.target.value }),
+      submitNewPw: () => {
+        const a = this.state.newPw1 || "", b = this.state.newPw2 || "";
+        if (a.length < 6) { this.setState({ toast: "新密码至少 6 位" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
+        if (a !== b) { this.setState({ toast: "两次密码不一致" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
+        this.setState({ pwResetOpen: false, newPw1: "", newPw2: "", toast: "密码已修改" });
+        this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800));
+      },
+      cancelSub: () => { this.setState({ settingsOpen: false, toast: "订阅将在本周期结束后取消" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200)); },
+      cookieOpen: this.state.cookieOpen,
+      acceptCookie: () => this.acceptCookie(),
+      privacyOpen: this.state.privacyOpen,
+      openPrivacy: () => this.setState({ settingsOpen: false, privacyOpen: true }),
+      privacyClose: () => this.setState({ privacyOpen: false }),
+      termsOpen: this.state.termsOpen,
+      openTerms: () => this.setState({ settingsOpen: false, termsOpen: true }),
+      termsClose: () => this.setState({ termsOpen: false }),
+      regPromptVisible: this.state.regPromptShown && !this.state.loggedIn && !this.state.regPromptDismissed,
+      dismissRegPrompt: () => this.setState({ regPromptDismissed: true, regPromptShown: false }),
+      settingsOpen: this.state.settingsOpen,
+      settingsClose: () => this.setState({ settingsOpen: false }),
+      setSound: this.state.setSound,
+      setVibrate: this.state.setVibrate,
+      setSubtitle: this.state.setSubtitle,
+      setSoundTrack: this.state.setSound ? "#33C376" : "var(--ctrl)",
+      setSoundDot: this.state.setSound ? "translateX(20px)" : "translateX(0)",
+      setVibrateTrack: this.state.setVibrate ? "#33C376" : "var(--ctrl)",
+      setVibrateDot: this.state.setVibrate ? "translateX(20px)" : "translateX(0)",
+      setSubtitleTrack: this.state.setSubtitle ? "#33C376" : "var(--ctrl)",
+      setSubtitleDot: this.state.setSubtitle ? "translateX(20px)" : "translateX(0)",
+      toggleSound: () => this.setState(s => ({ setSound: !s.setSound })),
+      toggleVibrate: () => this.setState(s => ({ setVibrate: !s.setVibrate })),
+      toggleSubtitle: () => this.setState(s => ({ setSubtitle: !s.setSubtitle })),
+      favFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, favOpen: true }),
+      billFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }),
+      billsOpen: this.state.billsOpen,
+      billsClose: () => this.setState({ billsOpen: false }),
+      billsToRecharge: () => this.setState({ ...this.sheets(), rechargeOpen: true }),
+      billsList: this.bills.map(b => ({
+        title: b.title, date: b.date, mins: b.mins,
+        minsColor: b.mins.startsWith("+") ? "#33A06B" : "var(--dim)",
+        iconBg: b.type === "sub" ? "rgba(110,92,255,.12)" : (b.type === "invite" ? "rgba(255,79,123,.12)" : "rgba(46,123,255,.12)"),
+        iconColor: b.type === "sub" ? "#6E5CFF" : (b.type === "invite" ? "#FF4F7B" : "#2E7BFF"),
+        iconPath: b.type === "sub" ? "M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M18 12a2 2 0 0 0 0 4h4v-4z" : (b.type === "invite" ? "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6" : "M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24 11.36 11.36 0 0 0 3.57.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2z"),
+      })),
+      inviteFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }),
+      inviteOpen: this.state.inviteOpen,
+      inviteClose: () => this.setState({ inviteOpen: false }),
+      inviteCount: this.invites.filter(i => i.status === "已注册").length,
+      inviteList: this.invites.map(iv => ({
+        name: iv.name, initial: iv.name[0], date: iv.date, status: iv.status, reward: iv.reward,
+        done: iv.status === "已注册",
+        rewardColor: iv.status === "已注册" ? "#33A06B" : "var(--faint)",
+        statusColor: iv.status === "已注册" ? "var(--dim)" : "#E0954F",
+      })),
+      langCurrent: this.state.lang,
+      langClose: () => this.setState({ langOpen: false }),
+      orbAnim: inCall ? "none" : orbAnim,
+      fieldAnim: inCall ? "none" : `spin ${fieldDur}s linear infinite`,
+      haloAnim: inCall ? "none" : `haloPulse ${haloDur}s ease-in-out infinite`,
+      orbBg: `radial-gradient(circle at 38% 33%, rgba(255,255,255,.97), ${this.hexA(tint, .62)} 38%, ${this.hexA(tint, .20)} 64%, ${this.hexA(tint, .03)} 82%)`,
+      orbShadow: `0 0 50px 4px ${this.hexA(tint, .28)}, 0 0 100px 22px rgba(110,92,255,.16)`,
+      haloBg: `radial-gradient(circle, ${this.hexA(tint, .26)}, rgba(255,79,160,.10) 45%, transparent 72%)`,
+    };
+  }
+}
+</script>
+</body>
+</html>

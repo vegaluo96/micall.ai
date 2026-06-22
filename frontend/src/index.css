@@ -1,0 +1,17 @@
+/* Global baseline. The prototype's own visual CSS (keyframes, theme variables,
+   responsive rules, scrollbar hiding) lives in its <helmet> block and is
+   injected verbatim by DcView — keep this file minimal so nothing competes
+   with the design source of truth. Mirrors the runtime's FULL_PAGE_CSS. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+#dc-root {
+  min-height: 100%;
+}
+/* Interpolated text spans (the runtime wraps {{ }} output in these). */
+.sc-interp {
+  font: inherit;
+  color: inherit;
+}
