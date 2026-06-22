@@ -92,7 +92,8 @@ class CallSession:
         self._ai_said = ""                  # 本轮 AI 已说出的文本（用于回声判定）
         self._audio_until = 0.0             # AI 下行音频估计播放到的时刻（monotonic 秒）
         self._muted = False
-        self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 256))
+        # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
+        self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:

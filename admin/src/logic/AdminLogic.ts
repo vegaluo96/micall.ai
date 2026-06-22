@@ -51,7 +51,7 @@ export class AdminLogic {
       // 这些只是「无后端」时的兜底默认；接了后端会被真实配置覆盖。值与 backend/config/default.json 对齐，
       // 避免再出现 DeepSeek-V4-Flash 这类虚名误导。key 留空（不放假占位），由运营填、后端打码回显。
       asr: { provider: "bailian_qwen3_asr", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", key: "", model: "qwen3-asr-flash", lang: "zh" },
-      fast: { provider: "deepseek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "", model: "deepseek-chat", temp: "0.8", maxTokens: "512" },
+      fast: { provider: "deepseek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "", model: "deepseek-chat", temp: "0.8", maxTokens: "2048" },
       tts: { provider: "minimax", endpoint: "https://api.minimax.chat/v1/t2a_v2?GroupId=填你的GroupId", key: "", model: "speech-2.8-turbo", voiceId: "female-shaonv", sampleRate: "24000" },
       memory: { provider: "apiyi_qwen_long", endpoint: "https://api.apiyi.com/v1/chat/completions", key: "", model: "qwen-max", maxContext: "32000" },
       embed: { provider: "bailian_embedding", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings", key: "", model: "text-embedding-v4", vectorDB: "pgvector", topK: "5" },
