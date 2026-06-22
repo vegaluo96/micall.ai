@@ -1,0 +1,14 @@
+/* Baseline only. The prototype's own visual CSS lives in its <helmet> block and
+   is injected verbatim by DcView — keep this minimal. */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+#dc-root {
+  min-height: 100%;
+}
+.sc-interp {
+  font: inherit;
+  color: inherit;
+}

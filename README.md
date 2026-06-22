@@ -17,6 +17,7 @@ prototype/                    DC 原型（视觉/交互/文案的唯一真相，
   MiCall Admin.dc.html        后台管理端原型
   support.js                  DC 运行时
 frontend/                     ✅ 用户端 H5 生产前端（前端复刻轨）—— 见 frontend/README.md
+admin/                        ✅ 运营管理端（11 tab）—— 见 admin/README.md
 ```
 
 ## 三轨进度
@@ -28,7 +29,7 @@ frontend/                     ✅ 用户端 H5 生产前端（前端复刻轨）
 | **前端复刻轨**（确定性） | `AI Call.dc.html` → 生产 React，mock 换服务端信令 | ✅ 已落地（`frontend/`） |
 | 资产管线轨 | 角色 spec、生成工作流、导入导出校验 | ⬜ 待开发 |
 | 后端四层防线轨 | 实时管线 / 单轮质量 / 记忆人格 / 自主演进 | ⬜ 待开发（第一步：尺度一延迟 spike） |
-| Admin 后台（11 tab） | `MiCall Admin.dc.html` → 运营管理端 | ⬜ 待开发 |
+| Admin 后台（11 tab） | `MiCall Admin.dc.html` → 运营管理端 | ✅ 已落地（`admin/`） |
 
 > 选择**前端复刻轨**先行的理由：宪法明确把它标为「确定性」——原型即唯一真相，无设计裁决、
 > 无外部服务不确定性（无需 API key、无实时延迟风险），且可对照原型客观验收，是最不容易出错的起点。
