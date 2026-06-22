@@ -18,6 +18,23 @@ except ImportError:  # pragma: no cover
     httpx = None  # type: ignore
 
 
+# MiniMax T2A v2 voice_setting.emotion 只认这几种；传其它值会 2013 invalid params。
+_MINIMAX_EMOTIONS = {"happy", "sad", "angry", "fearful", "disgusted", "surprised"}
+_EMOTION_ALIAS = {
+    "joyful": "happy", "excited": "happy", "pleased": "happy", "warm": "happy",
+    "sympathy": "sad", "sorrow": "sad", "down": "sad",
+    "worried": "fearful", "anxious": "fearful", "nervous": "fearful",
+}
+
+
+def _minimax_emotion(tag: str) -> str:
+    """内部情绪标签 → MiniMax 认的情绪；软情绪(tender/gentle/listening…)/未知 → 空（省略=默认中性）。"""
+    t = (tag or "").strip().lower()
+    if t in _MINIMAX_EMOTIONS:
+        return t
+    return _EMOTION_ALIAS.get(t, "")
+
+
 class MiniMaxTTS(TTSProvider):
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -41,8 +58,9 @@ class MiniMaxTTS(TTSProvider):
             "voice_setting": {"voice_id": vid, "speed": 1.0, "vol": 1.0, "pitch": 0},
             "audio_setting": {"sample_rate": sample_rate, "format": audio_format, "channel": 1},
         }
-        if emotion:
-            body["voice_setting"]["emotion"] = emotion  # 情绪 piggyback → MiniMax emotion
+        emo = _minimax_emotion(emotion)
+        if emo:
+            body["voice_setting"]["emotion"] = emo  # 仅传 MiniMax 认的情绪，否则省略（默认中性）
         headers = {
             "Authorization": f"Bearer {self.node.api_key}",
             "Content-Type": "application/json",
