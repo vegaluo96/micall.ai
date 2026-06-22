@@ -16,6 +16,14 @@ body {
   color: inherit;
 }
 
+/* 所有底部弹窗的最高高度上限统一到「角色详情」的 82%（用户：最高距离以角色详情为准）。
+   固定高度的列表/文本类弹窗已由 extract 统一为 height:82%；纯内容类弹窗无固定高度，
+   这条 max-height 兜住它们的上限，最高也只到角色详情那条线。两端（移动/桌面）通用，
+   .dcx-sheet 相对 .screen 定位，82% 与角色详情 inline 的 82% 同基准。 */
+.dcx-sheet {
+  max-height: 82%;
+}
+
 /* ── Real-device full-bleed (产品方变更：移除手机外壳) ──────────────────────
    The DC prototype frames the app inside a phone-bezel mockup (.appwrap gray
    backdrop + 390×844 .phone bezel + fake notch/status bar). That mockup is a

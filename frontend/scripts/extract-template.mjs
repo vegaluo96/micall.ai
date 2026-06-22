@@ -47,6 +47,14 @@ template = template.replaceAll(
   '<div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;',
 );
 
+// 所有底部弹窗的最高高度统一到「角色详情」的 82%（用户：最高距离以角色详情为准）：
+// 把固定高度的列表/文本类弹窗（72/74/78%）抬到 82%，顶部与角色详情齐平；纯内容类弹窗
+// 无固定高度、本就矮于 82%，由 CSS 的 max-height:82% 兜住上限。
+template = template.replace(
+  /(left:0;right:0;bottom:0;)height:(?:72|74|78)%;/g,
+  "$1height:82%;",
+);
+
 // 角色详情：把头部（头像/名字/标签）+ 其下分隔线做成固定头部，下方资料区独立滚动
 // （用户：这部分固定住、带上下面那条线一起固定）。把头部 column 从滚动列表 .nobar 内提到
 // 其外、当 flex:none 固定块；原属第一段（试听）的上分隔线提成固定头部下、随头部固定的一条
