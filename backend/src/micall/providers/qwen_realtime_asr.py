@@ -20,6 +20,7 @@ from typing import AsyncIterator, Callable
 
 from ..config import NodeConfig
 from .base import ASRProvider
+from .bailian_asr import _collapse_repeat
 from .realtime_asr import region_ws_base
 
 
@@ -81,16 +82,18 @@ class QwenRealtimeASR(ASRProvider):
                     if et in ("session.created", "session.updated"):
                         ready.set()
                     elif "input_audio_transcription" in et:
-                        seg = evt.get("transcript") or evt.get("text") or evt.get("delta") or ""
                         if et.endswith(".completed"):
-                            final = seg or text
+                            final = _collapse_repeat(evt.get("transcript") or text)
                             text = ""
                             if final:
                                 yield final, True
-                        elif seg:
-                            # 兼容增量/累计：新块以已得为前缀则替换，否则拼接。
-                            text = seg if seg.startswith(text) else text + seg
-                            yield text, False
+                        else:
+                            # 中间结果：百炼把累计文本放在 stash（text 常为空）。
+                            seg = evt.get("stash") or evt.get("text") or evt.get("delta") or ""
+                            if seg:
+                                # stash 累计 → 以已得为前缀则替换，否则拼接。
+                                text = seg if seg.startswith(text) else text + seg
+                                yield text, False
                     elif et == "error":
                         raise RuntimeError(f"qwen-realtime error · {evt.get('error') or evt}")
             finally:
