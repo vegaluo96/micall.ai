@@ -255,19 +255,23 @@ class CallSession:
                 await self._emit(ServerEvent.emotion(stripper.tag))  # 一处产生，多处消费
                 emotion_sent = True
 
+        spoke_first = False
         async for token in self.llm.stream(messages, max_tokens=self._reply_max_tokens):
             if self._interrupt.is_set():
                 break
             buf += stripper.feed(token)
-            while not self._interrupt.is_set():
+            # 只抢跑「第一句」压低首音延迟；其余攒着，等流结束一次性合成——
+            # 否则每句一个 TTS 调用，句间各有首块延迟 → 开场长回复一顿一顿（用户实测：开场卡顿）。
+            if not spoke_first:
                 idx = _first_sentence_end(buf)
-                if idx < 0:
-                    break
-                sentence, buf = buf[: idx + 1], buf[idx + 1:]
-                if sentence.strip():
-                    await open_speak()                       # 首句一出即抢跑（§1.7）
-                    await self._speak(sentence, spoke)
+                if idx >= 0:
+                    sentence, buf = buf[: idx + 1], buf[idx + 1:]
+                    if sentence.strip():
+                        await open_speak()                   # 首句一出即抢跑（§1.7）
+                        await self._speak(sentence, spoke)
+                        spoke_first = True
 
+        # 第一句之后的整段一次合成：MiniMax 连续流，句与句之间不再断气。
         tail = (buf + stripper.flush()).strip()
         if tail and not self._interrupt.is_set():
             await open_speak()
