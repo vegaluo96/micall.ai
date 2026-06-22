@@ -28,16 +28,18 @@ class MiniMaxTTS(TTSProvider):
         self.model = node.params.get("model", "speech-2.8-turbo")
 
     async def synthesize(
-        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000
+        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000,
+        audio_format: str = "pcm",
     ) -> AsyncIterator[bytes]:  # pragma: no cover （需真实网络/密钥）
-        """句子级流式合成：stream=true，按 SSE 收 hex 音频块，首块一出即可下行（§1.7）。"""
+        """句子级流式合成：stream=true，按 SSE 收 hex 音频块，首块一出即可下行（§1.7）。
+        audio_format：通话下行用 "pcm"（前端直接播）；试听用 "mp3"。"""
         vid = voice_id or self.node.params.get("default_voice", "")
         body: dict = {
             "model": self.model,
             "text": text,
             "stream": True,
             "voice_setting": {"voice_id": vid, "speed": 1.0, "vol": 1.0, "pitch": 0},
-            "audio_setting": {"sample_rate": sample_rate, "format": "mp3", "channel": 1},
+            "audio_setting": {"sample_rate": sample_rate, "format": audio_format, "channel": 1},
         }
         if emotion:
             body["voice_setting"]["emotion"] = emotion  # 情绪 piggyback → MiniMax emotion

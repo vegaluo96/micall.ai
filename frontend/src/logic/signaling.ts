@@ -38,9 +38,13 @@ export type ClientMessage =
   | { type: "text_input"; text: string };
 
 export type ServerHandler = (ev: ServerEvent) => void;
+/** 下行二进制音频帧（TTS PCM）。媒体归媒体、控制归控制（后端规格 §1.1）。 */
+export type AudioHandler = (frame: ArrayBuffer) => void;
 
 export interface SignalingClient {
   send(msg: ClientMessage): void;
+  /** 上行二进制音频帧（麦克风 PCM）。Mock 下为 no-op。 */
+  sendAudio(frame: ArrayBufferLike): void;
   close(): void;
 }
 
@@ -50,16 +54,20 @@ class WebSocketSignalingClient implements SignalingClient {
   private ws: WebSocket;
   private queue: ClientMessage[] = [];
 
-  constructor(url: string, private onEvent: ServerHandler) {
+  constructor(url: string, private onEvent: ServerHandler, private onAudio?: AudioHandler) {
     this.ws = new WebSocket(url);
+    this.ws.binaryType = "arraybuffer";
     this.ws.addEventListener("open", () => {
       for (const m of this.queue) this.ws.send(JSON.stringify(m));
       this.queue = [];
     });
     this.ws.addEventListener("message", (e) => {
+      if (typeof e.data !== "string") {
+        this.onAudio?.(e.data as ArrayBuffer); // 二进制 = 下行 TTS 音频
+        return;
+      }
       try {
-        const ev = JSON.parse(e.data) as ServerEvent;
-        this.onEvent(ev);
+        this.onEvent(JSON.parse(e.data) as ServerEvent);
       } catch {
         /* ignore malformed frames */
       }
@@ -72,6 +80,11 @@ class WebSocketSignalingClient implements SignalingClient {
   send(msg: ClientMessage): void {
     if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
     else this.queue.push(msg);
+  }
+
+  sendAudio(frame: ArrayBufferLike): void {
+    // 实时音频不排队：连接没就绪就丢（迟到的帧无意义）。
+    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(frame);
   }
 
   close(): void {
@@ -146,6 +159,10 @@ class MockSignalingClient implements SignalingClient {
         // The mock server simply acknowledges by doing nothing observable.
         break;
     }
+  }
+
+  sendAudio(): void {
+    /* mock 后端不消费音频 */
   }
 
   close(): void {
@@ -225,8 +242,8 @@ class MockSignalingClient implements SignalingClient {
 
 /** Build the signaling client. Uses the real WS endpoint when configured,
  *  otherwise the in-browser mock so the app runs with no backend. */
-export function createSignaling(onEvent: ServerHandler): SignalingClient {
+export function createSignaling(onEvent: ServerHandler, onAudio?: AudioHandler): SignalingClient {
   const url = import.meta.env.VITE_SIGNALING_URL;
-  if (url && url.trim()) return new WebSocketSignalingClient(url.trim(), onEvent);
+  if (url && url.trim()) return new WebSocketSignalingClient(url.trim(), onEvent, onAudio);
   return new MockSignalingClient(onEvent);
 }

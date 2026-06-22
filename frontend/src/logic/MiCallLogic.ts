@@ -22,6 +22,7 @@ import {
   type ServerEvent,
   type SignalingClient,
 } from "./signaling";
+import { AudioPlayer, MicCapture } from "./audio";
 import type { Vals } from "../dc/resolve";
 
 export interface MiCallProps {
@@ -93,6 +94,8 @@ export class MiCallLogic {
   // realtime resources
   private sig: SignalingClient | null = null;
   private micStream: MediaStream | null = null;
+  private micCapture: MicCapture | null = null;  // 麦克风 → 上行 PCM 帧
+  private player = new AudioPlayer();             // 下行 TTS PCM → 播放
 
   bills = [
     { type: "sub", title: "畅聊会员 · 月付", date: "2026-06-18", amount: "-$9.99", mins: "+1500 分钟" },
@@ -277,8 +280,27 @@ export class MiCallLogic {
   private currentScenarioKey() { return this.state.scenario || "chat"; }
 
   private ensureSignaling(): SignalingClient {
-    if (!this.sig) this.sig = createSignaling((ev) => this.onServerEvent(ev));
+    if (!this.sig) {
+      this.sig = createSignaling(
+        (ev) => this.onServerEvent(ev),
+        (frame) => this.player.play(frame), // 下行 TTS PCM → 播放
+      );
+    }
     return this.sig;
+  }
+
+  /** 通话接通后启动麦克风上行：每帧 PCM 经信令二进制帧发给后端 ASR。 */
+  private startMicUplink() {
+    if (this.micCapture || !this.micStream) return;
+    const sig = this.ensureSignaling();
+    this.micCapture = new MicCapture(this.micStream, (pcm) => {
+      if (!this.state.mute) sig.sendAudio(pcm); // 静音时不上行（本地也已禁用音轨）
+    });
+    try { this.micCapture.start(); } catch { /* 不支持音频采集时静默降级 */ }
+  }
+  private stopMicUplink() {
+    this.micCapture?.stop();
+    this.micCapture = null;
   }
   private send(msg: ClientMessage) { this.ensureSignaling().send(msg); }
 
@@ -326,6 +348,7 @@ export class MiCallLogic {
     // (Re)acquire the mic for this call. Permission persists once granted, so
     // re-acquiring after a previous hang-up is silent (no prompt).
     if (this.state.micGranted && !this.micStream) await this.acquireMic();
+    this.player.resume(); // 必须在点接听的手势链里，iOS 才允许出声
     this.setState({ phase: "calling", callFailed: false, lowWarned: false });
     const msg: ClientMessage = { type: "start_call", character_id: this.characterId(this.state.charIndex), scenario: this.currentScenarioKey() };
     this.send(msg);
@@ -366,6 +389,8 @@ export class MiCallLogic {
     this.micStream.getAudioTracks().forEach((tr) => { tr.enabled = enabled; });
   }
   private stopMic() {
+    this.stopMicUplink();
+    this.player.flush(); // 挂断/失败：停掉残留下行音频
     if (this.micStream) { this.micStream.getTracks().forEach((tr) => tr.stop()); this.micStream = null; }
   }
 
@@ -374,12 +399,14 @@ export class MiCallLogic {
     switch (ev.type) {
       case "connected":
         this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
+        this.startMicUplink(); // 接通即开始上行麦克风音频
         break;
       case "state":
         this.setState({ phase: ev.phase });
         break;
       case "interrupted":
         // speaking → listening hard jump (skip thinking), keep transcript.
+        this.player.flush(); // barge-in：用户开口 → 立刻停掉 AI 正在播的音频
         this.setState({ phase: "listening", subtitle: "" });
         break;
       case "subtitle":

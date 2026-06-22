@@ -34,7 +34,7 @@ async def main() -> None:
     first_ms: float | None = None
     buf = bytearray()
     try:
-        async for chunk in tts.synthesize(text, voice_id=voice, emotion=""):
+        async for chunk in tts.synthesize(text, voice_id=voice, emotion="", audio_format="mp3"):
             if first_ms is None:
                 first_ms = (time.perf_counter() - t0) * 1000
             buf += chunk

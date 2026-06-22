@@ -28,9 +28,11 @@ class TTSProvider(ABC):
 
     @abstractmethod
     def synthesize(
-        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000
+        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000,
+        audio_format: str = "pcm",
     ) -> AsyncIterator[bytes]:
-        """逐音频块异步产出（PCM/编码块）。"""
+        """逐音频块异步产出。audio_format：实时通话用 "pcm"（前端 Web Audio 直接播，H5/iOS 稳）；
+        试听存档用 "mp3"。"""
         raise NotImplementedError
 
 

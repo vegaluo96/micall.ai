@@ -10,6 +10,7 @@
 """
 import asyncio
 import json
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,14 @@ from pathlib import Path
 SR = 16000
 FRAME_MS = 100
 FRAME_BYTES = SR * 2 * FRAME_MS // 1000  # 16k×2字节×0.1s = 3200
+TTS_RATE = 24000  # 下行 TTS 是 PCM16 单声道 @ 24k（与 config tts.sample_rate 一致）
+
+
+def _wav(pcm: bytes, rate: int = TTS_RATE, ch: int = 1, bits: int = 16) -> bytes:
+    n = len(pcm)
+    return (b"RIFF" + struct.pack("<I", 36 + n) + b"WAVE" + b"fmt "
+            + struct.pack("<IHHIIHH", 16, 1, ch, rate, rate * ch * bits // 8, ch * bits // 8, bits)
+            + b"data" + struct.pack("<I", n) + pcm)
 
 
 def _pcm16(path: str) -> bytes:
@@ -32,7 +41,7 @@ def _pcm16(path: str) -> bytes:
 
 async def main() -> None:
     src = sys.argv[1] if len(sys.argv) > 1 else "sample.mp3"
-    out = sys.argv[2] if len(sys.argv) > 2 else "reply.mp3"
+    out = sys.argv[2] if len(sys.argv) > 2 else "reply.wav"  # 下行是 PCM → 存成 WAV 可直接试听
     if not Path(src).exists():
         raise SystemExit(f"找不到 {src}。先用 tts_once 合一个 sample.mp3。")
     pcm = _pcm16(src)
@@ -87,8 +96,8 @@ async def main() -> None:
                 pass
 
     if audio:
-        Path(out).write_bytes(bytes(audio))
-        print(f"\n✅ AI 回复语音已存 {out}（{len(audio)} bytes）。下载试听 —— 这是真实闭环产物。")
+        Path(out).write_bytes(_wav(bytes(audio)))  # PCM → WAV
+        print(f"\n✅ AI 回复语音已存 {out}（PCM {len(audio)} bytes）。下载试听 —— 这是真实闭环产物。")
     elif got_ai:
         print("\n⚠ 收到 AI 文字但没拿到下行音频。看后端日志：TTS 是否配好 / audio_emit 是否触发。")
     else:

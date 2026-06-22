@@ -39,7 +39,8 @@ class StubLLM(LLMProvider):
 
 class StubTTS(TTSProvider):
     async def synthesize(
-        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000
+        self, text: str, *, voice_id: str, emotion: str = "", sample_rate: int = 24000,
+        audio_format: str = "pcm",
     ) -> AsyncIterator[bytes]:
         # 每个字产出一小块「音频」，时长正比于文本（仅用于编排/计费骨架，非真实音频）。
         for _ in text:
