@@ -76,7 +76,9 @@ def main(argv: list[str] | None = None) -> int:
     config = load_config()
     if args.cmd == "run-server":
         import asyncio
+        import logging
 
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
         from .server import serve_forever
 
         try:

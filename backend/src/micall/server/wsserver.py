@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,8 @@ from ..memory import InMemoryRepository, MemoryRepository
 from ..protocol import ServerEvent, parse_client_message
 from ..providers import make_llm, make_tts
 from ..session import CallSession
+
+log = logging.getLogger("micall.signal")
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
@@ -88,13 +91,18 @@ class SignalingServer:
         session: CallSession | None = None
 
         async def emit(ev: dict) -> None:
+            if ev.get("type") != "billing":  # billing 每秒一次，不刷屏
+                log.info("  ⟶ %s", ev.get("type"))
             await websocket.send(json.dumps(ev, ensure_ascii=False))
 
+        addr = getattr(websocket, "remote_address", None)
+        log.info("⇆ 新连接 %s", addr[0] if addr else "?")
         try:
             async for raw in websocket:
                 msg = parse_client_message(raw)
                 if msg is None:
                     continue  # 畸形/未知帧静默丢弃（与前端容错一致）
+                log.info("⟵ %s%s", msg.type, f" {msg.text!r}" if msg.text else "")
                 if msg.type == "start_call":
                     if session:
                         await session.end(emit_ended=False)
