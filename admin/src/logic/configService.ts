@@ -12,6 +12,8 @@
 // ⚠️ 安全：localStorage 持久化仅供本地联调。生产务必配置 VITE_API_BASE，让密钥留在
 //    服务端；不要把真实 key 长期存在浏览器里。
 
+import { authToken } from "./auth";
+
 export type ApiConfig = Record<string, Record<string, string>>;
 
 const LS_KEY = "micall_admin_api_cfg";
@@ -26,12 +28,21 @@ export function usingBackend(): boolean {
   return !!base();
 }
 
+/** 带上登录 token 的请求头（接后端后由 /admin/login 发放）。 */
+function authHeaders(json = false): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (json) h["Content-Type"] = "application/json";
+  const t = authToken();
+  if (t && t !== "dev") h["Authorization"] = "Bearer " + t;
+  return h;
+}
+
 /** 读取已保存的配置；无则返回 null（调用方回退到内置默认）。 */
 export async function loadApiConfig(): Promise<ApiConfig | null> {
   const b = base();
   if (b) {
     try {
-      const r = await fetch(`${b}/admin/api-config`, { credentials: "include" });
+      const r = await fetch(`${b}/admin/api-config`, { credentials: "include", headers: authHeaders() });
       if (r.ok) return (await r.json()) as ApiConfig;
     } catch {
       /* 网络/后端不可用：保持默认，不阻塞页面 */
@@ -53,7 +64,7 @@ export async function saveApiConfig(cfg: ApiConfig): Promise<boolean> {
     try {
       const r = await fetch(`${b}/admin/api-config`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(true),
         credentials: "include",
         body: JSON.stringify(cfg),
       });
@@ -77,7 +88,7 @@ export async function testApiSection(sectionKey: string, cfg: Record<string, str
   try {
     const r = await fetch(`${b}/admin/api-config/test`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(true),
       credentials: "include",
       body: JSON.stringify({ section: sectionKey, config: cfg }),
     });

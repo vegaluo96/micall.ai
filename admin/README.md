@@ -19,6 +19,22 @@ endpoint+key 可配）· 成本与限流 · 权限管理。
 > 「接口配置」节点划分与架构一致：LLM 分快脑（通话中，DeepSeek-V4-Flash）/ 慢脑（通话后，
 > Qwen-Long），即「实时保延迟 / 离线享灵活」的分流（CLAUDE.md §4）。
 
+## 登录与访问控制（重要的安全模型）
+
+后台进站先过登录页（`src/AdminLogin.tsx` + `src/logic/auth.ts`）。但要清楚：
+
+> 静态 SPA 在**没有后端时无法真正鉴权**——打包产物对任何人可下载。所以：
+> - **真正的网络门禁** = nginx Basic Auth（账号 `admin` + 你 htpasswd 设的密码）或后端；
+> - app 登录页在**无后端时只是 UX 软门禁**（密码由 `VITE_ADMIN_PASSWORD` 配，默认
+>   `micall-admin`），可被绕过，不要当作真防护。
+
+- **配了 `VITE_API_BASE`（生产）**：登录走后端 `POST /admin/login` 校验、发 token，
+  存 sessionStorage，后续管理 API 带 `Authorization: Bearer`——这才是真鉴权，此时可
+  撤掉 nginx Basic Auth。
+- **没配（本地/演示）**：用 `VITE_ADMIN_PASSWORD` 软门禁；**线上请保留 nginx Basic Auth**。
+
+左下角有「退出」浮层按钮；sessionStorage 关页即登出。
+
 ## 接口配置（密钥/端点）—— 已做实，可持久化
 
 「接口配置」tab 的 5 个节点（ASR / 快脑 / TTS / 长记忆脑 / Embedding）endpoint+key+参数
