@@ -16,6 +16,7 @@ class CharacterRuntime:
     character_id: str
     name: str
     persona: dict[str, Any] = field(default_factory=dict)  # 资产 spec 的 persona 块
+    identity: dict[str, Any] = field(default_factory=dict)  # 资产 spec 的 identity 块（性别/年龄/外貌/生日…）
     voice_id: str = ""
     emotion_map: dict[str, str] = field(default_factory=dict)  # tag → MiniMax emotion
     runtime_overrides: dict[str, Any] = field(default_factory=dict)
@@ -29,6 +30,7 @@ class CharacterRuntime:
             character_id=ident.get("character_id", ""),
             name=ident.get("name", ""),
             persona=spec.get("persona", {}),
+            identity=ident,  # 整块带上：让 AI 知道自己的性别/年龄/外貌/国籍/生日（否则被问就不知道）
             voice_id=voice.get("voice_id", ""),
             emotion_map=voice.get("emotion_map", {}),
             runtime_overrides=spec.get("runtime_overrides", {}) or {},

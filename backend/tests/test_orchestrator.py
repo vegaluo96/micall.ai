@@ -22,6 +22,14 @@ def _make_session(emit, llm=None):
     )
 
 
+class TestStripActions(unittest.TestCase):
+    def test_strip_stage_directions(self):
+        from micall.session.orchestrator import _strip_actions
+        self.assertEqual(_strip_actions("（轻声笑）不过这个嘛，我可不能告诉你。"), "不过这个嘛，我可不能告诉你。")
+        self.assertEqual(_strip_actions("(smiles) hi"), "hi")
+        self.assertEqual(_strip_actions("（歪着头，眨眨眼睛）"), "")  # 整句都是动作 → 空
+
+
 class TestFiller(unittest.TestCase):
     def test_filler_detection(self):
         from micall.session.orchestrator import _is_filler

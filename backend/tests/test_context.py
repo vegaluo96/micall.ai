@@ -67,6 +67,21 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("心情树洞", sysmsg)              # 情境
         self.assertEqual(msgs[-1], {"role": "user", "content": "在吗"})  # L4 滑窗
 
+    def test_identity_injected_into_persona(self):
+        # AI 要知道自己的基本资料（性别/年龄/外貌/生日），否则被问就不知道。
+        char = CharacterRuntime.from_spec({
+            "identity": {"character_id": "x", "name": "苏窈", "gender": "女", "age": 23,
+                         "appearance": "齐肩微卷发", "nationality": "中国",
+                         "profile": {"birthday": "2003-09-30", "height_cm": 160}},
+            "persona": {"core_traits": ["俏皮"]},
+        })
+        a = ContextAssembler(char)
+        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "你多大"}])[0]["content"]
+        self.assertIn("23岁", sysmsg)
+        self.assertIn("女", sysmsg)
+        self.assertIn("2003-09-30", sysmsg)
+        self.assertIn("齐肩微卷发", sysmsg)
+
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]

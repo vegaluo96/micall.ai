@@ -35,6 +35,14 @@ def _is_filler(s: str) -> bool:
     nt = _norm(s)
     return not nt or all(ch in _FILLER_CHARS for ch in nt)
 
+
+_ACTIONS = re.compile(r"（[^）]*）|\([^)]*\)|【[^】]*】|\*[^*]*\*")
+
+
+def _strip_actions(s: str) -> str:
+    """去掉括号里的动作/神态/旁白（（轻声笑）/(smiles)/【…】/*…*）：这些是表演提示，不该被 TTS 念出来。"""
+    return _ACTIONS.sub("", s or "").strip()
+
 from ..config import Config
 from ..protocol import ServerEvent
 from ..providers import ASRProvider, LLMProvider, TTSProvider
@@ -138,12 +146,20 @@ class CallSession:
             yield frame
 
     def _looks_like_echo(self, text: str) -> bool:
-        """识别到的"用户"文本是不是 AI 自己声音的回灌：在音频播放窗口内、且与 AI 已说内容重叠。
-        防"她说着说着自己停下来"——回声误触发打断。真正插话内容不重叠，照常打断。"""
-        if not self._ai_said or time.monotonic() > self._audio_until + 0.6:
+        """识别到的"用户"文本是不是 AI 自己声音的回灌：在音频播放窗口内、且与 AI 已说内容高度重叠。
+        防"她说着说着自己停下来"——回声误触发打断。ASR 把回声转写得往往不全字对字，故用模糊重叠
+        而非严格子串：子串命中 或 八成字符都在 AI 已说内容里 → 判回声。真插话用词不同，不会命中。"""
+        if not self._ai_said or time.monotonic() > self._audio_until + 0.8:
             return False
         nt = _norm(text)
-        return len(nt) >= 2 and nt in _norm(self._ai_said)
+        if len(nt) < 2:
+            return False
+        said = _norm(self._ai_said)
+        if nt in said:
+            return True
+        chars = set(nt)
+        overlap = sum(1 for ch in chars if ch in said) / len(chars)
+        return overlap >= 0.8
 
     # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
     async def _listen_loop(self) -> None:
@@ -297,11 +313,14 @@ class CallSession:
 
     async def _speak(self, sentence: str, spoke: list[str]) -> None:
         """task C：一句的流式发声。有 audio_emit 则把音频块二进制下行；骨架仅计时长。"""
-        await self._emit(ServerEvent.subtitle("ai", sentence))
-        self._ai_said += sentence  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
+        spoken = _strip_actions(sentence)   # 去掉（轻声笑）这类舞台提示，别让 TTS 念出来
+        if not spoken:
+            return  # 整句都是括号动作/旁白：不发音、不进上下文
+        await self._emit(ServerEvent.subtitle("ai", spoken))
+        self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
         async for chunk in self.tts.synthesize(
-            sentence, voice_id=self.voice_id, emotion=self.emotion_tag
+            spoken, voice_id=self.voice_id, emotion=self.emotion_tag
         ):
             if self._interrupt.is_set():
                 return  # 熔断：停下行 + 丢弃后续（清 tts_queue 的等价）
@@ -313,7 +332,7 @@ class CallSession:
             dur = audio_bytes / (24000 * 2)
             self._audio_until = max(time.monotonic(), self._audio_until) + dur
             log.info("⟶ 句音频 %d bytes（voice=%s）", audio_bytes, self.voice_id)
-        spoke.append(sentence)  # 整句播完 → ack 边界
+        spoke.append(spoken)  # 整句播完 → ack 边界（进上下文用清洗后的口语文本）
 
     # ── 打断（§1.5：停下行 → 清队列 → cancel → 半截话进上下文 → 回 listening）──
     async def interrupt(self) -> None:

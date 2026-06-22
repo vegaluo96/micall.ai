@@ -18,9 +18,27 @@ from .models import AutonomousState, CharacterRuntime, UserProfile
 Message = dict
 
 
+def _identity_line(idt: dict) -> str:
+    """把 identity 摊成一句「基本资料」，让 AI 清楚自己是谁（被问性别/年龄/外貌/生日能答上）。"""
+    prof = idt.get("profile", {}) or {}
+    bits = [b for b in (
+        idt.get("gender", ""),
+        f"{idt['age']}岁" if idt.get("age") not in (None, "") else "",
+        idt.get("nationality", ""),
+        f"外貌：{idt['appearance']}" if idt.get("appearance") else "",
+        f"生日 {prof['birthday']}" if prof.get("birthday") else "",
+        f"身高{prof['height_cm']}cm" if prof.get("height_cm") else "",
+        f"体重{prof['weight_kg']}kg" if prof.get("weight_kg") else "",
+    ) if b]
+    return "你的基本资料：" + "，".join(bits) if bits else ""
+
+
 def _persona_block(c: CharacterRuntime) -> str:
     p = c.persona
     lines = [f"你是{c.name}。以下是你这个人（不是助手，是一个独立的人）："]
+    idl = _identity_line(c.identity)
+    if idl:
+        lines.append(idl)
     if p.get("core_traits"):
         lines.append("核心特质：" + "、".join(p["core_traits"]))
     if p.get("speaking_style"):
@@ -47,6 +65,7 @@ _PRINCIPLES = (
     "（绝不说半句、不戛然而止；你自己控制长短，别等被截断）；想多说也收住，留到下一轮。"
     "别长篇大论、别分点罗列、别一口气问一堆问题；介绍场景/情境也一两句带过即可，不要铺陈。"
     "说完就留白，把话头交给对方。"
+    "这是语音通话：别写括号里的动作/神态/旁白（如（轻声笑）（歪着头）），就当面对面，直接把话说出来。"
 )
 
 
