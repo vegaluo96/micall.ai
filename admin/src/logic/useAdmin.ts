@@ -14,6 +14,7 @@ export function useAdmin(props: AdminProps = {}): AdminLogic {
 
   useEffect(() => {
     const logic = ref.current!;
+    void logic.componentDidMount();
     return () => logic.componentWillUnmount();
   }, []);
 

@@ -10,6 +10,7 @@
 // change required.
 
 import type { Vals } from "../dc/resolve";
+import { loadApiConfig, saveApiConfig, testApiSection } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -203,6 +204,30 @@ export class AdminLogic {
     this._tt = [];
   }
 
+  /** Load any persisted 接口配置 over the built-in defaults (铁律2). */
+  async componentDidMount() {
+    const loaded = await loadApiConfig();
+    if (!loaded) return;
+    this.setState((p) => {
+      const merged: any = { ...p.apiCfg };
+      for (const k of Object.keys(loaded)) merged[k] = { ...(p.apiCfg[k] || {}), ...loaded[k] };
+      return { apiCfg: merged };
+    });
+  }
+
+  /** 保存接口配置：有后端走 REST（密钥存服务端），无后端落 localStorage。 */
+  async saveApi(name: string) {
+    const ok = await saveApiConfig(this.state.apiCfg);
+    this.toastMsg(ok ? name + " 配置已保存" : name + " 保存失败，请重试");
+  }
+
+  /** 连通性测试：有后端实测该节点；无后端时无法跨域直连，沿用乐观提示。 */
+  async testApi(sectionKey: string, name: string) {
+    const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
+    if (res === null) this.toastMsg(name + " 连接测试成功");
+    else this.toastMsg(res ? name + " 连接测试成功" : name + " 连接测试失败");
+  }
+
   toastMsg(m: string) {
     this.setState({ toast: m });
     clearTimeout(this._t);
@@ -322,7 +347,7 @@ export class AdminLogic {
       statusLabel: "已连接", statusColor: "#1FA971", statusBg: "rgba(31,169,113,.1)",
       providers: (sec.providers || []).map((p: string) => ({ name: p, pick: () => this.setCfg(sec.key, "provider", p), bg: cfg.provider === p ? "#16161A" : "#fff", color: cfg.provider === p ? "#fff" : "#5A5E6B", border: cfg.provider === p ? "#16161A" : "#E6E7EB" })),
       fields: sec.fields.map((f: any) => ({ label: f.label, value: cfg[f.k] || "", type: f.pw ? "password" : "text", full: f.full ? "grid-column:1 / -1;" : "", onInput: (e: any) => this.setCfg(sec.key, f.k, e.target.value) })),
-      test: () => this.toastMsg(sec.name + " 连接测试成功"), save: () => this.toastMsg(sec.name + " 配置已保存"),
+      test: () => this.testApi(sec.key, sec.name), save: () => this.saveApi(sec.name),
     }; });
     const stC: Record<string, any> = { "正常": { c: "#1FA971", b: "rgba(31,169,113,.1)" }, "未配置": { c: "#878B95", b: "#F0F0F3" }, "延迟高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "成本高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "异常": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "备用中": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } };
     const stp = (st: string) => { const x = stC[st] || stC["正常"]; return { status: st, stColor: x.c, stBg: x.b }; };
