@@ -139,8 +139,9 @@ cd ~/micall.ai && git pull origin main
 sudo systemctl restart micall-backend
 journalctl -u micall-backend -n 5    # 应看到「后台配置 API http://127.0.0.1:8788/admin/api-config」
 
-# 2) nginx 放开 /admin/api-config 反代（micall-admin.conf 已含，覆盖后 reload）
+# 2) nginx 放开 /admin/ 反代（cp 会覆盖 certbot 的 443 块 → 必须重跑 certbot 补回 SSL！）
 sudo cp ~/micall.ai/deploy/nginx/micall-admin.conf /etc/nginx/sites-available/micall-admin
+sudo certbot --nginx -d admin.zsky.com     # 选 1 reinstall：把 443/SSL 装回（cp 把它覆盖了）
 sudo nginx -t && sudo systemctl reload nginx
 
 # 3) admin 指向同源 API 并重新构建
