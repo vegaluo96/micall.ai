@@ -16,7 +16,9 @@ After=network.target
 Type=simple
 User=admin
 WorkingDirectory=/home/admin/micall.ai/backend
-Environment=PYTHONPATH=src
+# 绝对路径：相对的 PYTHONPATH=src 在 systemd 下不稳，会 No module named 'micall'。
+# 若仓库不在 /home/admin/micall.ai，按实际路径改这一行与 WorkingDirectory/EnvironmentFile。
+Environment=PYTHONPATH=/home/admin/micall.ai/backend/src
 # 真实密钥（铁律2）：写进 config/micall.env（不入库），形如：
 #   MICALL_LLM_FAST_ENDPOINT=https://api.apiyi.com/v1/chat/completions
 #   MICALL_LLM_FAST_API_KEY=sk-xxx
