@@ -1,27 +1,32 @@
 """会话编排（docs/02 §1.3 / §1.5）—— 一通电话 = 一个常驻协程，持有打断事件与发声队列。
 
-骨架忠实再现状态机 / 句子级首句抢跑 / 情绪 piggyback / 打断熔断 / 服务端权威计费，用
-stub providers 驱动，可单测。真实接入点（已标注）：
-  • task A 感知：真实 VAD + 流式 ASR（百炼 Qwen3-ASR）喂帧 → end-of-turn → 触发 task B；
-    骨架由 on_user_text（文字模式 / ASR final 文本）触发一轮。
-  • task C 发声：真实经 WebRTC 媒体通道下行 push 音频；骨架用 stub TTS 计时长。
+忠实再现状态机 / 句子级首句抢跑 / 情绪 piggyback / 打断熔断 / 服务端权威计费，用
+stub providers 驱动，可单测。实时链路：
+  • task A 感知：传入 realtime_asr 时，_listen_loop 把上行麦克风帧（push_audio）喂流式 ASR，
+    partial 回显、sentence_end 即 end-of-turn 触发一轮、用户开口即打断（barge-in §1.4-1.5）；
+    无 realtime_asr 则纯文字模式，由 on_user_text 触发（ASR final 文本 / 文字输入）。
+  • task C 发声：传入 audio_emit 时，_speak 把 TTS 音频块二进制下行给前端播放；否则只计时长。
   • prefix caching / 分层注入（§1.7 降 TTFT）在 ContextAssembler 留接口。
-媒体归媒体、控制归控制：本类只产出控制事件（ServerEvent），交 server 下发。
+音频走二进制帧（骨架/简化路径），控制走 ServerEvent；后续可平滑换 WebRTC 媒体通道。
 """
 from __future__ import annotations
 
 import asyncio
-from typing import Awaitable, Callable
+import logging
+from typing import AsyncIterator, Awaitable, Callable
 
 from ..config import Config
 from ..protocol import ServerEvent
-from ..providers import LLMProvider, TTSProvider
+from ..providers import ASRProvider, LLMProvider, TTSProvider
 from ..context.assembler import ContextAssembler
 from .billing import BillingMeter
 from .emotion import EmotionStripper
 from .state import CallStateMachine, Phase
 
+log = logging.getLogger("micall.session")
+
 Emit = Callable[[dict], Awaitable[None]]
+AudioEmit = Callable[[bytes], Awaitable[None]]
 
 _SENTENCE_END = set("。！？!?\n")
 
@@ -46,11 +51,15 @@ class CallSession:
         scenario: str,
         remaining_seconds: int,
         voice_id: str,
+        audio_emit: AudioEmit | None = None,
+        realtime_asr: ASRProvider | None = None,
     ) -> None:
         self.config = config
         self._emit_raw = emit
+        self._audio_emit = audio_emit      # 下行音频（TTS 二进制帧）；None=纯控制（骨架/测试）
         self.llm = llm
         self.tts = tts
+        self._asr_rt = realtime_asr        # 实时流式 ASR（task A 感知）；None=文字模式
         self.assembler = assembler
         self.character_id = character_id
         self.scenario = scenario
@@ -63,6 +72,9 @@ class CallSession:
         )
         self._interrupt = asyncio.Event()
         self._billing_task: asyncio.Task | None = None
+        self._listen_task: asyncio.Task | None = None    # task A：ASR 感知常驻协程
+        self._current_turn: asyncio.Task | None = None   # 语音模式下当前一轮（可被打断）
+        self._mic_q: asyncio.Queue[bytes | None] = asyncio.Queue()  # 上行麦克风帧
         self._turn_lock = asyncio.Lock()  # 串行化一轮生成，防并发触发
         self.history: list[dict] = []      # 对话滑窗（assistant 只记实际播出，§1.5）
         self.emotion_tag = "neutral"
@@ -83,6 +95,60 @@ class CallSession:
         self.sm.to(Phase.LISTENING)
         await self._emit(ServerEvent.state(Phase.LISTENING.value))
         self._billing_task = asyncio.create_task(self._billing_loop())
+        # task A 感知：有实时 ASR 才起（语音模式）；否则纯文字模式由 on_user_text 驱动。
+        if self._asr_rt is not None:
+            self._listen_task = asyncio.create_task(self._listen_loop())
+
+    # ── 上行音频：server 收到二进制帧 → 入队，喂给 task A 的 ASR 流 ──
+    def push_audio(self, frame: bytes) -> None:
+        if frame and self.sm.active and not self._muted:
+            self._mic_q.put_nowait(frame)
+
+    async def _mic_frames(self) -> AsyncIterator[bytes]:
+        """把上行队列包成异步帧流喂 ASR；收到哨兵 None（挂断）即收尾。"""
+        while True:
+            frame = await self._mic_q.get()
+            if frame is None:
+                return
+            yield frame
+
+    # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
+    async def _listen_loop(self) -> None:
+        try:
+            async for text, is_final in self._asr_rt.stream(self._mic_frames()):
+                if not text or self.sm.phase in (Phase.IDLE, Phase.ENDED):
+                    continue
+                # 用户在 AI 思考/发声时开口 → 打断（barge-in）。
+                if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
+                    await self.interrupt()
+                if is_final:
+                    await self._begin_turn(text)          # end-of-turn → 起新一轮
+                else:
+                    await self._emit(ServerEvent.subtitle("user", text, partial=True))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # ASR 断流/协议异常：不拖垮整通电话，退回可由文字驱动
+            log.warning("实时 ASR(task A) 退出：%r", e)
+
+    async def _begin_turn(self, text: str) -> None:
+        """语音模式起一轮：先打断上一轮（task A 不被生成阻塞，才能继续听打断），再起新任务。"""
+        prev = self._current_turn
+        if prev is not None and not prev.done():
+            self._interrupt.set()
+            try:
+                await prev
+            except asyncio.CancelledError:
+                pass
+        self._current_turn = asyncio.create_task(self._guarded_turn(text))
+
+    async def _guarded_turn(self, text: str) -> None:
+        try:
+            async with self._turn_lock:
+                await self._generate_turn(text)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            log.warning("生成一轮失败：%r", e)
 
     # ── task B + C（骨架内联；真实拆成常驻协程经 tts_queue 解耦）──
     async def on_user_text(self, text: str) -> None:
@@ -153,13 +219,15 @@ class CallSession:
             await self._emit(ServerEvent.state(Phase.LISTENING.value))
 
     async def _speak(self, sentence: str, spoke: list[str]) -> None:
-        """task C：一句的流式发声。真实经 WebRTC 下行；骨架消费 stub TTS 计时长。"""
+        """task C：一句的流式发声。有 audio_emit 则把音频块二进制下行；骨架仅计时长。"""
         await self._emit(ServerEvent.subtitle("ai", sentence))
-        async for _chunk in self.tts.synthesize(
+        async for chunk in self.tts.synthesize(
             sentence, voice_id=self.voice_id, emotion=self.emotion_tag
         ):
             if self._interrupt.is_set():
                 return  # 熔断：停下行 + 丢弃后续（清 tts_queue 的等价）
+            if self._audio_emit is not None and chunk:
+                await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
         spoke.append(sentence)  # 整句播完 → ack 边界
 
     # ── 打断（§1.5：停下行 → 清队列 → cancel → 半截话进上下文 → 回 listening）──
@@ -192,15 +260,19 @@ class CallSession:
 
     async def end(self, emit_ended: bool = True) -> None:
         self._interrupt.set()
-        task = self._billing_task
-        self._billing_task = None
-        if task is not None:
+        self._mic_q.put_nowait(None)        # 哨兵：让 _mic_frames 收尾 → ASR 流自然结束
+        # 收掉计费 / task A / 当前一轮（避免它们在挂断后还往已关连接下行）。
+        tasks = [self._billing_task, self._listen_task, self._current_turn]
+        self._billing_task = self._listen_task = self._current_turn = None
+        for task in tasks:
+            if task is None:
+                continue
             task.cancel()
-            # 若 end 由计费循环自身（exhausted）触发，不能 await 自己 → 只标记取消。
+            # 若 end 由该任务自身（如计费 exhausted）触发，不能 await 自己 → 只标记取消。
             if task is not asyncio.current_task():
                 try:
                     await task
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, Exception):
                     pass
         if self.sm.phase != Phase.ENDED and self.sm.can(Phase.ENDED):
             self.sm.to(Phase.ENDED)

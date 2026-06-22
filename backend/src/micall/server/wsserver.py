@@ -19,7 +19,7 @@ from ..context import CharacterRuntime, ContextAssembler
 from ..memory import InMemoryRepository, MemoryRepository
 from ..offline import UnderstandingEngine
 from ..protocol import ServerEvent, parse_client_message
-from ..providers import make_llm, make_tts
+from ..providers import make_llm, make_realtime_asr, make_tts
 from ..session import CallSession
 
 log = logging.getLogger("micall.signal")
@@ -91,7 +91,18 @@ class SignalingServer:
             persona={"core_traits": ["温柔", "会倾听"], "speaking_style": "轻声、慢"},
         )
 
-    def _make_session(self, *, emit, character_id, scenario) -> CallSession:
+    def _make_realtime_asr(self):
+        """实时流式 ASR（task A）。需 api_key + ws_endpoint；缺则 None → 退文字模式。"""
+        node = self.config.node("asr")
+        if not (node.api_key.strip() and node.params.get("ws_endpoint")):
+            return None
+        try:
+            return make_realtime_asr(node)
+        except Exception as e:  # 依赖缺失/构造失败：不阻断通话，退文字模式
+            log.warning("实时 ASR 初始化失败，转文字模式：%r", e)
+            return None
+
+    def _make_session(self, *, emit, audio_emit=None, character_id, scenario) -> CallSession:
         char = self._character(character_id)
         user_voice = self.repo.get_user_voice(_ANON, char.character_id)
         voice_id = resolve_voice(
@@ -108,8 +119,10 @@ class SignalingServer:
         return CallSession(
             config=self.config,
             emit=emit,
+            audio_emit=audio_emit,
             llm=make_llm(self.config.node("llm_fast")),
             tts=make_tts(self.config.node("tts")),
+            realtime_asr=self._make_realtime_asr(),
             assembler=assembler,
             character_id=char.character_id,
             scenario=scenario or "",
@@ -125,10 +138,17 @@ class SignalingServer:
                 log.info("  ⟶ %s", ev.get("type"))
             await websocket.send(json.dumps(ev, ensure_ascii=False))
 
+        async def audio_emit(buf: bytes) -> None:
+            await websocket.send(buf)  # 二进制下行：TTS 音频帧（媒体）
+
         addr = getattr(websocket, "remote_address", None)
         log.info("⇆ 新连接 %s", addr[0] if addr else "?")
         try:
             async for raw in websocket:
+                if isinstance(raw, (bytes, bytearray)):
+                    if session is not None:
+                        session.push_audio(bytes(raw))  # 上行麦克风帧 → task A
+                    continue
                 msg = parse_client_message(raw)
                 if msg is None:
                     continue  # 畸形/未知帧静默丢弃（与前端容错一致）
@@ -138,7 +158,8 @@ class SignalingServer:
                         await session.end(emit_ended=False)
                     self._reload_config()  # 拾取后台「接口配置」最新改动（无需重启）
                     session = self._make_session(
-                        emit=emit, character_id=msg.character_id, scenario=msg.scenario
+                        emit=emit, audio_emit=audio_emit,
+                        character_id=msg.character_id, scenario=msg.scenario,
                     )
                     await session.start()
                 elif msg.type == "switch_character":
@@ -146,7 +167,8 @@ class SignalingServer:
                         await session.end(emit_ended=False)  # 切角色 = 结束 + 新建（docs/03 §3）
                     self._reload_config()
                     session = self._make_session(
-                        emit=emit, character_id=msg.character_id, scenario=msg.scenario
+                        emit=emit, audio_emit=audio_emit,
+                        character_id=msg.character_id, scenario=msg.scenario,
                     )
                     await session.start()
                 elif msg.type == "end_call":
