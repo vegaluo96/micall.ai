@@ -13,7 +13,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import time
 from typing import AsyncIterator, Awaitable, Callable
+
+_NON_WORD = re.compile(r"\W+", re.UNICODE)
+
+
+def _norm(s: str) -> str:
+    """去标点/空白，保留中英文字符，用于回声重叠判定。"""
+    return _NON_WORD.sub("", s or "")
 
 from ..config import Config
 from ..protocol import ServerEvent
@@ -78,6 +87,8 @@ class CallSession:
         self._turn_lock = asyncio.Lock()  # 串行化一轮生成，防并发触发
         self.history: list[dict] = []      # 对话滑窗（assistant 只记实际播出，§1.5）
         self.emotion_tag = "neutral"
+        self._ai_said = ""                  # 本轮 AI 已说出的文本（用于回声判定）
+        self._audio_until = 0.0             # AI 下行音频估计播放到的时刻（monotonic 秒）
         self._muted = False
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 256))
 
@@ -112,6 +123,14 @@ class CallSession:
                 return
             yield frame
 
+    def _looks_like_echo(self, text: str) -> bool:
+        """识别到的"用户"文本是不是 AI 自己声音的回灌：在音频播放窗口内、且与 AI 已说内容重叠。
+        防"她说着说着自己停下来"——回声误触发打断。真正插话内容不重叠，照常打断。"""
+        if not self._ai_said or time.monotonic() > self._audio_until + 0.6:
+            return False
+        nt = _norm(text)
+        return len(nt) >= 2 and nt in _norm(self._ai_said)
+
     # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
     async def _listen_loop(self) -> None:
         last_final = ""
@@ -121,6 +140,8 @@ class CallSession:
                 t = (text or "").strip()
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
+                if self._looks_like_echo(t):
+                    continue  # AI 自己的声音回灌麦克风，忽略（不打断、不触发新一轮）
                 if not is_final:
                     # 用户开口（首个实质中间结果）→ 立刻打断：停后端生成 + 让前端停播。
                     # 关键：后端可能已把整句音频发完、状态回 listening，但前端还在播缓冲，
@@ -179,6 +200,7 @@ class CallSession:
 
     async def _generate_turn(self, user_text: str) -> None:
         self._interrupt.clear()
+        self._ai_said = ""  # 新一轮：清空回声基准（上一轮 AI 文本已无需再防）
         await self._emit(ServerEvent.subtitle("user", user_text))
         self.history.append({"role": "user", "content": user_text})
 
@@ -239,6 +261,7 @@ class CallSession:
     async def _speak(self, sentence: str, spoke: list[str]) -> None:
         """task C：一句的流式发声。有 audio_emit 则把音频块二进制下行；骨架仅计时长。"""
         await self._emit(ServerEvent.subtitle("ai", sentence))
+        self._ai_said += sentence  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
         async for chunk in self.tts.synthesize(
             sentence, voice_id=self.voice_id, emotion=self.emotion_tag
@@ -249,6 +272,9 @@ class CallSession:
                 await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
                 audio_bytes += len(chunk)
         if self._audio_emit is not None:
+            # 估计这句在前端播放到的时刻（24kHz 16bit 单声道）→ 用于回声判定的时间窗。
+            dur = audio_bytes / (24000 * 2)
+            self._audio_until = max(time.monotonic(), self._audio_until) + dur
             log.info("⟶ 句音频 %d bytes（voice=%s）", audio_bytes, self.voice_id)
         spoke.append(sentence)  # 整句播完 → ack 边界
 
