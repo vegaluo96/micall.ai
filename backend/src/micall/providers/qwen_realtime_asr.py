@@ -50,7 +50,8 @@ class QwenRealtimeASR(ASRProvider):
                 "type": "session.update",
                 "session": {
                     "modalities": ["text"],
-                    "input_audio_format": "pcm16",
+                    "input_audio_format": "pcm",   # DashScope 用 "pcm"+sample_rate（非 OpenAI 的 pcm16）
+                    "sample_rate": self.sample_rate,
                     "turn_detection": {"type": "server_vad"},
                 },
             }))
