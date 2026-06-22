@@ -175,11 +175,11 @@ MICALL_LLM_FAST_API_KEY=sk-xxxx
 MICALL_TTS_ENDPOINT=https://api.minimax.chat/v1/t2a_v2?GroupId=你的GroupId
 MICALL_TTS_API_KEY=你的MiniMax国内key
 
-# ASR —— 百炼 Qwen3-ASR-Flash（默认北京区；香港跨境慢就换下面注释的新加坡区+国际站key）
-MICALL_ASR_ENDPOINT=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
-MICALL_ASR_API_KEY=你的百炼key
-# 新加坡区（离香港近，常更快，需国际站独立账号/独立 key）：
-# MICALL_ASR_ENDPOINT=https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
+# ASR —— 百炼 Qwen3-ASR-Flash。实测香港→北京区整段 3465ms🔴、新加坡区 675ms🟢（≈5x）→ 用新加坡区。
+# 国际站独立账号；若给业务空间专属域名，用控制台「OpenAI 兼容地址」末尾补 /chat/completions。
+MICALL_ASR_ENDPOINT=https://ws-你的工作空间.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
+MICALL_ASR_API_KEY=你的国际站key
+# 无专属域名时用通用国际站端点：https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
 ```
 
 各链路单独实测（地基生死验证）：

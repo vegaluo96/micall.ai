@@ -44,6 +44,23 @@ def _delta_text(delta: object) -> str:
     return ""
 
 
+def _collapse_repeat(s: str) -> str:
+    """兜底：整段识别偶发把整句重复一遍（流式分块/模型重复）→ 折叠成一份。
+
+    真正彻底的处理放到实时流式 WS 那层（能看原始事件）；这里先保证落地文本不翻倍。
+    """
+    t = " ".join(s.split())  # 归一空白
+    if not t:
+        return t
+    parts = t.split(" ")
+    if len(parts) == 2 and parts[0] and parts[0] == parts[1]:  # "X X"
+        return parts[0]
+    n = len(t)
+    if n % 2 == 0 and t[: n // 2] == t[n // 2:]:               # "XX"
+        return t[: n // 2]
+    return t
+
+
 class BailianASR(ASRProvider):
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -99,7 +116,7 @@ class BailianASR(ASRProvider):
                     # 累计式时新块以已得文本为前缀 → 直接替换，避免拼成两遍。
                     text = seg if seg.startswith(text) else text + seg
                     yield text, False
-        yield text, True
+        yield _collapse_repeat(text), True
 
     async def stream(
         self, frames: AsyncIterator[bytes]
