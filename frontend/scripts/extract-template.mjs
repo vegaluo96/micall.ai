@@ -93,5 +93,13 @@ template = template
   .replace(/\s*@keyframes blobC\{[^\n]*\}/, "")
   .replace(/\s*@keyframes blobD\{[^\n]*\}/, "");
 
+// 工单回复文本：去掉 text-wrap:pretty —— 它在 iOS Safari 的「嵌套 flex 子项」里会低估文本
+// 高度，导致外层滚动列表内容总高算少、滚到底时最后一行仍被裁切（用户：换行/显示有问题）。
+// 回复是 flex:1 子项，用默认换行即可，去掉不影响排版；bio/隐私是普通 block 故不受影响。
+template = template.replace(
+  ';line-height:1.65;text-wrap:pretty;">{{ tk.reply }}</div>',
+  ';line-height:1.65;">{{ tk.reply }}</div>',
+);
+
 writeFileSync(OUT, template, "utf8");
 console.log(`Wrote ${OUT} (${template.split("\n").length} lines) from prototype.`);
