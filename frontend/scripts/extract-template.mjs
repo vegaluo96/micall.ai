@@ -31,6 +31,12 @@ template = template.replace(
   '<div style="position:absolute;top:0;bottom:0;right:0;width:74%;z-index:11;',
   '<div class="dcx-drawer-right" style="position:absolute;top:0;bottom:0;right:0;width:74%;z-index:11;',
 );
+// Tag the desktop side panels with the theme so dark mode reaches them
+// (they live outside the themed .phone/.screen and otherwise stay light).
+template = template.replaceAll(
+  '<div class="deskside" style="zoom:{{ rootZoom }};--fz:{{ rootZoom }};">',
+  '<div class="deskside" data-theme="{{ theme }}" style="zoom:{{ rootZoom }};--fz:{{ rootZoom }};">',
+);
 
 writeFileSync(OUT, template, "utf8");
 console.log(`Wrote ${OUT} (${template.split("\n").length} lines) from prototype.`);

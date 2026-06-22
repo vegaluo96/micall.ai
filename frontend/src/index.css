@@ -54,9 +54,13 @@ body {
     position: relative !important;
     inset: 0 !important;
     width: 100% !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    min-height: 100dvh !important;
+    /* The screen is `zoom: rootZoom` (1 / 1.06 / 1.11 for 标准/大/特大). A bare
+       100dvh height would then render ~6–11% taller than the viewport and the
+       page would scroll at larger fonts. Divide by the zoom so it renders to
+       exactly one viewport — the same trick the prototype uses for .deskside. */
+    height: calc(100vh / var(--fz, 1)) !important;
+    height: calc(100dvh / var(--fz, 1)) !important;
+    min-height: calc(100dvh / var(--fz, 1)) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
@@ -98,5 +102,34 @@ body {
 @media (min-width: 1100px) {
   .deskside {
     padding-top: 18px !important;
+  }
+
+  /* 中间手机自适应平铺：screen 同样按 zoom 折算高度，避免内容溢出 .phone 触发
+     那条几乎满高的滚动条（特别是字体调大时）。 */
+  .phone .screen {
+    height: calc(100vh / var(--fz, 1)) !important;
+    min-height: calc(100vh / var(--fz, 1)) !important;
+  }
+
+  /* ── 深色模式跟随：侧栏在 .phone/.screen 之外，原本写死浅色配色，不随主题变。 ──
+     给 .deskside 标了 data-theme 后，这里让其配色走主题变量。 */
+  .deskside {
+    color: var(--fg) !important;
+    border-color: var(--line) !important;
+  }
+  .deskside svg {
+    stroke: var(--fg);
+  }
+  .deskside[data-theme="dark"] {
+    background: #0e0e14 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+  /* 深色下把写死的深色文字（含 rgba(0,0,0,.4/.45) 次级文字）整体提亮 */
+  .deskside[data-theme="dark"] span {
+    color: #f5f5f7 !important;
+  }
+  /* 保留品牌 ".ai" 的紫色 */
+  .deskside[data-theme="dark"] > div:first-child span:last-child {
+    color: #6e5cff !important;
   }
 }

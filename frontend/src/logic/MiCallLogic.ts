@@ -262,37 +262,50 @@ export class MiCallLogic {
   }
   private send(msg: ClientMessage) { this.ensureSignaling().send(msg); }
 
-  startCall() {
-    if (this.state.phase !== "idle") return;
-    if (!this.state.micGranted) { this.setState({ permOpen: true }); return; }
-    this.beginCall();
+  private usingMockSignaling(): boolean {
+    return !(import.meta.env?.VITE_SIGNALING_URL && import.meta.env.VITE_SIGNALING_URL.trim());
   }
 
-  async grantMic() {
-    // Real microphone request with AEC on (defends against echo-triggered
-    // false interrupts — 后端规格 §1.1). On success we connect.
+  /** Acquire the microphone (AEC on — defends against echo-triggered false
+   *  interrupts, 后端规格 §1.1). Idempotent: reuses an existing stream. */
+  private async acquireMic(): Promise<boolean> {
+    if (this.micStream) return true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } });
       this.micStream = stream;
       this.applyMuteToTracks();
-      this.setState({ micGranted: true, permOpen: false });
-      this.beginCall();
-    } catch (e) {
-      // Permission denied / no device. With the mock backend we still let the
-      // demo proceed; against a real backend we surface the failure.
-      const usingMock = !(import.meta.env.VITE_SIGNALING_URL && import.meta.env.VITE_SIGNALING_URL.trim());
-      if (usingMock) {
-        this.setState({ micGranted: true, permOpen: false });
-        this.beginCall();
-      } else {
-        this.setState({ permOpen: false, toast: "需要麦克风权限才能通话" });
-        this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
-      }
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  private beginCall() {
+  startCall() {
+    if (this.state.phase !== "idle") return;
+    if (!this.state.micGranted) { this.setState({ permOpen: true }); return; }
+    void this.beginCall();
+  }
+
+  async grantMic() {
+    const ok = await this.acquireMic();
+    if (ok) {
+      this.setState({ micGranted: true, permOpen: false });
+      void this.beginCall();
+    } else if (this.usingMockSignaling()) {
+      // Permission denied / no device — let the mock demo proceed anyway.
+      this.setState({ micGranted: true, permOpen: false });
+      void this.beginCall();
+    } else {
+      this.setState({ permOpen: false, toast: "需要麦克风权限才能通话" });
+      this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+    }
+  }
+
+  private async beginCall() {
     this.clearTimers();
+    // (Re)acquire the mic for this call. Permission persists once granted, so
+    // re-acquiring after a previous hang-up is silent (no prompt).
+    if (this.state.micGranted && !this.micStream) await this.acquireMic();
     this.setState({ phase: "calling", callFailed: false, lowWarned: false });
     const msg: ClientMessage = { type: "start_call", character_id: this.characterId(this.state.charIndex), scenario: this.currentScenarioKey() };
     this.send(msg);
@@ -301,11 +314,12 @@ export class MiCallLogic {
     }
   }
 
-  retryDial() { this.setState({ callFailed: false }); this.beginCall(); }
+  retryDial() { this.setState({ callFailed: false }); void this.beginCall(); }
 
   endCall() {
     this.clearTimers();
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });
+    this.stopMic(); // release the microphone on hang-up (turns off the mic indicator)
     this.setState({ phase: "ended", textMode: false, rating: 0, feedback: [] });
   }
 
@@ -317,10 +331,12 @@ export class MiCallLogic {
     const ps = this.state.pendingSwitch;
     this.clearTimers();
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });
+    this.stopMic();
     this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, charIndex: ps.idx, scenario: ps.sceneKey, pendingSwitch: null });
   }
   resetIdle() {
     this.clearTimers();
+    this.stopMic();
     this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, rating: 0, feedback: [], note: "" });
   }
 
@@ -373,13 +389,15 @@ export class MiCallLogic {
         break;
       case "out_of_minutes":
         this.clearTimers();
+        this.stopMic();
         this.setState({ remaining: 0, outOfMins: true, phase: "idle", subtitle: "", lines: [] });
         break;
       case "call_failed":
+        this.stopMic();
         this.setState({ phase: "idle", callFailed: true });
         break;
       case "ended":
-        if (this.state.phase !== "ended") this.setState({ phase: "ended", textMode: false });
+        if (this.state.phase !== "ended") { this.stopMic(); this.setState({ phase: "ended", textMode: false }); }
         break;
     }
   }

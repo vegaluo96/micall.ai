@@ -76,9 +76,11 @@ check("ended state", ended, ["通话结束", "这次聊得怎么样？"]);
 const charSheet = render((l) => { l.state.charOpen = true; });
 check("character sheet", charSheet, ["选择角色", "推荐", "热门", "收藏", "搜索角色"]);
 
-// 6) Dark theme flips the data-theme attribute that drives CSS variables.
+// 6) Dark theme flips the data-theme attribute that drives CSS variables —
+// including the two desktop side panels (so dark mode reaches them).
 const dark = render((l) => { l.state.theme = "dark"; });
 check("dark theme attribute", dark, ['data-theme="dark"']);
+check("desksides carry the theme", dark, ['class="deskside" data-theme="dark"']);
 
 // 7) Every sheet renders its sc-for lists without throwing.
 const sheets: [string, (l: any) => void, string[]][] = [
