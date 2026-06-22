@@ -65,8 +65,12 @@ class MiniMaxTTS(TTSProvider):
                     except ValueError:
                         tail.append(line[:200])
                         continue
-                    chunk = (evt.get("data") or {}).get("audio", "")
-                    if chunk:
+                    data = evt.get("data") or {}
+                    chunk = data.get("audio", "")
+                    # status==2 / 带 extra_info 是末尾汇总事件：会把整段音频再发一遍 →
+                    # 已有增量块就跳过，否则音频翻倍（合成的语音会重复念一遍）。
+                    is_summary = data.get("status") == 2 or "extra_info" in evt
+                    if chunk and not (is_summary and got):
                         got = True
                         yield bytes.fromhex(chunk)
                     br = evt.get("base_resp")
