@@ -67,14 +67,19 @@ body {
   }
   /* The two slide-in drawers carry 48px corners meant to hug the phone screen's
      rounded edge. Full-bleed they'd expose the background at the viewport edge,
-     so square them into clean edge-to-edge panels. */
+     so square them into clean edge-to-edge panels.
+
+     Their top padding is 74px = 56px(status bar) + 18px(header). We hide the
+     status bar full-bleed, so 74px pushed the drawer titles ~56px below the
+     real header row ("选择场景" pill). Drop the status-bar height → 18px so the
+     drawer titles line up with the header, restoring the prototype's alignment. */
   .dcx-drawer-left,
   .dcx-drawer-right {
     border-radius: 0 !important;
+    padding-top: 18px !important;
   }
-  /* Align the two drawers' title rows: the history title ("通话记录") ships with
-     padding-top:6px while the menu logo ("MiCall.ai") has 0, so its top sat 6px
-     lower. Zero it so both titles start at the same Y. */
+  /* The history title ("通话记录") ships with padding-top:6px while the menu logo
+     ("MiCall.ai") has 0 — zero it so both drawer titles sit at the same Y. */
   .dcx-drawer-right > div:first-child {
     padding-top: 0 !important;
   }

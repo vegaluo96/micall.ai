@@ -76,6 +76,51 @@ sudo nginx -t && sudo systemctl reload nginx
 3. **80 端口**：certbot HTTP 校验走 80，安全组/防火墙要放行；大陆 ECS 用域名还需 ICP 备案。
 4. 签好后 certbot 会自动加 443 跳转；`sudo certbot certificates` 可看已签域名。
 
+### 证书签到了、但「Could not install certificate / 找不到 server block」
+certbot 已拿到证书（`/etc/letsencrypt/live/admin.zsky.com/`），只是没能装进 nginx，报
+`Could not automatically find a matching server block for admin.zsky.com`。99% 是
+**admin 配置没启用**（`sites-enabled` 里没软链），nginx 没加载它，certbot 自然找不到：
+
+```bash
+# ① 确认是否启用（应看到指向 sites-available/micall-admin 的软链）
+ls -l /etc/nginx/sites-enabled/ | grep micall-admin
+# ② 没有就建软链并 reload
+sudo ln -sf /etc/nginx/sites-available/micall-admin /etc/nginx/sites-enabled/micall-admin
+sudo nginx -t && sudo systemctl reload nginx
+# ③ 证书已签好，直接安装到现在能找到的 server block
+sudo certbot install --cert-name admin.zsky.com
+sudo systemctl reload nginx
+```
+
+仍不行就**手动加 443**（证书已存在，直接引用即可），把 `micall-admin.conf` 里的
+`server{ listen 80; ... }` 换成下面这套 HTTP→HTTPS + 443：
+
+```nginx
+server {
+    listen 80; listen [::]:80;
+    server_name admin.zsky.com;
+    location ^~ /.well-known/acme-challenge/ { auth_basic off; allow all; default_type "text/plain"; }
+    location / { return 301 https://$host$request_uri; }
+}
+server {
+    listen 443 ssl http2; listen [::]:443 ssl http2;
+    server_name admin.zsky.com;
+    ssl_certificate     /etc/letsencrypt/live/admin.zsky.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/admin.zsky.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    root /var/www/micall-admin;
+    index index.html;
+    location ^~ /.well-known/acme-challenge/ { auth_basic off; allow all; default_type "text/plain"; }
+    auth_basic "MiCall Admin";
+    auth_basic_user_file /etc/nginx/.micall_admin_htpasswd;
+    location /assets/ { expires 1y; add_header Cache-Control "public, immutable"; }
+    location = /index.html { add_header Cache-Control "no-cache"; }
+    location / { try_files $uri $uri/ /index.html; }
+}
+```
+然后 `sudo nginx -t && sudo systemctl reload nginx`。
+
 ---
 
 ## 关于「接口配置」里的密钥
