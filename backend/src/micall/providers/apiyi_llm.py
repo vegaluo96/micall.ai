@@ -20,6 +20,17 @@ except ImportError:  # pragma: no cover
     httpx = None  # type: ignore
 
 
+def _chat_endpoint(ep: str) -> str:
+    """容错归一：很多人把 apiyi/OpenAI 文档里的 base_url（.../v1）当 endpoint 填，少了
+    /chat/completions → 404。这里自动补全：已是 chat/completions 原样；以 /v1 结尾则补全。"""
+    ep = (ep or "").strip().rstrip("/")
+    if ep.endswith("/chat/completions"):
+        return ep
+    if ep.endswith("/v1"):
+        return ep + "/chat/completions"
+    return ep
+
+
 class ApiyiLLM(LLMProvider):
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -27,6 +38,7 @@ class ApiyiLLM(LLMProvider):
         if not node.configured:
             raise RuntimeError(f"节点 {node.name} 未配置 endpoint/api_key（铁律2）")
         self._node = node
+        self._endpoint = _chat_endpoint(node.endpoint)
         self._model = node.params.get("model", "DeepSeek-V4-Flash")
 
     async def stream(
@@ -46,7 +58,7 @@ class ApiyiLLM(LLMProvider):
         # OpenAI 兼容 SSE：逐行 data: {json}，token 在 choices[0].delta.content。
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
             async with client.stream(
-                "POST", self._node.endpoint, headers=headers, json=payload
+                "POST", self._endpoint, headers=headers, json=payload
             ) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():

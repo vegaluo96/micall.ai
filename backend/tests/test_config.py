@@ -14,6 +14,20 @@ class TestConfig(unittest.TestCase):
         # 清洗后能正常进 latin-1/ascii 头，不再抛 UnicodeEncodeError。
         (f"Bearer {n.api_key}").encode("ascii")
 
+    def test_chat_endpoint_normalizes_base_url(self):
+        # 用户常把 apiyi/OpenAI 文档的 base_url(.../v1) 当 endpoint 填 → 少了 /chat/completions → 404。
+        from micall.providers.apiyi_llm import _chat_endpoint
+        self.assertEqual(_chat_endpoint("https://api.apiyi.com/v1"), "https://api.apiyi.com/v1/chat/completions")
+        self.assertEqual(_chat_endpoint("https://api.apiyi.com/v1/"), "https://api.apiyi.com/v1/chat/completions")
+        # 已是完整路径则原样保留。
+        self.assertEqual(_chat_endpoint("https://api.apiyi.com/v1/chat/completions"), "https://api.apiyi.com/v1/chat/completions")
+
+    def test_embed_endpoint_normalizes_base_url(self):
+        from micall.providers.bailian_embedding import _embed_endpoint
+        self.assertEqual(_embed_endpoint("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+                         "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings")
+        self.assertTrue(_embed_endpoint("https://x/compatible-mode/v1/embeddings").endswith("/embeddings"))
+
     def test_load_defaults(self):
         c = load_config()
         self.assertEqual(set(c.nodes), set(NODE_KEYS))

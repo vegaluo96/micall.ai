@@ -20,6 +20,16 @@ except ImportError:  # pragma: no cover
 _BATCH = 10  # text-embedding-v3 单次 input 上限，分批喂
 
 
+def _embed_endpoint(ep: str) -> str:
+    """容错归一：填了 base（.../v1 或 .../compatible-mode/v1）就补全 /embeddings，避免 404。"""
+    ep = (ep or "").strip().rstrip("/")
+    if ep.endswith("/embeddings"):
+        return ep
+    if ep.endswith("/v1"):
+        return ep + "/embeddings"
+    return ep
+
+
 class BailianEmbedding:
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -27,7 +37,8 @@ class BailianEmbedding:
         if not node.configured:
             raise RuntimeError(f"节点 {node.name} 未配置 endpoint/api_key（铁律2）")
         self.node = node
-        self.model = node.params.get("model", "text-embedding-v3")
+        self.endpoint = _embed_endpoint(node.endpoint)
+        self.model = node.params.get("model", "text-embedding-v4")
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:  # pragma: no cover （需真实网络/密钥）
         """批量向量化。返回与输入等长的向量列表（按 index 归位，空输入 → []）。"""
@@ -43,7 +54,7 @@ class BailianEmbedding:
             for i in range(0, len(items), _BATCH):
                 chunk = items[i : i + _BATCH]
                 resp = await client.post(
-                    self.node.endpoint, headers=headers,
+                    self.endpoint, headers=headers,
                     json={"model": self.model, "input": chunk},
                 )
                 if resp.status_code >= 400:
