@@ -72,4 +72,10 @@ body {
   .dcx-drawer-right {
     border-radius: 0 !important;
   }
+  /* Align the two drawers' title rows: the history title ("通话记录") ships with
+     padding-top:6px while the menu logo ("MiCall.ai") has 0, so its top sat 6px
+     lower. Zero it so both titles start at the same Y. */
+  .dcx-drawer-right > div:first-child {
+    padding-top: 0 !important;
+  }
 }
