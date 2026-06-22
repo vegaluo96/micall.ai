@@ -75,6 +75,9 @@ async def main() -> None:
         return
     mime = _MIME.get(path.suffix.lower(), "audio/mpeg")
     audio = path.read_bytes()
+    if not audio:
+        print(f"⚠ {path} 是 0 字节空文件。先用 tts_once 重新合一个非空 sample.mp3。")
+        return
 
     cfg = load_config()
     node = cfg.node("asr")

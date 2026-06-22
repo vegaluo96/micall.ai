@@ -39,13 +39,14 @@ async def main() -> None:
         buf += chunk
     total_ms = (time.perf_counter() - t0) * 1000
 
-    Path(out).write_bytes(bytes(buf))
     if buf:
+        Path(out).write_bytes(bytes(buf))
         print(f"\n✅ 已写 {out}（{len(buf)} bytes）。下载到本地试听。")
         print(f"   ⏱ 首音频块 {first_ms:.0f}ms · 整句合成 {total_ms:.0f}ms · 文本 {len(text)} 字")
         print("   （流式合成：首块一出即可下行 → 通话里据此抢跑，用户感知的开口≈首块延迟）")
     else:
-        print("\n⚠ 没拿到音频，看上面的报错。")
+        # 没拿到音频就别写空文件，避免把之前的好文件覆盖成 0 字节。
+        print(f"\n⚠ 没拿到音频（未写 {out}，保留原文件）。看上面的报错——多半是 TTS endpoint/key/voice 问题。")
 
 
 if __name__ == "__main__":

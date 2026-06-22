@@ -58,6 +58,8 @@ async def main() -> None:
         raise SystemExit("没有 MICALL_ASR_API_KEY。先：set -a; . config/micall.env; set +a")
     if not Path(args.audio).exists():
         raise SystemExit(f"找不到 {args.audio}。先用 tts_once 合一个 sample.mp3。")
+    if Path(args.audio).stat().st_size == 0:
+        raise SystemExit(f"{args.audio} 是 0 字节空文件。先用 tts_once 重新合一个非空 sample.mp3。")
 
     pcm = _pcm16_mono_16k(args.audio)
     nframes = (len(pcm) + FRAME_BYTES - 1) // FRAME_BYTES
