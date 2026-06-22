@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+# 真实密钥配置（铁律2：永不入库）
+config/secret.json
+config/*.local.json

@@ -1,0 +1,111 @@
+import asyncio
+import unittest
+
+from micall.config import load_config
+from micall.context import CharacterRuntime, ContextAssembler
+from micall.memory import InMemoryRepository
+from micall.providers import StubLLM, StubTTS
+from micall.session import CallSession
+
+
+def _make_session(emit, llm=None):
+    config = load_config()
+    char = CharacterRuntime("lin_wan", "林晚", {"core_traits": ["温柔"]},
+                            emotion_map={"tender": "gentle"})
+    repo = InMemoryRepository()
+    assembler = ContextAssembler(char, profile=repo.get_profile("u", "lin_wan"), memory=repo)
+    return CallSession(
+        config=config, emit=emit,
+        llm=llm or StubLLM(["[emotion:tender] 嗯，我在听。今天过得怎么样？"]),
+        tts=StubTTS(), assembler=assembler,
+        character_id="lin_wan", scenario="heart", remaining_seconds=30, voice_id="v1",
+    )
+
+
+class TestOrchestrator(unittest.TestCase):
+    def test_turn_event_sequence(self):
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            s = _make_session(emit)
+            await s.start()
+            await s.on_user_text("今天有点累")
+            await s.end()
+
+        asyncio.run(run())
+        types = [e["type"] for e in events]
+
+        self.assertEqual(types[0], "connected")
+        self.assertIn("ended", types)
+        # 情绪 piggyback 一处产生：tag 来自 stub 回复前缀。
+        emo = [e for e in events if e["type"] == "emotion"]
+        self.assertEqual(len(emo), 1)
+        self.assertEqual(emo[0]["tag"], "tender")
+        # 回复两句 → 两条 AI 字幕（句子级切分）。
+        ai = [e for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertEqual(len(ai), 2)
+        # 用户字幕回显。
+        self.assertTrue(any(e["type"] == "subtitle" and e["role"] == "user" for e in events))
+        # 状态机：thinking → speaking → listening 都出现过。
+        states = [e["phase"] for e in events if e["type"] == "state"]
+        for p in ("thinking", "speaking", "listening"):
+            self.assertIn(p, states)
+
+    def test_speak_cuts_on_interrupt(self):
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            s = _make_session(emit)
+            s._interrupt.set()
+            spoke: list[str] = []
+            await s._speak("你好。", spoke)
+            return spoke
+
+        spoke = asyncio.run(run())
+        self.assertEqual(spoke, [])  # 熔断：未播完不进上下文（§1.5 难点4）
+
+    def test_interrupt_guard_when_idle(self):
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            s = _make_session(emit)
+            await s.interrupt()  # 非 thinking/speaking → no-op
+
+        asyncio.run(run())
+        self.assertEqual([e for e in events if e["type"] == "interrupted"], [])
+
+    def test_out_of_minutes_ends_call(self):
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            config = load_config()
+            char = CharacterRuntime("lin_wan", "林晚", {})
+            repo = InMemoryRepository()
+            a = ContextAssembler(char, profile=repo.get_profile("u", "lin_wan"))
+            s = CallSession(
+                config=config, emit=emit, llm=StubLLM(), tts=StubTTS(), assembler=a,
+                character_id="lin_wan", scenario="", remaining_seconds=1, voice_id="v",
+            )
+            # 直接驱动计费到耗尽，验证服务端权威结束（不依赖真实 sleep 节流）。
+            for ev in s.billing.tick(1):
+                await emit(ev)
+            self.assertTrue(s.billing.exhausted)
+
+        asyncio.run(run())
+        self.assertIn("out_of_minutes", [e["type"] for e in events])
+
+
+if __name__ == "__main__":
+    unittest.main()
