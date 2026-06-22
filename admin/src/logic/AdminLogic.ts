@@ -48,11 +48,13 @@ export class AdminLogic {
     section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
     apiCfg: {
-      asr: { provider: "阿里云", endpoint: "https://nls-gateway.aliyuncs.com/stream/v1/asr", key: "sk-ali-••••••a3f9", model: "paraformer-realtime-v2", lang: "中文 / 自动" },
-      fast: { provider: "DeepSeek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "sk-ds-••••••7c2d", model: "deepseek-chat", temp: "0.8", maxTokens: "256" },
-      tts: { provider: "MiniMax", endpoint: "https://api.minimax.chat/v1/t2a_v2", key: "sk-mm-••••••9e1b", model: "speech-02-turbo", voiceId: "female-shaonv-01", sampleRate: "24000 Hz" },
-      memory: { provider: "通义千问", endpoint: "https://dashscope.aliyuncs.com/api/v1/services/aigc", key: "sk-qw-••••••2f8c", model: "qwen-long", maxContext: "1,000,000 tokens" },
-      embed: { provider: "阿里云", endpoint: "https://dashscope.aliyuncs.com/api/v1/embeddings", key: "sk-emb-••••••b1d4", model: "text-embedding-v3", vectorDB: "Milvus", topK: "5" },
+      // 这些只是「无后端」时的兜底默认；接了后端会被真实配置覆盖。值与 backend/config/default.json 对齐，
+      // 避免再出现 DeepSeek-V4-Flash 这类虚名误导。key 留空（不放假占位），由运营填、后端打码回显。
+      asr: { provider: "bailian_qwen3_asr", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions", key: "", model: "qwen3-asr-flash", lang: "zh" },
+      fast: { provider: "deepseek", endpoint: "https://api.deepseek.com/v1/chat/completions", key: "", model: "deepseek-chat", temp: "0.8", maxTokens: "512" },
+      tts: { provider: "minimax", endpoint: "https://api.minimax.chat/v1/t2a_v2?GroupId=填你的GroupId", key: "", model: "speech-2.8-turbo", voiceId: "female-shaonv", sampleRate: "24000" },
+      memory: { provider: "apiyi_qwen_long", endpoint: "https://api.apiyi.com/v1/chat/completions", key: "", model: "qwen-max", maxContext: "32000" },
+      embed: { provider: "bailian_embedding", endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings", key: "", model: "text-embedding-v4", vectorDB: "pgvector", topK: "5" },
     },
   };
 
