@@ -39,8 +39,18 @@ def make_asr(node: NodeConfig) -> ASRProvider:
     return StubASR()
 
 
+def make_realtime_asr(node: NodeConfig):
+    """真·实时流式 ASR（WS 原生协议）。只需 api_key + ws_endpoint；endpoint(HTTP) 可空。
+
+    暂未接入编排（先经 scripts/asr_stream_once.py 联调锁协议），故独立于 make_asr。
+    """
+    from .realtime_asr import RealtimeBailianASR
+
+    return RealtimeBailianASR(node)
+
+
 __all__ = [
     "ASRProvider", "LLMProvider", "TTSProvider",
     "StubASR", "StubLLM", "StubTTS",
-    "make_asr", "make_llm", "make_tts",
+    "make_asr", "make_llm", "make_tts", "make_realtime_asr",
 ]
