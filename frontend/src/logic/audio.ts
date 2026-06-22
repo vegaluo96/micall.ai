@@ -31,11 +31,12 @@ function downsampleToInt16(input: Float32Array, inRate: number, outRate: number)
 }
 
 // 上行 VAD 门控阈值（对归一化 RMS，[0,1]）。带迟滞：开门高、关门低，避免临界抖动。
-// 省钱核心：ASR 按音频秒数计费——静音/AI 说话（经 AEC 后麦克风近静音）不上行 → 不计费。
-const VAD_OPEN = 0.018;   // 高于此判为「有人在说」→ 开门
-const VAD_CLOSE = 0.010;  // 低于此才开始计静音；说话期间不反复关
-const VAD_HANGOVER_MS = 800;   // 静音后继续上行的尾音时长：留够让服务端 server_vad 收尾断句
-const VAD_PREROLL_MS = 200;    // 开门前回补的预卷，避免吃掉句首
+// 省钱核心：ASR 按音频秒数计费。门控只在「AI 正在说话」那段生效（压回声/静音、只放明显插话），
+// 用户自己的回合永远全量上行——绝不切碎你说的话（否则识别一顿一顿、对话断断续续）。
+const VAD_OPEN = 0.02;    // AI 说话期：高于此才判为「用户插话(barge-in)」→ 放行；低于此当回声/静音压掉
+const VAD_CLOSE = 0.012;  // 插话期间低于此才开始计静音
+const VAD_HANGOVER_MS = 900;   // 静音后继续上行的尾音时长：留够让服务端 server_vad 收尾断句
+const VAD_PREROLL_MS = 250;    // 开门前回补的预卷，避免吃掉插话的句首
 
 function rms(buf: Float32Array): number {
   let s = 0;
@@ -44,23 +45,31 @@ function rms(buf: Float32Array): number {
 }
 
 /** 麦克风 → 16kHz PCM16 帧。用 ScriptProcessor（广泛支持、含 iOS；无需独立 worklet 文件）。
- *  默认带能量 VAD 门控：仅在「有人说话」时上行，静音与 AI 回声期不发 → 省 ASR 计费。 */
+ *  门控只在 AI 说话期生效（省 ASR + 抑回声）；用户回合全量上行，不切碎说话。 */
 export class MicCapture {
   private ctx: AudioContext | null = null;
   private src: MediaStreamAudioSourceNode | null = null;
   private node: ScriptProcessorNode | null = null;
+  private aiSpeaking = false;        // 由上层按通话状态切：AI 说话期才启用门控
   // VAD 状态
   private gateOpen = false;
   private hangover = 0;             // 剩余尾音帧数
   private preroll: ArrayBuffer[] = [];
-  private prerollMax = 2;           // 预卷帧数（start() 里按帧时长换算）
-  private hangoverFrames = 10;      // 尾音帧数（start() 里按帧时长换算）
+  private prerollMax = 3;           // 预卷帧数（start() 里按帧时长换算）
+  private hangoverFrames = 11;      // 尾音帧数（start() 里按帧时长换算）
 
   constructor(
     private stream: MediaStream,
     private onFrame: (pcm: ArrayBuffer) => void,
     private vad = true,
   ) {}
+
+  /** 上层在 AI 开始/停止说话时调用：仅 AI 说话期启用门控（省 ASR、抑回声、只放插话）。
+   *  回到用户回合立即清门控状态并恢复全量上行——保证用户说话不被切。 */
+  setAiSpeaking(on: boolean): void {
+    this.aiSpeaking = on;
+    if (!on) { this.gateOpen = false; this.hangover = 0; this.preroll = []; }
+  }
 
   start(): void {
     if (this.ctx) return;
@@ -76,7 +85,8 @@ export class MicCapture {
       const input = e.inputBuffer.getChannelData(0);
       const pcm = downsampleToInt16(input, inRate, MIC_RATE);
       if (!pcm.byteLength) return;
-      if (!this.vad) { this.onFrame(pcm); return; }
+      // 用户回合（AI 没在说）→ 永远全量上行，绝不切；只有 AI 说话期才门控。
+      if (!this.vad || !this.aiSpeaking) { this.onFrame(pcm); return; }
       this.gate(rms(input), pcm);
     };
     this.src.connect(this.node);
@@ -84,7 +94,8 @@ export class MicCapture {
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
 
-  /** 能量门控状态机：开门即先补预卷再持续上行；转静音后再送够尾音帧让服务端断句，然后闭门。 */
+  /** AI 说话期的门控状态机：默认压住（回声/静音不上行）；越过开门阈值=用户插话，放行并补预卷；
+   *  插话转静音后再送够尾音帧让服务端断句，然后闭门继续压。 */
   private gate(level: number, pcm: ArrayBuffer): void {
     if (this.gateOpen) {
       this.onFrame(pcm);

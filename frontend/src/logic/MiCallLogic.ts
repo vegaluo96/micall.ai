@@ -406,10 +406,13 @@ export class MiCallLogic {
         this.startMicUplink(); // 接通即开始上行麦克风音频
         break;
       case "state":
+        // 仅 AI 说话期启用上行门控（省 ASR、抑回声）；其余回合全量上行不切用户说话。
+        this.micCapture?.setAiSpeaking(ev.phase === "speaking");
         this.setState({ phase: ev.phase });
         break;
       case "interrupted":
         // speaking → listening hard jump (skip thinking), keep transcript.
+        this.micCapture?.setAiSpeaking(false); // 回到用户回合：恢复全量上行
         this.player.flush(); // barge-in：用户开口 → 立刻停掉 AI 正在播的音频
         this.setState({ phase: "listening", subtitle: "" });
         break;
