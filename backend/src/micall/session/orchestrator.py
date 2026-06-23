@@ -305,11 +305,13 @@ class CallSession:
         self.sm.to(Phase.THINKING)
         await self._emit(ServerEvent.state(Phase.THINKING.value))
 
+        _t0 = time.monotonic()   # ⏱ 诊断埋点：从「触发本轮」起算各阶段耗时，定位延迟卡在哪一跳
         qvec = await self._embed_query(user_text)  # 配了 Embedding 节点才算；失败/未配 → None（退关键词）
         messages = self.assembler.build(
             character_id=self.character_id, scenario=self.scenario, history=self.history,
             query_vector=qvec,
         )
+        log.info("⏱ 召回嵌入 %.0fms", (time.monotonic() - _t0) * 1000)
         self._usage["llm_in_chars"] += sum(len(str(m.get("content", ""))) for m in messages)  # 成本：LLM 输入
         stripper = EmotionStripper()
         spoke: list[str] = []   # 实际播出的句子（ack 边界 → 进上下文，§1.5）
@@ -335,14 +337,19 @@ class CallSession:
         # 被打断了就别再让 LLM 生成「这句的后续」——用户已给新输入、AI 接下来要说的话也变了，继续生成纯浪费
         # token/钱。aclosing 在 break 时立刻 aclose() 掐断流式请求 → 服务端停生成、停计费（省成本，不影响流畅）。
         spoke_first = False
+        _first_token = True
         async with aclosing(self.llm.stream(messages, max_tokens=self._reply_max_tokens)) as llm_gen:
             async for token in llm_gen:
                 if self._interrupt.is_set():
                     break
+                if _first_token:
+                    _first_token = False
+                    log.info("⏱ LLM首token %.0fms", (time.monotonic() - _t0) * 1000)
                 buf += stripper.feed(token)
                 if not spoke_first:
                     first, rest = _take_first_sentence(buf)
                     if first:
+                        log.info("⏱ 首句成形 %.0fms", (time.monotonic() - _t0) * 1000)
                         await _open_speaking()
                         await self._speak(first, spoke)   # 第一句立刻发声（抢跑）
                         buf, spoke_first = rest, True
@@ -378,6 +385,8 @@ class CallSession:
             await self._emit(ServerEvent.subtitle("ai", seg))
         self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
+        _ts = time.monotonic()
+        _first_chunk = True
         # 打断时 aclosing 立刻 aclose() 掐断 TTS 合成请求 → 停止合成、停止计费剩余字符（被打断那句的后续没意义）。
         async with aclosing(self.tts.synthesize(
             spoken, voice_id=self.voice_id, emotion=""   # 不喂动态情绪：保证整通同一个人（情绪跳变会"像换了个人"）
@@ -386,6 +395,9 @@ class CallSession:
                 if self._interrupt.is_set():
                     return  # 熔断：停下行 + 掐断合成
                 if self._audio_emit is not None and chunk:
+                    if _first_chunk:
+                        _first_chunk = False
+                        log.info("⏱ TTS首块 %.0fms（合成首字节）", (time.monotonic() - _ts) * 1000)
                     await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
                     audio_bytes += len(chunk)
         if self._audio_emit is not None:
