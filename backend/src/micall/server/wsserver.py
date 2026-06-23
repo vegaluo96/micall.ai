@@ -230,15 +230,23 @@ class SignalingServer:
         )
 
     async def handle(self, websocket: Any) -> None:
+        from . import webrtc
+
         session: CallSession | None = None
+        rtc = None   # 可选 WebRTC 媒体面（?rtc=1 才建）；None 时音频走默认 WS+PCM
 
         async def emit(ev: dict) -> None:
             if ev.get("type") != "billing":  # billing 每秒一次，不刷屏
                 log.info("  ⟶ %s", ev.get("type"))
+            if rtc is not None and ev.get("type") in ("interrupted", "ended"):
+                rtc.flush_tts()   # 打断/挂断：立刻丢掉 WebRTC 轨里未发的 AI 语音
             await websocket.send(json.dumps(ev, ensure_ascii=False))
 
         async def audio_emit(buf: bytes) -> None:
-            await websocket.send(buf)  # 二进制下行：TTS 音频帧（媒体）
+            if rtc is not None:
+                rtc.feed_tts(buf)          # WebRTC 下行：喂 TTS 轨（内部重采样 24k→48k + Opus）
+            else:
+                await websocket.send(buf)  # WS 下行：二进制 PCM 帧（默认路径）
 
         # 握手鉴权：URL ?token= 解析出真实 user_id（替换游客 _ANON）。无/失效 token → 游客可继续通话。
         user_id = _resolve_user(self.repo, websocket)
@@ -250,7 +258,26 @@ class SignalingServer:
                     if session is not None:
                         session.push_audio(bytes(raw))  # 上行麦克风帧 → task A
                     continue
-                msg = parse_client_message(raw)
+                # 先拦 WebRTC 信令（可选 ?rtc=1）：这些 type 不在 ClientMessage 里，单独处理。
+                try:
+                    d = json.loads(raw)
+                except (ValueError, TypeError):
+                    continue
+                if isinstance(d, dict) and d.get("type") in ("rtc_offer", "rtc_ice"):
+                    if not webrtc.available():
+                        await emit({"type": "rtc_unavailable"})   # 后端没装 aiortc → 前端回退 WS
+                        continue
+                    if d["type"] == "rtc_offer":
+                        if rtc is None:
+                            rtc = webrtc.RTCVoiceTransport(
+                                emit=emit,
+                                on_audio=lambda pcm: session.push_audio(pcm) if session else None,
+                            )
+                        await rtc.handle_offer(d.get("sdp", ""))
+                    elif rtc is not None:   # rtc_ice
+                        await rtc.add_ice(d)
+                    continue
+                msg = parse_client_message(d)
                 if msg is None:
                     continue  # 畸形/未知帧静默丢弃（与前端容错一致）
                 log.info("⟵ %s%s", msg.type, f" {msg.text!r}" if msg.text else "")
@@ -299,6 +326,8 @@ class SignalingServer:
         except Exception:  # 连接异常：尽力清理会话
             pass
         finally:
+            if rtc is not None:
+                await rtc.close()
             if session:
                 await session.end(emit_ended=False)
                 self._on_call_end(user_id, session, client_ip)

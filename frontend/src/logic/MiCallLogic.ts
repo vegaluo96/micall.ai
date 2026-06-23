@@ -85,6 +85,9 @@ export class MiCallLogic {
   private micCapture: MicCapture | null = null;  // 麦克风 → 上行 PCM 帧
   private player = new AudioPlayer();             // 下行 TTS PCM → 播放
   private halfDuplex = true;                      // 默认半双工（AI 外放时不上行，稳·无回声·无杂音）；?duplex=full 才关
+  private rtcEnabled = false;                      // ?rtc=1：实验性服务端 WebRTC 媒体面（真全双工，可随时打断、外放硬件 AEC）
+  private pc: RTCPeerConnection | null = null;     // WebRTC 媒体连接（仅 rtc 模式）
+  private rtcAudioEl: HTMLAudioElement | null = null;  // 播远端 AI 语音轨（标准 WebRTC 远端音频，浏览器解码 Opus）
 
   bills: any[] = [];
 
@@ -133,9 +136,15 @@ export class MiCallLogic {
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
       // 通话模式：默认半双工（稳、无回声无杂音）。可用 URL 一键切换并记住（手机无需控制台）：
       //   ?duplex=half（默认）  ?duplex=full（实验：麦克风全程开可插话，但无服务端 WebRTC 时部分机型会回声）
-      const dux = new URLSearchParams(location.search).get("duplex");
+      const qs = new URLSearchParams(location.search);
+      const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
       this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工
+      // 实验性服务端 WebRTC（真全双工）：?rtc=1 开、?rtc=0 关并记住。仅真后端 + 浏览器支持 RTCPeerConnection 时生效。
+      const rtcQ = qs.get("rtc");
+      if (rtcQ === "1" || rtcQ === "0") localStorage.setItem("micall_rtc", rtcQ);
+      this.rtcEnabled = localStorage.getItem("micall_rtc") === "1" &&
+                        typeof RTCPeerConnection !== "undefined" && !this.usingMockSignaling();
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
     try {  // 邀请链接 ?invite=CODE：记下来，注册时带上 → 双方各得 60 分钟
@@ -489,8 +498,44 @@ export class MiCallLogic {
   }
   private stopMic() {
     this.stopMicUplink();
+    this.teardownRtc();
     this.player.flush(); // 挂断/失败：停掉残留下行音频
     if (this.micStream) { this.micStream.getTracks().forEach((tr) => tr.stop()); this.micStream = null; }
+  }
+
+  /** 实验性服务端 WebRTC 媒体握手（?rtc=1）：麦克风 Opus 上行 + AI 语音 Opus 下行，浏览器进通信模式
+   *  → 外放硬件 AEC、可随时打断。信令复用现有 WS（sendRaw）。失败/不可用即回退默认 WS 音频。 */
+  private async startRtc() {
+    if (this.pc || !this.micStream) return;
+    const sig = this.ensureSignaling();
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      this.pc = pc;
+      this.micStream.getAudioTracks().forEach((t) => pc.addTrack(t, this.micStream!));  // 上行麦克风
+      pc.ontrack = (e) => {                                                              // 下行 AI 语音 → <audio>
+        if (!this.rtcAudioEl) {
+          const el = document.createElement("audio");
+          el.autoplay = true; el.setAttribute("playsinline", ""); (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+          el.style.cssText = "position:fixed;width:0;height:0;opacity:0;pointer-events:none;";
+          document.body.appendChild(el); this.rtcAudioEl = el;
+        }
+        this.rtcAudioEl.srcObject = e.streams[0] || new MediaStream([e.track]);
+        void this.rtcAudioEl.play().catch(() => { /* 手势内已解锁 */ });
+      };
+      pc.onicecandidate = (e) => {
+        if (e.candidate) sig.sendRaw?.({ type: "rtc_ice", candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex });
+      };
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
+    } catch {
+      this.teardownRtc(); this.rtcEnabled = false; this.startMicUplink();   // 建不起来 → 回退 WS
+    }
+  }
+
+  private teardownRtc() {
+    if (this.pc) { try { this.pc.close(); } catch { /* noop */ } this.pc = null; }
+    if (this.rtcAudioEl) { try { this.rtcAudioEl.pause(); this.rtcAudioEl.srcObject = null; this.rtcAudioEl.remove(); } catch { /* noop */ } this.rtcAudioEl = null; }
   }
 
   /** Map server control events → state (docs/03 §4). */
@@ -498,7 +543,17 @@ export class MiCallLogic {
     switch (ev.type) {
       case "connected":
         this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
-        this.startMicUplink(); // 接通即开始上行麦克风音频
+        if (this.rtcEnabled) void this.startRtc();   // 实验：WebRTC 媒体面（真全双工）
+        else this.startMicUplink();                  // 默认：WS 上行麦克风音频
+        break;
+      case "rtc_answer":
+        if (this.pc && (ev as { sdp?: string }).sdp) {
+          void this.pc.setRemoteDescription({ type: "answer", sdp: (ev as { sdp: string }).sdp }).catch(() => { /* noop */ });
+        }
+        break;
+      case "rtc_unavailable":
+        // 后端没装 aiortc → 回退默认 WS 音频路径，体验不受影响。
+        this.rtcEnabled = false; this.teardownRtc(); this.startMicUplink();
         break;
       case "state":
         // 麦克风上行门控不再看 phase，而是看「AI 音频是否在外放」（半双工，见 startMicUplink）——

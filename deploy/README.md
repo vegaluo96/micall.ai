@@ -223,3 +223,32 @@ PYTHONPATH=src python3 scripts/asr_once.py sample.mp3 --label 北京            
 MICALL_ASR_ENDPOINT=https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions \
 MICALL_ASR_API_KEY=<国际站key> PYTHONPATH=src python3 scripts/asr_once.py sample.mp3 --label 新加坡
 ```
+
+---
+
+## （可选 / 实验）服务端 WebRTC 全双工
+
+默认通话走 WS+PCM 半双工（稳）。装上 aiortc 后，前端用 `?rtc=1` 打开即改走 WebRTC：麦克风/AI 语音
+都走 Opus 媒体通道，浏览器进通信模式 → 移动端外放也能开硬件级 AEC、可边说边随时打断（豆包式）。
+**这是实验路径，opt-in、不影响默认通话**；务必先在自己手机上用 `?rtc=1` 验证，确认稳了再考虑设默认。
+
+```bash
+# 1) 后端装 aiortc（从 wheel 直装，自带原生库，无需 apt 装 ffmpeg/opus/srtp）
+cd ~/micall.ai/backend && sudo pip3 install --break-system-packages aiortc
+python3 -c "import aiortc, av; print('aiortc', aiortc.__version__, 'av', av.__version__)"   # 验证可用
+sudo systemctl restart micall-backend
+journalctl -u micall-backend -n 5 --no-pager    # 启动正常即可（未装 aiortc 时该路径自动跳过）
+
+# 2) 放行 WebRTC 媒体的 UDP 端口（关键！否则 ICE 连不通、听不到声）
+#    aiortc 用临时高位 UDP 端口收发媒体。阿里云安全组要放行入站 UDP（最简单：UDP 1024-65535，
+#    或自建 TURN 后只放 TURN 端口）。仅放行 443/TCP 是不够的——WebRTC 媒体走 UDP。
+```
+
+测试：手机 HTTPS 打开 `zsky.com/?rtc=1` 发起通话。能听到 AI 且 AI 说话时你出声它立刻停下来听你 = 全双工通。
+回退默认：`zsky.com/?rtc=0`（或后端没装 aiortc，前端会自动回退 WS）。
+
+**已知前提 / 局限（务必知悉）**：
+- **UDP 必须放行**（上面第 2 步）。只开 443 不行。
+- **移动对称 NAT** 可能仍连不通——需要自建 **TURN（coturn）** 中继。先用 STUN 试，连不通再加 TURN。
+- 前端 RTCPeerConnection + 真机连通性我无法在本地验证，需要你在真机上测、把现象反馈给我再迭代。
+- 稳定前**不要设为默认**；默认仍是 WS 半双工，零风险。

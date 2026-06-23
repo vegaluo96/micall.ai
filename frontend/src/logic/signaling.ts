@@ -26,7 +26,9 @@ export type ServerEvent =
   | { type: "low_minutes"; remaining_seconds: number }
   | { type: "out_of_minutes" }
   | { type: "call_failed"; reason: string }
-  | { type: "ended" };
+  | { type: "ended" }
+  | { type: "rtc_answer"; sdp: string }   // 可选 WebRTC：服务端 answer
+  | { type: "rtc_unavailable" };          // 后端没装 aiortc → 前端回退 WS
 
 /** 前端 → 服务端 (control uplink). */
 export type ClientMessage =
@@ -46,6 +48,8 @@ export interface SignalingClient {
   send(msg: ClientMessage): void;
   /** 上行二进制音频帧（麦克风 PCM）。Mock 下为 no-op。 */
   sendAudio(frame: ArrayBufferLike): void;
+  /** 发任意 JSON 控制帧（WebRTC 信令 rtc_offer/rtc_ice）。Mock 不支持。 */
+  sendRaw?(obj: unknown): void;
   close(): void;
 }
 
@@ -86,6 +90,11 @@ class WebSocketSignalingClient implements SignalingClient {
   sendAudio(frame: ArrayBufferLike): void {
     // 实时音频不排队：连接没就绪就丢（迟到的帧无意义）。
     if (this.ws.readyState === WebSocket.OPEN) this.ws.send(frame);
+  }
+
+  sendRaw(obj: unknown): void {
+    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(obj));
+    else this.queue.push(obj as ClientMessage);   // 入队，open 后随其它控制帧一起发
   }
 
   close(): void {
