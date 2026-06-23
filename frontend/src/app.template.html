@@ -331,8 +331,7 @@
         <div onClick="{{ autoHangupClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
-          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:6px;">无人说话自动挂断</div>
-          <div style="font-size:13px;color:var(--dim);text-align:center;padding-bottom:14px;line-height:1.5;">通话中持续无人说话达到设定时长就自动结束，<br/>避免睡着后一直占线。</div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">自动挂断</div>
           <sc-for list="{{ autoHangupOpts }}" as="ah" hint-placeholder-count="6">
             <div onClick="{{ ah.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:8px;border-radius:16px;cursor:pointer;background:{{ ah.bg }};border:{{ ah.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
               <span style="flex:1;font-size:16px;font-weight:500;color:{{ ah.color }};letter-spacing:.2px;">{{ ah.name }}</span>
@@ -344,19 +343,21 @@
 
       <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ settingsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 26px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">设置</div>
           <div style="display:flex;flex-direction:column;gap:2px;">
             <div onClick="{{ autoHangupOpenSheet }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
-              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">无人说话自动挂断</span>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">自动挂断</span>
               <span style="font-size:13px;color:var(--dim);">{{ autoHangupLabel }}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
             <div onClick="{{ langFromSettings }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">语言</span>
               <span style="font-size:13px;color:var(--dim);">{{ langCurrent }}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
             <div onClick="{{ resetPassword }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
@@ -370,12 +371,7 @@
             </div>
             <div onClick="{{ openPrivacy }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">隐私政策</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
-            </div>
-            <div onClick="{{ openTerms }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">用户协议</span>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">隐私政策与用户协议</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
             <div onClick="{{ settingsClose }}" style="display:flex;align-items:center;gap:13px;padding:14px 6px;cursor:pointer;border-top:1px solid var(--line);margin-top:6px;">
@@ -689,15 +685,15 @@
           <div style="padding:6px 16px 14px;display:flex;align-items:center;justify-content:space-between;flex:none;">
             <span style="font-size:21px;font-weight:600;color:var(--fg);letter-spacing:.5px;">通话记录</span>
             <sc-if value="{{ histShowSelect }}" hint-placeholder-val="{{ false }}">
-              <span onClick="{{ enterHistSel }}" style="font-size:14px;font-weight:500;color:#6E5CFF;cursor:pointer;padding:4px 6px;" style-active="opacity:.6">选择</span>
+              <span onClick="{{ enterHistSel }}" style="font-size:14px;font-weight:500;color:#E0594F;cursor:pointer;padding:4px 0 4px 16px;" style-active="opacity:.6">删除</span>
             </sc-if>
             <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
-              <span onClick="{{ exitHistSel }}" style="font-size:14px;font-weight:500;color:var(--dim);cursor:pointer;padding:4px 6px;" style-active="opacity:.6">取消</span>
+              <span onClick="{{ exitHistSel }}" style="font-size:14px;font-weight:500;color:var(--dim);cursor:pointer;padding:4px 0 4px 16px;" style-active="opacity:.6">取消</span>
             </sc-if>
           </div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="3">
-            <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 12px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
+            <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 16px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
               <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
               </div>
@@ -724,9 +720,8 @@
       <sc-if value="{{ histDelConfirm }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ histDelCancel }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
         <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除通话记录？</div>
-          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">{{ histDelConfirmText }}</div>
-          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除选中的 {{ histSelCount }} 条记录？</div>
+          <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ histDelCancel }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
             <div onClick="{{ histDoDelete }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">删除</div>
           </div>
@@ -736,11 +731,10 @@
       <sc-if value="{{ pendingSwitch }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ cancelSwitch }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
         <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">结束当前通话？</div>
-          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">切换到「{{ pendingName }}」需要先挂断与当前角色的通话。</div>
-          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
-            <div onClick="{{ cancelSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">继续通话</div>
-            <div onClick="{{ confirmSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">挂断并切换</div>
+          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">挂断当前通话，切换到「{{ pendingName }}」？</div>
+          <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
+            <div onClick="{{ cancelSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
+            <div onClick="{{ confirmSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">挂断切换</div>
           </div>
         </div>
       </sc-if>
@@ -885,9 +879,8 @@
       <sc-if value="{{ pendingVoiceDel }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ cancelVoiceDel }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:17;animation:backdropIn .3s ease;"></div>
         <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:18;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除这个音色？</div>
-          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">「{{ pendingVoiceName }}」将被移除,无法恢复。</div>
-          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除音色「{{ pendingVoiceName }}」？</div>
+          <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ cancelVoiceDel }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
             <div onClick="{{ confirmVoiceDel }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">删除</div>
           </div>
@@ -897,9 +890,8 @@
       <sc-if value="{{ logoutConfirmOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ cancelLogout }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:17;animation:backdropIn .3s ease;"></div>
         <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:18;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">退出登录？</div>
-          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">退出后需重新登录才能继续使用,你的时长和收藏会保留。</div>
-          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">退出登录？</div>
+          <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ cancelLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
             <div onClick="{{ confirmLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">退出</div>
           </div>
@@ -909,9 +901,8 @@
       <sc-if value="{{ resetOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ cancelReset }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:13;animation:backdropIn .3s ease;"></div>
         <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:14;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">重置这段记忆？</div>
-          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">TA 会忘记刚才聊的内容，重新开始。此操作无法撤销。</div>
-          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">重置这段记忆？</div>
+          <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ cancelReset }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
             <div onClick="{{ resetMemory }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">重置</div>
           </div>

@@ -180,20 +180,20 @@ textarea,
     padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
   }
 
-  /* c) 两侧抽屉：历史抽屉有滚动列表→由列表负责底距；菜单抽屉无→由容器负责。 */
-  /* 菜单抽屉（左）：logo 维持原位（顶部 56px 标题带，不动），只把**底部**留白加大——让最底下的
-     「登录/退出」那条往上挪、不贴底边（用户：把下面的往上调，别动 logo）。safe-area 兜真机 home indicator。 */
+  /* c) 两侧抽屉：顶部 56px 标题带固定（对齐主 header）。底部留白与「标题距顶部的间距」对称
+        （≈22px），让左抽屉的退出登录 pill、右抽屉的列表末项都与顶部上下对称、左右两抽屉一致。
+        safe-area 兜真机 home indicator。 */
   .dcx-drawer-left {
-    padding-bottom: max(40px, env(safe-area-inset-bottom)) !important;
+    padding-bottom: max(22px, env(safe-area-inset-bottom)) !important;
   }
   .dcx-drawer-right:not(:has(> .nobar)) {
-    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: max(22px, env(safe-area-inset-bottom)) !important;
   }
   .dcx-drawer-right:has(> .nobar) {
     padding-bottom: 0 !important;
   }
   .dcx-drawer-right > .nobar {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: max(22px, env(safe-area-inset-bottom)) !important;
   }
 
   /* d) 弹窗之外的滚动列表（主屏/桌面侧栏）：各自含安全区一次（兜底，无 !important）。 */
