@@ -412,25 +412,20 @@ export class MiCallLogic {
     }
   }
 
-  startCall() {
+  async startCall() {
     if (this.state.phase !== "idle") return;
-    if (!this.state.micGranted) { this.setState({ permOpen: true }); return; }
-    void this.beginCall();
-  }
-
-  async grantMic() {
-    const ok = await this.acquireMic();
-    if (ok) {
-      this.setState({ micGranted: true, permOpen: false });
-      void this.beginCall();
-    } else if (this.usingMockSignaling()) {
-      // Permission denied / no device — let the mock demo proceed anyway.
-      this.setState({ micGranted: true, permOpen: false });
-      void this.beginCall();
-    } else {
-      this.setState({ permOpen: false, toast: "需要麦克风权限才能通话" });
-      this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+    this.player.resume();   // 在点击手势同步链里先解锁音频（iOS 要求），再去要麦克风
+    if (!this.state.micGranted) {
+      // 直接触发浏览器原生授权弹窗——不再叠一层自定义「允许」弹窗（避免双弹窗、少一次点击）。
+      const ok = await this.acquireMic();
+      if (ok || this.usingMockSignaling()) {
+        this.setState({ micGranted: true });
+      } else {
+        this.toast("需要麦克风权限才能通话，请在浏览器允许后重试");
+        return;
+      }
     }
+    void this.beginCall();
   }
 
   private async beginCall() {
@@ -913,9 +908,7 @@ export class MiCallLogic {
       langOpen: this.state.langOpen,
       langToggle: () => this.setState((s) => ({ langOpen: !s.langOpen })),
       langFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, langOpen: true }),
-      permOpen: this.state.permOpen,
-      permDeny: () => this.setState({ permOpen: false }),
-      grantMic: () => this.grantMic(),
+      permOpen: false,   // 自定义麦克风弹窗已移除：点击通话直接走浏览器原生授权（见 startCall）
       callFailed: this.state.callFailed,
       retryDial: () => this.retryDial(),
       dismissFail: () => this.setState({ callFailed: false }),
