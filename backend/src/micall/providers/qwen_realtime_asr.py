@@ -32,6 +32,11 @@ class QwenRealtimeASR(ASRProvider):
         self.ws_url = node.params.get("ws_endpoint") or (region_ws_base(node.endpoint) + "/api-ws/v1/realtime")
         self.model = node.params.get("realtime_model", "qwen3-asr-flash-realtime")
         self.sample_rate = int(node.params.get("sample_rate", 16000))
+        # 端点检测（判定「你说完了」）。silence_ms 越小，说完后 AI 接话越快——治「说完卡很久 / 一直正在聆听」；
+        # threshold 越高越能滤掉外放回授/环境噪声，减少把噪声听成词的幻觉（如开场冒出 tender）。可在 asr 节点 params 调。
+        self.vad_threshold = float(node.params.get("vad_threshold", 0.55))
+        self.vad_prefix_ms = int(node.params.get("vad_prefix_padding_ms", 250))
+        self.vad_silence_ms = int(node.params.get("vad_silence_ms", 550))
         self._on_event = on_event
 
     async def stream(
@@ -53,7 +58,12 @@ class QwenRealtimeASR(ASRProvider):
                     "modalities": ["text"],
                     "input_audio_format": "pcm",   # DashScope 用 "pcm"+sample_rate（非 OpenAI 的 pcm16）
                     "sample_rate": self.sample_rate,
-                    "turn_detection": {"type": "server_vad"},
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": self.vad_threshold,
+                        "prefix_padding_ms": self.vad_prefix_ms,
+                        "silence_duration_ms": self.vad_silence_ms,
+                    },
                 },
             }))
 

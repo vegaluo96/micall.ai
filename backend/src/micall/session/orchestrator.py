@@ -128,6 +128,9 @@ class CallSession:
         turn = config.turn or {}
         self._echo_tail = float(turn.get("echo_tail_ms", 1200)) / 1000.0
         self._echo_overlap = float(turn.get("echo_overlap", 0.7))
+        # 下行播放延迟补偿：全双工(RTC)经 coturn 中继 + jitter buffer，AI 这句实际播得比合成时刻晚。
+        # 把它加进 _audio_until，让「播放中」回声窗盖住外放回授时段 → 治「听到自己 / 屏幕冒出没说的话」。
+        self._play_pad = float(turn.get("echo_play_pad_ms", 400)) / 1000.0
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
 
@@ -350,7 +353,7 @@ class CallSession:
         if self._audio_emit is not None:
             # 估计这句在前端播放到的时刻（24kHz 16bit 单声道）→ 用于回声判定的时间窗。
             dur = audio_bytes / (24000 * 2)
-            self._audio_until = max(time.monotonic(), self._audio_until) + dur
+            self._audio_until = max(time.monotonic(), self._audio_until) + dur + self._play_pad
             log.info("⟶ 句音频 %d bytes（voice=%s）", audio_bytes, self.voice_id)
         spoke.append(spoken)  # 整句播完 → ack 边界（进上下文用清洗后的口语文本）
 
