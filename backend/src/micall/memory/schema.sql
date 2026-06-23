@@ -80,8 +80,11 @@ CREATE TABLE IF NOT EXISTS calls (
     scenario         TEXT NOT NULL DEFAULT '',
     started_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     duration_seconds INTEGER NOT NULL DEFAULT 0,
-    ended_reason     TEXT NOT NULL DEFAULT ''      -- ended / out_of_minutes / call_failed
+    ended_reason     TEXT NOT NULL DEFAULT '',     -- ended / out_of_minutes / call_failed
+    hidden_by_user   BOOLEAN NOT NULL DEFAULT false   -- 用户端删除=隐藏（账号级，跨设备一致）；后台统计仍计入
 );
+-- 兼容已有库：旧 calls 表补 hidden_by_user 列（幂等，_init_schema 逐句执行）
+ALTER TABLE calls ADD COLUMN IF NOT EXISTS hidden_by_user BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS billing_ledger (
     id            BIGSERIAL PRIMARY KEY,

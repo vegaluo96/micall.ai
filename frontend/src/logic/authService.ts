@@ -141,6 +141,20 @@ export async function getCalls(): Promise<any[] | null> {
   const j = await getJSON("/api/calls");
   return j && j.ok ? j.calls : null;
 }
+/** 用户端删除（隐藏）通话记录：账号级、跨设备一致（后台统计不受影响）。返回是否成功。 */
+export async function deleteCalls(ids: number[]): Promise<boolean> {
+  const tok = getToken();
+  if (!tok || !ids || !ids.length) return false;
+  try {
+    const r = await fetch(BASE + "/api/calls/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ ids }),
+    });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
 /** 账单流水。未登录/失败 → null。 */
 export async function getBills(): Promise<any[] | null> {
   const j = await getJSON("/api/bills");

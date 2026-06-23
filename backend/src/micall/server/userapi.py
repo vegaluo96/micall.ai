@@ -192,6 +192,13 @@ class _Handler(BaseHTTPRequestHandler):
             ok, remaining, msg = _REPO.redeem_code(uid, code)
             return self._json(200, {"ok": ok, "error": None if ok else msg,
                                     "message": msg, "remaining_seconds": remaining})
+        if route == "/api/calls/delete":   # 用户端删除（隐藏）通话记录：账号级，跨设备一致；后台统计不受影响
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            ids = self._body().get("ids")
+            n = _REPO.hide_calls(uid, ids if isinstance(ids, list) else [])
+            return self._json(200, {"ok": True, "deleted": n})
         if route == "/api/tickets":      # 提交工单
             uid = self._uid()
             if not uid:

@@ -707,10 +707,10 @@
           </sc-for>
           </div>
           <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
-            <div style="flex:none;padding:12px 14px 4px;">
-              <div onClick="{{ histDelAsk }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:15px;background:rgba(224,89,79,.12);color:#E0594F;font-size:15px;font-weight:600;cursor:pointer;" style-active="transform:scale(.98)">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#E0594F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                <span>删除选中（{{ histSelCount }}）</span>
+            <div style="flex:none;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);">
+              <div onClick="{{ histDelAsk }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:14px;background:{{ histDelBtnBg }};color:{{ histDelBtnColor }};font-size:15px;font-weight:600;cursor:pointer;transition:background .15s ease,color .15s ease;" style-active="transform:scale(.98)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                <span>{{ histDelBtnText }}</span>
               </div>
             </div>
           </sc-if>

@@ -133,7 +133,6 @@ export class MiCallLogic {
     } catch { /* 缓存坏了就用内置兜底 */ }
     this.state.favorites = this.loadFavs();   // 收藏持久化：刷新不丢（按角色 id 存）
     this.loadPrefs();                         // 个人偏好持久化：主题/语言/外放/音色/自定义场景/自动挂断（刷新不丢）
-    this.hiddenCalls = this.loadHidden();     // 已删除（隐藏）的通话记录：刷新仍不显示
   }
 
   // ── 个人偏好持久化（micall_prefs）：用户改过的设置刷新后仍在，不再「设了等于没设」──
@@ -271,7 +270,7 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     try {
       const u = await authApi.me();
-      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); return; }
+      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); this.loadHistory(); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
     // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
     const g = await authApi.getGuestTrial();
@@ -350,23 +349,16 @@ export class MiCallLogic {
     if (!calls) { this.realHistory = []; this.notify(); return; }
     this.realHistory = calls.map((c, i) => {
       const idx = this.idxForCharId(c.character_id), ch = this.chars[idx];
-      return { id: c.started_at || ("c" + i), name: ch?.name || "TA", hue: ch?.hue ?? 0, idx, sceneKey: c.scenario || "chat",
+      return { id: c.id != null ? c.id : (i + 1), name: ch?.name || "TA", hue: ch?.hue ?? 0, idx, sceneKey: c.scenario || "chat",
                scene: this.sceneNameOf(c.scenario), dur: this.fmtDur(c.duration_seconds || 0),
                when: this.fmtWhen(c.started_at) };
     });
     this.notify();
   }
 
-  // ── 删除通话记录（仅用户端：本机隐藏，不影响后台统计）。按记录 id(=started_at) 存隐藏名单，刷新仍生效。──
-  private hiddenCalls: Set<string> = new Set();
-  private loadHidden(): Set<string> {
-    try { const raw = localStorage.getItem("micall_hidden_calls"); const a = raw ? JSON.parse(raw) : []; return new Set(Array.isArray(a) ? a : []); } catch { return new Set(); }
-  }
-  private saveHidden() {
-    try { localStorage.setItem("micall_hidden_calls", JSON.stringify([...this.hiddenCalls])); } catch { /* noop */ }
-  }
-  private toggleHistSel(id: string) {
-    this.setState((s) => { const cur: string[] = s.histSel || []; return { histSel: cur.includes(id) ? cur.filter((x: string) => x !== id) : [...cur, id] }; });
+  // ── 删除通话记录（账号级软删除：调后端隐藏，该用户所有设备刷新后都不再显示；后台统计不受影响）──
+  private toggleHistSel(id: number) {
+    this.setState((s) => { const cur: number[] = s.histSel || []; return { histSel: cur.includes(id) ? cur.filter((x: number) => x !== id) : [...cur, id] }; });
   }
   /** 核销兑换码 → 后端入账，更新余额。未登录先引导登录；未接后端给演示提示。 */
   private async doRedeem() {
@@ -1112,8 +1104,8 @@ export class MiCallLogic {
       historyClose: () => this.setState({ historyOpen: false, histSelMode: false, histSel: [] }),
       historyList: (() => {
         const selMode = !!this.state.histSelMode;
-        const sel: string[] = this.state.histSel || [];
-        return (this.realHistory ?? this.history).filter((h) => !this.hiddenCalls.has(h.id)).map((h) => {
+        const sel: number[] = this.state.histSel || [];
+        return (this.realHistory ?? this.history).map((h) => {
           const picked = sel.includes(h.id);
           return { name: h.name, scene: h.scene, dur: h.dur, when: h.when, hueFilter: `hue-rotate(${h.hue}deg)`,
             selDisplay: selMode ? "flex" : "none", picked,
@@ -1121,22 +1113,30 @@ export class MiCallLogic {
             pick: () => { if (this.state.histSelMode) this.toggleHistSel(h.id); else this.switchTo(h.idx, h.sceneKey); } };
         });
       })(),
-      // 删除通话记录（单选/多选 + 二次确认；仅用户端隐藏）
+      // 删除通话记录（单选/多选 + 二次确认；账号级软删除，跨设备一致；后台统计不受影响）
       histSelMode: !!this.state.histSelMode,
-      histShowSelect: !this.state.histSelMode && (this.realHistory ?? this.history).filter((h) => !this.hiddenCalls.has(h.id)).length > 0,
-      histHasRecords: (this.realHistory ?? this.history).filter((h) => !this.hiddenCalls.has(h.id)).length > 0,
+      // 选择入口仅登录用户可见（删除走后端、跨设备同步）；未登录看到的是空/演示历史
+      histShowSelect: !this.state.histSelMode && this.state.loggedIn && (this.realHistory ?? this.history).length > 0,
       histSelCount: (this.state.histSel || []).length,
       histHasSel: (this.state.histSel || []).length > 0,
+      histDelBtnBg: (this.state.histSel || []).length ? "rgba(224,89,79,.12)" : "var(--ctrl)",
+      histDelBtnColor: (this.state.histSel || []).length ? "#E0594F" : "var(--faint)",
+      histDelBtnText: (this.state.histSel || []).length ? ("删除（" + (this.state.histSel || []).length + "）") : "删除",
       enterHistSel: () => this.setState({ histSelMode: true, histSel: [] }),
       exitHistSel: () => this.setState({ histSelMode: false, histSel: [] }),
       histDelAsk: () => { if ((this.state.histSel || []).length) this.setState({ histDelConfirm: true }); },
       histDelCancel: () => this.setState({ histDelConfirm: false }),
       histDelConfirm: this.state.histDelConfirm,
-      histDelConfirmText: "确定删除选中的 " + (this.state.histSel || []).length + " 条通话记录吗？删除后将不再显示。",
-      histDoDelete: () => {
-        (this.state.histSel || []).forEach((id: string) => this.hiddenCalls.add(id));
-        this.saveHidden();
-        this.setState({ histSelMode: false, histSel: [], histDelConfirm: false, toast: "已删除所选通话记录" });
+      histDoDelete: async () => {
+        const ids = (this.state.histSel || []) as number[];
+        this.setState({ histDelConfirm: false });
+        const ok = await authApi.deleteCalls(ids);
+        if (ok) {
+          await this.loadHistory();   // 重新拉后端 → 当前及其它设备刷新后都一致
+          this.setState({ histSelMode: false, histSel: [], toast: "已删除所选通话记录" });
+        } else {
+          this.setState({ toast: "删除失败，请重试" });
+        }
         this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800));
       },
       pendingSwitch: this.state.pendingSwitch,

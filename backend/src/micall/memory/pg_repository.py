@@ -394,18 +394,34 @@ class PgRepository(MemoryRepository):
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
-                    "SELECT character_id, scenario, duration_seconds, ended_reason, started_at "
-                    "FROM calls WHERE user_id=%s ORDER BY started_at DESC LIMIT %s",
+                    "SELECT id, character_id, scenario, duration_seconds, ended_reason, started_at "
+                    "FROM calls WHERE user_id=%s AND NOT hidden_by_user ORDER BY started_at DESC LIMIT %s",
                     (user_id, int(limit)),
                 ).fetchall()
             return [
-                {"character_id": r[0], "scenario": r[1], "duration_seconds": r[2],
-                 "ended_reason": r[3], "started_at": r[4].isoformat() if r[4] else ""}
+                {"id": r[0], "character_id": r[1], "scenario": r[2], "duration_seconds": r[3],
+                 "ended_reason": r[4], "started_at": r[5].isoformat() if r[5] else ""}
                 for r in rows
             ]
         except Exception as e:
             log.warning("list_calls 失败：%r", e)
             return []
+
+    def hide_calls(self, user_id, ids) -> int:
+        """用户端删除（隐藏）：标记 hidden_by_user。账号级 → 该用户所有设备刷新后都不再显示；后台不受影响。"""
+        clean = [int(i) for i in (ids or []) if isinstance(i, int) or str(i).lstrip("-").isdigit()]
+        if not clean:
+            return 0
+        try:
+            with self.pool.connection() as c:
+                cur = c.execute(
+                    "UPDATE calls SET hidden_by_user=true WHERE user_id=%s AND id = ANY(%s)",
+                    (user_id, clean),
+                )
+            return cur.rowcount or 0
+        except Exception as e:
+            log.warning("hide_calls 失败：%r", e)
+            return 0
 
     def list_ledger(self, user_id, *, limit=30) -> list[dict]:
         try:

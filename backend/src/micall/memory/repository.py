@@ -142,8 +142,13 @@ class MemoryRepository(ABC):
         """通话结束写一条记录（前端「通话历史」数据源）。"""
 
     def list_calls(self, user_id: str, *, limit: int = 30) -> list[dict]:
-        """该用户最近通话，新→旧。每条 {character_id,scenario,duration_seconds,ended_reason,started_at}。"""
+        """该用户最近通话，新→旧。每条 {id,character_id,scenario,duration_seconds,ended_reason,started_at}。
+        不含被用户删除（hidden_by_user）的记录。"""
         return []
+
+    def hide_calls(self, user_id: str, ids: list) -> int:
+        """用户端删除（隐藏）通话记录（账号级，跨设备一致）；后台统计仍计入。返回隐藏条数。"""
+        return 0
 
     def list_ledger(self, user_id: str, *, limit: int = 30) -> list[dict]:
         """该用户计费流水，新→旧。每条 {delta_seconds,reason,created_at}。前端「账单明细」数据源。"""
@@ -410,16 +415,26 @@ class InMemoryRepository(MemoryRepository):
 
     def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason) -> None:
         self._calls.append({
+            "id": len(self._calls) + 1,
             "user_id": user_id, "character_id": character_id, "scenario": scenario or "",
             "duration_seconds": int(duration_seconds), "ended_reason": ended_reason or "ended",
-            "started_at": _now_iso(),
+            "started_at": _now_iso(), "hidden_by_user": False,
         })
 
     def list_calls(self, user_id, *, limit=30) -> list[dict]:
-        rows = [c for c in self._calls if c["user_id"] == user_id]
+        rows = [c for c in self._calls if c["user_id"] == user_id and not c.get("hidden_by_user")]
         rows.sort(key=lambda c: c["started_at"], reverse=True)
-        return [{k: c[k] for k in ("character_id", "scenario", "duration_seconds", "ended_reason", "started_at")}
+        return [{k: c[k] for k in ("id", "character_id", "scenario", "duration_seconds", "ended_reason", "started_at")}
                 for c in rows[:limit]]
+
+    def hide_calls(self, user_id, ids) -> int:
+        want = {int(i) for i in (ids or []) if isinstance(i, int) or str(i).lstrip("-").isdigit()}
+        n = 0
+        for c in self._calls:
+            if c["user_id"] == user_id and c.get("id") in want and not c.get("hidden_by_user"):
+                c["hidden_by_user"] = True
+                n += 1
+        return n
 
     def list_ledger(self, user_id, *, limit=30) -> list[dict]:
         rows = [b for b in self._ledger if b["user_id"] == user_id]
