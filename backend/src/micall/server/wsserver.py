@@ -263,7 +263,12 @@ class SignalingServer:
                     d = json.loads(raw)
                 except (ValueError, TypeError):
                     continue
-                if isinstance(d, dict) and d.get("type") in ("rtc_offer", "rtc_ice"):
+                if isinstance(d, dict) and d.get("type") in ("rtc_offer", "rtc_ice", "rtc_close"):
+                    if d.get("type") == "rtc_close":          # 前端回退 WS → 关掉 RTC，下行音频改回 WS
+                        if rtc is not None:
+                            await rtc.close()
+                            rtc = None
+                        continue
                     if not webrtc.available():
                         await emit({"type": "rtc_unavailable"})   # 后端没装 aiortc → 前端回退 WS
                         continue

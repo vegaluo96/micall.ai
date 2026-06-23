@@ -88,6 +88,8 @@ export class MiCallLogic {
   private rtcEnabled = false;                      // ?rtc=1：实验性服务端 WebRTC 媒体面（真全双工，可随时打断、外放硬件 AEC）
   private pc: RTCPeerConnection | null = null;     // WebRTC 媒体连接（仅 rtc 模式）
   private rtcAudioEl: HTMLAudioElement | null = null;  // 播远端 AI 语音轨（标准 WebRTC 远端音频，浏览器解码 Opus）
+  private rtcWatchdog: ReturnType<typeof setTimeout> | null = null;  // 连不通就回退 WS 的看门狗
+  private rtcFellBack = false;                     // 本通是否已回退（防重复回退）
 
   bills: any[] = [];
 
@@ -140,10 +142,11 @@ export class MiCallLogic {
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
       this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工
-      // 实验性服务端 WebRTC（真全双工）：?rtc=1 开、?rtc=0 关并记住。仅真后端 + 浏览器支持 RTCPeerConnection 时生效。
+      // 服务端 WebRTC（真全双工）默认开启 —— 连不通的网络会被看门狗/failed 自动回退到稳的 WS 半双工，
+      // 所以默认开是安全的（行就全双工，不行就退回今天的体验）。?rtc=0 可强制走 WS 并记住。
       const rtcQ = qs.get("rtc");
       if (rtcQ === "1" || rtcQ === "0") localStorage.setItem("micall_rtc", rtcQ);
-      this.rtcEnabled = localStorage.getItem("micall_rtc") === "1" &&
+      this.rtcEnabled = localStorage.getItem("micall_rtc") !== "0" &&
                         typeof RTCPeerConnection !== "undefined" && !this.usingMockSignaling();
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
@@ -503,10 +506,13 @@ export class MiCallLogic {
     if (this.micStream) { this.micStream.getTracks().forEach((tr) => tr.stop()); this.micStream = null; }
   }
 
-  /** 实验性服务端 WebRTC 媒体握手（?rtc=1）：麦克风 Opus 上行 + AI 语音 Opus 下行，浏览器进通信模式
-   *  → 外放硬件 AEC、可随时打断。信令复用现有 WS（sendRaw）。失败/不可用即回退默认 WS 音频。 */
+  /** 服务端 WebRTC 媒体握手：麦克风 Opus 上行 + AI 语音 Opus 下行，浏览器进通信模式
+   *  → 外放硬件 AEC、可随时打断。信令复用现有 WS（sendRaw）。
+   *  关键保险：连不通（对称 NAT / UDP 被封 / 后端没装）一律在 7s 看门狗或 failed 状态时回退默认 WS，
+   *  绝不让用户听到死寂。所以即便设成默认，网络不行的人也只是退回到稳的 WS 半双工，不会坏掉通话。 */
   private async startRtc() {
     if (this.pc || !this.micStream) return;
+    this.rtcFellBack = false;
     const sig = this.ensureSignaling();
     try {
       const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
@@ -525,16 +531,37 @@ export class MiCallLogic {
       pc.onicecandidate = (e) => {
         if (e.candidate) sig.sendRaw?.({ type: "rtc_ice", candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex });
       };
+      pc.onconnectionstatechange = () => {
+        const st = pc.connectionState;
+        if (st === "connected") { if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; } }
+        else if (st === "failed" || st === "closed") this.rtcFallback();
+      };
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
+      // 看门狗：7s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 回退 WS。
+      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 7000);
     } catch {
-      this.teardownRtc(); this.rtcEnabled = false; this.startMicUplink();   // 建不起来 → 回退 WS
+      this.rtcFallback();   // 建不起来 → 回退 WS
+    }
+  }
+
+  /** WebRTC 连不通 → 干净回退默认 WS：拆 RTC、告诉服务端别再走 RTC（下行改回 WS）、起 WS 上行麦克风。
+   *  本通只回退一次。 */
+  private rtcFallback() {
+    if (this.rtcFellBack) return;
+    this.rtcFellBack = true;
+    if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
+    this.teardownRtc();
+    try { this.ensureSignaling().sendRaw?.({ type: "rtc_close" }); } catch { /* noop */ }
+    if (this.state.phase === "listening" || this.state.phase === "thinking" || this.state.phase === "speaking") {
+      this.startMicUplink();   // 仅在通话中才起 WS 上行（挂断后不需要）
     }
   }
 
   private teardownRtc() {
-    if (this.pc) { try { this.pc.close(); } catch { /* noop */ } this.pc = null; }
+    if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
+    if (this.pc) { try { this.pc.onconnectionstatechange = null; this.pc.close(); } catch { /* noop */ } this.pc = null; }
     if (this.rtcAudioEl) { try { this.rtcAudioEl.pause(); this.rtcAudioEl.srcObject = null; this.rtcAudioEl.remove(); } catch { /* noop */ } this.rtcAudioEl = null; }
   }
 
@@ -553,7 +580,7 @@ export class MiCallLogic {
         break;
       case "rtc_unavailable":
         // 后端没装 aiortc → 回退默认 WS 音频路径，体验不受影响。
-        this.rtcEnabled = false; this.teardownRtc(); this.startMicUplink();
+        this.rtcFallback();
         break;
       case "state":
         // 麦克风上行门控不再看 phase，而是看「AI 音频是否在外放」（半双工，见 startMicUplink）——
