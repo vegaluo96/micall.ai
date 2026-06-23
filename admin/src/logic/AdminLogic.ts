@@ -10,7 +10,8 @@
 // change required.
 
 import type { Vals } from "../dc/resolve";
-import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter } from "./configService";
+import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
+         loadDashboard, loadUsers, loadCalls, loadOrders } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -40,6 +41,8 @@ export class AdminLogic {
   permModules: string[];
   roleMatrix: Record<string, number[]>;
   notifs: any[];
+  realStats: any = null;        // 接后端后的首页 KPI（null = 用演示数据）
+  realTopChars: any[] | null = null;  // 接后端后的热门角色排名
 
   private _t: Timer | undefined;
   private _tt: Timer[] = [];
@@ -233,6 +236,46 @@ export class AdminLogic {
       }
       this.setState({}); // 用真实角色数据重渲染
     }
+    await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
+  }
+
+  /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
+  private async loadRealData() {
+    const [dash, users, calls, orders] = await Promise.all([
+      loadDashboard(), loadUsers(), loadCalls(), loadOrders(),
+    ]);
+    if (dash) { this.realStats = dash.stats; this.realTopChars = dash.top_characters || []; }
+    const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
+                   "linear-gradient(140deg,#5BE0A0,#1FA971)", "linear-gradient(140deg,#6FC8FF,#2E7BFF)",
+                   "linear-gradient(140deg,#FFB36B,#F5821F)"];
+    const nameOf = (email: string) => (email || "").split("@")[0] || "用户";
+    const charName = (cid: string) => this.chars.find((c) => c.cid === cid || c.id === cid)?.name || cid;
+    const fmtDur = (sec: number) => `${Math.floor((sec || 0) / 60)}:${String((sec || 0) % 60).padStart(2, "0")}`;
+    const fmtTime = (iso: string) => { const d = new Date(iso); return isNaN(+d) ? "" : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+    const OSTAT: Record<string, string> = { paid: "已支付", refunded: "已退款", pending: "待支付", failed: "已失败" };
+
+    if (users) {
+      this.users = users.map((u: any, i: number) => ({
+        id: u.user_id, name: nameOf(u.email), email: u.email || "",
+        initial: (nameOf(u.email)[0] || "U").toUpperCase(), grad: GRADS[i % GRADS.length],
+        plan: "免费用户", minsRaw: `${Math.round((u.total_seconds || 0) / 60)} 分钟`,
+        spent: "$0.00", joined: (u.created_at || "").slice(0, 10), recharges: [],
+      }));
+    }
+    if (calls) {
+      this.calls = calls.map((c: any, i: number) => ({
+        id: "rk" + i, char: charName(c.character_id), user: c.user_email || "—",
+        scene: c.scenario || "随便聊聊", dur: fmtDur(c.duration_seconds), rating: 0,
+        time: fmtTime(c.started_at), feedback: "", lines: [],
+      }));
+    }
+    if (orders) {
+      this.orders = orders.map((o: any) => ({
+        id: o.order_id, user: o.user_email || "—", plan: o.plan,
+        amount: "$" + ((o.amount_cents || 0) / 100).toFixed(2), status: OSTAT[o.status] || o.status,
+      }));
+    }
+    if (dash || users || calls || orders) this.setState({});
   }
 
   _splitList(s: string): string[] {
@@ -472,12 +515,18 @@ export class AdminLogic {
       admins: ["权限管理", "管理员账号与角色权限"],
     };
 
-    const kpis = [
+    const rs = this.realStats;
+    const kpis = (rs ? [
+      { label: "总用户", value: (rs.total_users || 0).toLocaleString(), delta: "实时", up: true, note: "" },
+      { label: "今日通话", value: (rs.calls_today || 0).toLocaleString(), delta: "实时", up: true, note: "" },
+      { label: "总通话时长", value: (rs.total_minutes || 0).toLocaleString() + " 分钟", delta: "", up: true, note: "累计" },
+      { label: "本月收入", value: "$" + ((rs.month_revenue_cents || 0) / 100).toFixed(2), delta: "", up: true, note: "已支付订单" },
+    ] : [
       { label: "总用户", value: "12,847", delta: "+8.2%", up: true, note: "较上月" },
       { label: "今日通话", value: "3,219", delta: "+12.4%", up: true, note: "较昨日" },
       { label: "总通话时长", value: "8,640h", delta: "+6.1%", up: true, note: "本月累计" },
       { label: "本月收入", value: "$48,920", delta: "+9.7%", up: true, note: "会员订阅" },
-    ].map((k) => ({ ...k, deltaColor: k.up ? "#1FA971" : "#E0594F", deltaBg: k.up ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)" }));
+    ]).map((k) => ({ ...k, deltaColor: k.up ? "#1FA971" : "#E0594F", deltaBg: k.up ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)" }));
     const trendSets: Record<string, any> = {
       today: { title: "今日通话量（按小时）", data: [{ day: "0时", v: 120 }, { day: "4时", v: 60 }, { day: "8时", v: 280 }, { day: "12时", v: 430 }, { day: "16时", v: 520 }, { day: "20时", v: 790 }, { day: "现在", v: 540 }] },
       "7d": { title: "近 7 日通话量", data: [{ day: "周一", v: 2480 }, { day: "周二", v: 2710 }, { day: "周三", v: 2390 }, { day: "周四", v: 2950 }, { day: "周五", v: 3180 }, { day: "周六", v: 3620 }, { day: "周日", v: 3219 }] },
@@ -488,7 +537,9 @@ export class AdminLogic {
     const trend = tset.data.map((t: any) => ({ day: t.day, val: t.v.toLocaleString(), h: Math.round(t.v / tmax * 100) + "%" }));
     const trendTitle = tset.title;
     const dateChips = ([["today", "今日"], ["7d", "近 7 日"], ["30d", "近 30 日"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ dateRange: k }), bg: s.dateRange === k ? "#16161A" : "#fff", color: s.dateRange === k ? "#fff" : "#5A5E6B", border: s.dateRange === k ? "#16161A" : "#E6E7EB" }));
-    const topChars = this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5).map((c, i) => ({ rank: i + 1, name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", calls: c.calls }));
+    const topChars = (this.realTopChars && this.realTopChars.length)
+      ? this.realTopChars.map((t, i) => { const c = this.chars.find((x) => x.cid === t.character_id || x.id === t.character_id); return { rank: i + 1, name: c?.name || t.character_id, hueFilter: "hue-rotate(" + (c?.hue ?? 0) + "deg)", calls: String(t.calls) }; })
+      : this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5).map((c, i) => ({ rank: i + 1, name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", calls: c.calls }));
     const sceneUseRaw = this.scenes.filter((x) => x.type !== "custom");
     const smax = Math.max(...sceneUseRaw.map((x) => parseFloat(x.uses)));
     const topScenes = sceneUseRaw.slice().sort((a, b) => parseFloat(b.uses) - parseFloat(a.uses)).slice(0, 5).map((x) => ({ name: x.name, uses: x.uses, pct: Math.round(parseFloat(x.uses) / smax * 100) + "%" }));

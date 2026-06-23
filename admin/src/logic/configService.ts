@@ -117,6 +117,42 @@ export async function saveCharacter(payload: CharEdit): Promise<boolean> {
   }
 }
 
+// ── 后台看板真实数据（P4）：有后端则拉 DB 聚合，无后端/失败 → null（页面用内置演示数据）──
+async function getList(path: string, key: string): Promise<any[] | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}${path}`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) {
+      const d = (await r.json()) as Record<string, any>;
+      if (d && d.ok) return (d[key] as any[]) || [];
+    }
+  } catch {
+    /* 网络/后端不可用：退回演示数据 */
+  }
+  return null;
+}
+
+/** 首页 KPI + 热门角色。无后端/失败 → null。 */
+export async function loadDashboard(): Promise<{ stats: any; top_characters: any[] } | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/stats`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) {
+      const d = (await r.json()) as Record<string, any>;
+      if (d && d.ok) return { stats: d.stats || {}, top_characters: d.top_characters || [] };
+    }
+  } catch {
+    /* 退回演示 */
+  }
+  return null;
+}
+
+export const loadUsers = () => getList("/admin/users", "users");
+export const loadCalls = () => getList("/admin/calls", "calls");
+export const loadOrders = () => getList("/admin/orders", "orders");
+
 /** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
 export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };
 
