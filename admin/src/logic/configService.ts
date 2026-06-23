@@ -201,6 +201,27 @@ export async function saveDefaultCharacter(id: string): Promise<boolean> {
   return false;
 }
 
+/** 读取邀请奖励（分钟）。无后端 → null。 */
+export async function loadInviteConfig(): Promise<{ reward_minutes: number } | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/invite-config`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) return (await r.json()) as { reward_minutes: number };
+  } catch { /* noop */ }
+  return null;
+}
+/** 保存邀请奖励（分钟）。改完即对新注册生效。 */
+export async function saveInviteConfig(rewardMinutes: number): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/invite-config`, { method: "PUT", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ reward_minutes: rewardMinutes }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
+
 /** 删除兑换码。返回是否成功。 */
 export async function deleteRedeemCode(code: string): Promise<boolean> {
   const b = base();

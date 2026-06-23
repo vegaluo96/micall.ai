@@ -598,7 +598,7 @@
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             </div>
             <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;margin-top:4px;">邀请好友</div>
-            <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">每邀请一位好友,双方各得 <span style="color:#6E5CFF;font-weight:600;">60 分钟</span> 通话时长</div>
+            <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">每邀请一位好友,双方各得 <span style="color:#6E5CFF;font-weight:600;">{{ inviteRewardMin }} 分钟</span> 通话时长</div>
             <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;padding:13px 16px;border-radius:15px;background:var(--ctrl);box-sizing:border-box;">
               <span style="flex:1;font-size:16px;font-weight:600;color:var(--fg);letter-spacing:2px;">{{ inviteCode }}</span>
               <div onClick="{{ copyInvite }}" style="font-size:13px;font-weight:600;color:#6E5CFF;cursor:pointer;" style-active="transform:scale(.95)">复制</div>
@@ -626,7 +626,7 @@
 
       <sc-if value="{{ rechargeOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ rechargeClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 16px;display:flex;flex-direction:column;max-height:82%;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 0;display:flex;flex-direction:column;max-height:82%;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;flex:none;margin-bottom:10px;">充值</div>
           <!-- 会员套餐：可滚动区 -->
@@ -660,8 +660,8 @@
               </sc-for>
             </div>
           </div>
-          <!-- 兑换码：固定底部（当前充值方式）。 -->
-          <div style="flex:none;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;">
+          <!-- 兑换码：固定底部（当前充值方式）。底距由本块负责（外层 sheet 在移动端被强制 padding-bottom:0）。 -->
+          <div style="flex:none;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;padding-bottom:calc(16px + env(safe-area-inset-bottom));">
             <div style="display:flex;gap:8px;width:100%;">
               <input value="{{ redeemCode }}" onInput="{{ onRedeemCode }}" placeholder="输入兑换码" style="flex:1;min-width:0;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:13px;padding:13px 14px;font-size:14px;color:var(--fg);font-family:inherit;letter-spacing:.6px;" />
               <div onClick="{{ doRedeem }}" style="flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:0 22px;border-radius:13px;cursor:pointer;box-shadow:0 4px 12px rgba(110,92,255,.28);" style-active="transform:scale(.96)">兑换</div>

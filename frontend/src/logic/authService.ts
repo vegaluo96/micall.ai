@@ -87,8 +87,8 @@ export async function getGuestTrial(): Promise<number | null> {
   }
 }
 
-/** 我的邀请概况：{code, invited, reward_seconds}。未登录/失败 → null。 */
-export async function getInvite(): Promise<{ code: string; invited: number; reward_seconds: number } | null> {
+/** 我的邀请概况：{code, invited, reward_seconds, reward_minutes}。未登录/失败 → null。 */
+export async function getInvite(): Promise<{ code: string; invited: number; reward_seconds: number; reward_minutes?: number } | null> {
   const j = await getJSON("/api/invite");
   return j && j.ok ? j.invite : null;
 }

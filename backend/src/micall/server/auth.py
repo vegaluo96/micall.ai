@@ -12,7 +12,17 @@ import re
 import secrets
 
 REGISTER_GIFT_SECONDS = 3600          # 注册赠送 60 分钟（对齐前端「已送 60 分钟」文案）
-INVITE_REWARD_SECONDS = 3600          # 邀请成功双方各得 60 分钟（对齐后台「双方各得 60 分钟」）
+INVITE_REWARD_SECONDS = 3600          # 邀请奖励兜底（默认 60 分钟）；实际值由后台「邀请裂变」配置，见下
+
+
+def invite_reward_seconds() -> int:
+    """后台「邀请裂变」配置的邀请奖励秒数（reward_minutes×60）；读不到则回退默认。改完即对新注册生效。"""
+    try:
+        from ..config import load_config
+        m = int(load_config().raw.get("invite", {}).get("reward_minutes", 60) or 60)
+        return max(0, m) * 60
+    except Exception:
+        return INVITE_REWARD_SECONDS
 SESSION_TTL_SECONDS = 30 * 24 * 3600  # token 有效期 30 天
 _PBKDF2_ITERS = 200_000
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -61,9 +71,9 @@ def register(repo, email: str, password: str, invite_code: str = "") -> tuple[in
     user_id = "u_" + secrets.token_hex(8)
     if not repo.create_user(user_id, email, hash_password(password), gift_seconds=REGISTER_GIFT_SECONDS):
         return 409, {"ok": False, "error": "该邮箱已注册"}
-    if (invite_code or "").strip():       # 带邀请码注册：双方各得奖励（失败不影响注册）
+    if (invite_code or "").strip():       # 带邀请码注册：双方各得奖励（后台配置值，失败不影响注册）
         try:
-            repo.apply_invite(user_id, invite_code.strip(), INVITE_REWARD_SECONDS)
+            repo.apply_invite(user_id, invite_code.strip(), invite_reward_seconds())
         except Exception:
             pass
     user = repo.get_user(user_id) or {"user_id": user_id, "email": email, "remaining_seconds": REGISTER_GIFT_SECONDS}

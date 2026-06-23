@@ -15,6 +15,8 @@
 
   "billing": { "free_seconds_on_register": 3600, "low_minutes_threshold_seconds": 60 },
 
+  "invite": { "reward_minutes": 60, "_comment": "邀请成功双方各得的分钟数；后台「邀请裂变」可改，改完即对新注册生效。" },
+
   "turn": { "silence_base_ms": 500, "silence_extended_ms": 1200, "turn_confidence": 0.7, "min_speech_ms": 200, "interrupt_min_ms": 250, "echo_tail_ms": 1200, "echo_overlap": 0.7, "_comment": "公放回声主力防护在前端：默认全双工靠浏览器 AEC（TTS 经 <audio> 出声启用回声消除），机型不行可 localStorage micall_duplex=half 退半双工（frontend/logic/audio.ts）。这里是服务端兜底（每通重载即生效）：echo_tail_ms=AI 音频播完后仍按可能回声对待的拖尾窗；echo_overlap=播放中识别文本与 AI 已说内容字符重叠达此比例即判回声。" },
 
   "database": { "dsn": "", "_comment": "postgresql://user:pass@host:5432/micall（真实部署经环境注入）" },

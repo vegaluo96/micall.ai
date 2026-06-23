@@ -253,7 +253,44 @@ journalctl -u micall-backend -n 5 --no-pager    # 启动正常即可（未装 ai
 **`?rtc=1` 实验前提 / 局限**：
 - **UDP 必须放行**（上面第 2 步）。只开 443 不行。
 - **服务端不配 STUN**（境内连不通 Google STUN 会让 aiortc 等 ~5s 才发 answer = 慢的元凶，已去掉）。
-  服务端用 **host 候选（公网 IP）** 直连：要求 ECS 公网 IP 能被浏览器直达；NAT 后则需在 `_ICE_SERVERS`
-  填**境内可达的 STUN/TURN**。
+  服务端用 **host 候选（公网 IP）** 直连：要求 ECS 公网 IP 能被浏览器直达；NAT 后则需配可达的 STUN/TURN。
 - **移动对称 NAT / 境内手机够不到公网 STUN** → 连不通的会在 ~4.5s 内自动回退 WS（不死寂，但开场仍有几秒）。
 - 前端 RTCPeerConnection + 真机连通性我无法本地验证，请真机实测、把现象反馈给我再迭代。
+
+### 自建 coturn（把全双工做成可靠默认的正解）
+
+公网 STUN 境内不可靠，自己在 ECS（或同区）上跑 coturn 当 STUN+TURN，覆盖率最高。
+
+```bash
+# 1) 装
+sudo apt-get install -y coturn
+sudo sed -i 's/#TURNSERVER_ENABLED/TURNSERVER_ENABLED/' /etc/default/coturn
+
+# 2) /etc/turnserver.conf（最小可用，<...> 换成你的值）
+sudo tee /etc/turnserver.conf >/dev/null <<'CONF'
+listening-port=3478
+fingerprint
+lt-cred-mech
+user=micall:<一个强密码>
+realm=zsky.com
+# 阿里云 EIP 是 NAT 映射：把"公网IP/内网IP"都填上，coturn 才会对外播报公网 IP
+external-ip=<公网IP>/<内网IP>
+min-port=49152
+max-port=65535
+no-cli
+CONF
+sudo systemctl enable --now coturn && sudo systemctl restart coturn
+
+# 3) 安全组放行：3478 TCP+UDP（STUN/TURN 信令）+ 49152-65535 UDP（媒体中继）
+```
+
+接进来（两端都填同一套；填好后即对 `?rtc=1` 生效）：
+```bash
+# 后端（micall.env，随服务重启生效）
+MICALL_ICE_SERVERS='[{"urls":"stun:zsky.com:3478"},{"urls":"turn:zsky.com:3478","username":"micall","credential":"<同上密码>"}]'
+# 前端（frontend/.env.production，需重新 build）
+VITE_ICE_SERVERS=[{"urls":"stun:zsky.com:3478"},{"urls":"turn:zsky.com:3478","username":"micall","credential":"<同上密码>"}]
+```
+真机 `?rtc=1` 验证连得快又稳后，再把前端默认切回 WebRTC（`MiCallLogic` 里 `rtcEnabled` 那行），我可以帮你切。
+> 注：把长期 TURN 密码放进前端会暴露给客户端。要更安全用 coturn 的 `use-auth-secret` + 后端发临时凭据，
+> 那需要再加个发凭据的接口；先用长期密码跑通，安全加固作为后续。

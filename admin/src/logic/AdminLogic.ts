@@ -15,6 +15,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
          createCharacter, deleteCharacter, generateCharacter,
          loadDefaultCharacter, saveDefaultCharacter,
+         loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend } from "./configService";
 
 export interface AdminProps {
@@ -190,7 +191,18 @@ export class AdminLogic {
     }
     const dc = await loadDefaultCharacter();   // 当前默认角色（用户端进来先选它）
     if (dc != null) { this.defaultCharId = dc; this.setState({}); }
+    const ic = await loadInviteConfig();       // 当前邀请奖励（分钟）
+    if (ic && ic.reward_minutes != null) this.setState({ inviteReward: String(ic.reward_minutes), inviteeReward: String(ic.reward_minutes) });
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
+  }
+
+  /** 保存邀请奖励到后端（双方各得同一值，对齐后端对称奖励）；改完即对新注册生效。 */
+  async saveInvite() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const m = Math.max(0, parseInt(this.state.inviteReward, 10) || 60);
+    const ok = await saveInviteConfig(m);
+    if (ok) this.setState({ inviteeReward: String(m) });
+    this.toastMsg(ok ? "邀请奖励已保存，对新注册即时生效" : "保存失败");
   }
 
   /** 设默认角色：用户端下次进来先选它（后端落 default_character.json，下一次拉角色即生效）。 */
@@ -785,7 +797,7 @@ export class AdminLogic {
       inviteeReward: s.inviteeReward, onInviteeReward: (e: any) => this.setState({ inviteeReward: e.target.value }),
       inviteRuleOn: s.inviteRuleOn, toggleInviteRule: () => this.setState((p) => ({ inviteRuleOn: !p.inviteRuleOn })),
       ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",
-      saveInviteRule: () => this.toastMsg("邀请奖励规则已保存"),
+      saveInviteRule: () => this.saveInvite(),
       adminsView, permModules: this.permModules, roleMatrixView, addAdmin: () => this.toastMsg("功能开发中"),
       notifs: this.realStats ? (this.tickets.filter((t: any) => t.status === "待处理").length > 0 ? [{ title: this.tickets.filter((t: any) => t.status === "待处理").length + " 条工单待处理", time: "实时", dot: "#E0594F" }] : []) : this.notifs,
       notifOpen: s.notifOpen, notifUnread: this.realStats ? this.tickets.some((t: any) => t.status === "待处理") : !s.notifRead,

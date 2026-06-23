@@ -118,6 +118,20 @@ export class MiCallLogic {
 
   constructor(props: MiCallProps) {
     this.props = props || {};
+    // 用上次拉到的**真实**角色（含后台改过的名字/默认角色）做首屏，杜绝刷新先闪一下内置的「林晚」等占位名。
+    // 内置 chars 只在从没连过后端的全新设备上兜底；连过一次后永远先显真实数据。
+    try {
+      const raw = localStorage.getItem("micall_chars");
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c && Array.isArray(c.chars) && c.chars.length) {
+          this.chars = c.chars;
+          this._charsBuilt = true;
+          if (typeof c.idx === "number" && c.idx >= 0 && c.idx < c.chars.length) this.state.charIndex = c.idx;
+        }
+      }
+    } catch { /* 缓存坏了就用内置兜底 */ }
+    this.state.favorites = this.loadFavs();   // 收藏持久化：刷新不丢（按角色 id 存）
   }
 
   // ── React host bridge (mirrors DCLogic.setState semantics) ────────────────
@@ -174,7 +188,32 @@ export class MiCallLogic {
     const di = list.findIndex((c: any) => c && c.default);
     if (di >= 0) this.state.charIndex = di;
     else if (this.state.charIndex >= this.chars.length) this.state.charIndex = 0;
+    // 缓存真实角色 + 默认下标：下次刷新首屏直接显真实数据（不再闪内置占位名）。
+    try { localStorage.setItem("micall_chars", JSON.stringify({ chars: this.chars, idx: this.state.charIndex })); } catch { /* noop */ }
+    this.state.favorites = this.loadFavs();   // 角色换序后按 id 重新映射收藏下标
     this.notify();
+  }
+
+  // ── 收藏持久化（按角色 id 存，刷新/换序都不丢；favorites 状态仍是下标，由 id 反查）──
+  private loadFavs(): number[] {
+    try {
+      const raw = localStorage.getItem("micall_favs");
+      if (!raw) return [];
+      const ids = JSON.parse(raw);
+      if (!Array.isArray(ids)) return [];
+      const out: number[] = [];
+      ids.forEach((id: string) => { const i = this.chars.findIndex((c) => c.id === id); if (i >= 0 && !out.includes(i)) out.push(i); });
+      return out;
+    } catch { return []; }
+  }
+  private toggleFav() {
+    this.setState((s) => {
+      const favs = s.favorites.includes(s.charIndex)
+        ? s.favorites.filter((x: number) => x !== s.charIndex)
+        : [...s.favorites, s.charIndex];
+      try { localStorage.setItem("micall_favs", JSON.stringify(favs.map((i: number) => this.chars[i]?.id).filter(Boolean))); } catch { /* noop */ }
+      return { favorites: favs };
+    });
   }
 
   /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */
@@ -201,7 +240,7 @@ export class MiCallLogic {
   private realHistory: any[] | null = null;   // null = 用演示 this.history
   private realBills: any[] | null = null;     // null = 用演示 this.bills
   private realTickets: any[] | null = null;   // null = 用演示 state.tickets
-  private realInvite: { code: string; invited: number; reward_seconds: number } | null = null;
+  private realInvite: { code: string; invited: number; reward_seconds: number; reward_minutes?: number } | null = null;
   private pendingInvite = "";                 // 注册时携带的邀请码（来自 ?invite= 链接）
 
   private async loadInvite() {
@@ -509,12 +548,22 @@ export class MiCallLogic {
    *  → 外放硬件 AEC、可随时打断。信令复用现有 WS（sendRaw）。
    *  关键保险：连不通（对称 NAT / UDP 被封 / 后端没装）一律在 7s 看门狗或 failed 状态时回退默认 WS，
    *  绝不让用户听到死寂。所以即便设成默认，网络不行的人也只是退回到稳的 WS 半双工，不会坏掉通话。 */
+  /** ICE 服务器：构建期由 VITE_ICE_SERVERS（JSON）注入自建 coturn（STUN+TURN）。没配则只用 host 候选
+   *  （公网 IP 直连，多数公网 IP 服务端可通；境内手机弱网/对称 NAT 需要 coturn 才稳）。 */
+  private iceServers(): RTCIceServer[] {
+    try {
+      const raw = (import.meta.env?.VITE_ICE_SERVERS as string) || "";
+      if (raw.trim()) { const v = JSON.parse(raw); if (Array.isArray(v)) return v; }
+    } catch { /* 配置坏了就退 host 直连 */ }
+    return [];
+  }
+
   private async startRtc() {
     if (this.pc || !this.micStream) return;
     this.rtcFellBack = false;
     const sig = this.ensureSignaling();
     try {
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      const pc = new RTCPeerConnection({ iceServers: this.iceServers() });
       this.pc = pc;
       this.micStream.getAudioTracks().forEach((t) => pc.addTrack(t, this.micStream!));  // 上行麦克风
       pc.ontrack = (e) => {                                                              // 下行 AI 语音 → <audio>
@@ -804,7 +853,7 @@ export class MiCallLogic {
         favLabel: this.state.favorites.includes(this.state.charIndex) ? "已收藏" : "收藏",
         favLabelColor: this.state.favorites.includes(this.state.charIndex) ? "#FF4F7B" : "var(--dim)",
         favBtnBg: this.state.favorites.includes(this.state.charIndex) ? "rgba(255,79,123,.10)" : "var(--ctrl)",
-        favToggle: () => this.setState((s) => ({ favorites: s.favorites.includes(s.charIndex) ? s.favorites.filter((x: number) => x !== s.charIndex) : [...s.favorites, s.charIndex] })),
+        favToggle: () => this.toggleFav(),
         previewing: this.state.previewing === this.state.charIndex,
         notPreviewing: this.state.previewing !== this.state.charIndex,
         previewLabel: this.state.previewing === this.state.charIndex ? "正在试听…" : "试听声音",
@@ -927,7 +976,7 @@ export class MiCallLogic {
       menuToggle: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
       menuClose: () => this.setState({ menuOpen: false }),
       favCurFill, favCurStroke,
-      favToggleCur: () => this.setState((s) => ({ favorites: s.favorites.includes(s.charIndex) ? s.favorites.filter((x: number) => x !== s.charIndex) : [...s.favorites, s.charIndex] })),
+      favToggleCur: () => this.toggleFav(),
       favList, hasFavs, noFavs,
       favOpen: this.state.favOpen,
       favOpenToggle: () => this.setState((s) => ({ favOpen: !s.favOpen })),
@@ -1162,6 +1211,8 @@ export class MiCallLogic {
       inviteFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }); this.loadInvite(); },
       inviteOpen: this.state.inviteOpen,
       inviteClose: () => this.setState({ inviteOpen: false }),
+      inviteRewardMin: (this.realInvite && (this.realInvite as { reward_minutes?: number }).reward_minutes != null)
+        ? (this.realInvite as { reward_minutes?: number }).reward_minutes : 60,   // 后台配置的邀请奖励（分钟）
       inviteCode: this.realInvite ? this.realInvite.code : "MICALL-7K2F",
       copyInvite: () => this.copyInviteLink(),
       shareInvite: () => this.copyInviteLink(),

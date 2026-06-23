@@ -132,7 +132,9 @@ class _Handler(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json(401, {"ok": False, "error": "未登录"})
-            return self._json(200, {"ok": True, "invite": _REPO.invite_stats(uid)})
+            inv = _REPO.invite_stats(uid)
+            inv["reward_minutes"] = _auth.invite_reward_seconds() // 60   # 后台配置的每邀请奖励（前端展示）
+            return self._json(200, {"ok": True, "invite": inv})
         self._json(404, {"error": "not found"})
 
     def _rate_block(self, key: str) -> bool:

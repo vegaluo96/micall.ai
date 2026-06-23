@@ -236,6 +236,28 @@ def write_cost_from_admin(payload: dict) -> None:
     tmp.replace(OVERRIDES_PATH)
 
 
+# ── 邀请奖励（后台「邀请裂变」）读写：存 admin_overrides.json 的 invite 段，改完即对新注册生效 ──
+def read_invite_for_admin() -> dict:
+    return {"reward_minutes": int(load_config().raw.get("invite", {}).get("reward_minutes", 60) or 60)}
+
+
+def write_invite_from_admin(payload: dict) -> None:
+    existing: dict = {}
+    if OVERRIDES_PATH.exists():
+        try:
+            existing = json.loads(OVERRIDES_PATH.read_text("utf-8"))
+        except (ValueError, OSError):
+            existing = {}
+    try:
+        m = max(0, int((payload or {}).get("reward_minutes", 60) or 60))
+    except (TypeError, ValueError):
+        m = 60
+    existing["invite"] = {"reward_minutes": m}
+    tmp = OVERRIDES_PATH.with_name(OVERRIDES_PATH.name + ".tmp")
+    tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
+    tmp.replace(OVERRIDES_PATH)
+
+
 def login(payload: dict) -> tuple[int, dict]:
     """后台登录：校验账号密码，成功发 token（前端后续带 Authorization 访问配置 API）。
 
@@ -314,6 +336,8 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/default-character":
             from .characters_admin import load_default_character
             return self._json(200, {"id": load_default_character()})
+        if self._route() == "/admin/invite-config":
+            return self._json(200, read_invite_for_admin())
         # ── 看板真实数据（P4）：未注入仓储则返回空，前端退回演示数据 ──
         if self._route() == "/admin/stats":
             if _REPO is None:
@@ -377,6 +401,12 @@ class _Handler(BaseHTTPRequestHandler):
             from .characters_admin import set_default_character
             ok = set_default_character((self._body().get("id") or "").strip())
             return self._json(200 if ok else 400, {"ok": ok, "error": None if ok else "未知或已删除的角色"})
+        if self._route() == "/admin/invite-config":
+            try:
+                write_invite_from_admin(self._body())
+                return self._json(200, {"ok": True})
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
