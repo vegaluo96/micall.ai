@@ -313,6 +313,41 @@
       <!-- ORDERS -->
       <sc-if value="{{ isOrders }}" hint-placeholder-val="{{ false }}">
         <div style="animation:adRise .3s ease;">
+          <!-- 兑换码生成 + 列表 -->
+          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 20px;margin-bottom:24px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
+            <div style="font-size:15px;font-weight:600;color:#16161A;margin-bottom:14px;">兑换码生成</div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <span style="font-size:12px;color:#878B95;">数量</span>
+                <input value="{{ redeemCount }}" onInput="{{ onRedeemCount }}" style="width:90px;border:1px solid #E6E7EB;border-radius:10px;padding:9px 12px;font-size:14px;font-family:inherit;outline:none;color:#16161A;" />
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <span style="font-size:12px;color:#878B95;">每个时长（分钟）</span>
+                <input value="{{ redeemMinutes }}" onInput="{{ onRedeemMinutes }}" style="width:130px;border:1px solid #E6E7EB;border-radius:10px;padding:9px 12px;font-size:14px;font-family:inherit;outline:none;color:#16161A;" />
+              </div>
+              <div onClick="{{ genRedeem }}" style="font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:10px 24px;border-radius:11px;cursor:pointer;box-shadow:0 4px 12px rgba(110,92,255,.28);" style-active="transform:scale(.97)">生成</div>
+            </div>
+            <sc-if value="{{ hasGenerated }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:14px;padding:12px 14px;background:#F7F7FA;border-radius:11px;display:flex;flex-direction:column;gap:6px;">
+                <span style="font-size:12px;color:#878B95;">刚生成（复制发给用户）：</span>
+                <sc-for list="{{ generatedCodes }}" as="g" hint-placeholder-count="3">
+                  <span style="font-size:13.5px;font-family:ui-monospace,monospace;color:#16161A;letter-spacing:.5px;">{{ g }}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="margin-top:18px;display:grid;grid-template-columns:1.6fr .8fr 1fr 1.4fr;gap:12px;font-size:12px;font-weight:600;color:#9A9DA7;border-bottom:1px solid #EEEFF2;padding-bottom:8px;">
+              <span>兑换码</span><span>时长</span><span>状态</span><span>使用者</span>
+            </div>
+            <sc-for list="{{ redeemCodesView }}" as="r" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:1.6fr .8fr 1fr 1.4fr;gap:12px;padding:9px 0;border-bottom:1px solid #F4F4F6;align-items:center;">
+                <span style="font-size:12.5px;font-family:ui-monospace,monospace;color:#5A5E6B;">{{ r.code }}</span>
+                <span style="font-size:13px;color:#5A5E6B;">{{ r.mins }}</span>
+                <span><span style="font-size:12px;font-weight:600;color:{{ r.stColor }};background:{{ r.stBg }};border-radius:7px;padding:3px 9px;">{{ r.status }}</span></span>
+                <span style="font-size:12.5px;color:#878B95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.usedBy }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:#9A9DA7;margin-bottom:12px;">会员套餐（即将上线）</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;">
             <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
               <div style="background:#fff;border:1px solid {{ p.border }};border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.03);position:relative;">

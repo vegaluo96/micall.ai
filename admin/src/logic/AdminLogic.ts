@@ -11,7 +11,8 @@
 
 import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
-         loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket, usingBackend } from "./configService";
+         loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
+         loadRedeemCodes, genRedeemCodes, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -43,6 +44,7 @@ export class AdminLogic {
   notifs: any[];
   realStats: any = null;        // 接后端后的首页 KPI（null = 用演示数据）
   realTopChars: any[] | null = null;  // 接后端后的热门角色排名
+  redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
 
   private _t: Timer | undefined;
   private _tt: Timer[] = [];
@@ -50,6 +52,7 @@ export class AdminLogic {
   state: State = {
     section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
+    redeemCount: "10", redeemMinutes: "60", generatedCodes: [],
     apiCfg: {
       // 这些只是「无后端」时的兜底默认；接了后端会被真实配置覆盖。值与 backend/config/default.json 对齐，
       // 避免再出现 DeepSeek-V4-Flash 这类虚名误导。key 留空（不放假占位），由运营填、后端打码回显。
@@ -239,11 +242,26 @@ export class AdminLogic {
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
   }
 
+  /** 生成兑换码：调后端、显示新码、刷新列表。 */
+  private async genRedeem() {
+    const count = Math.max(1, Math.min(500, parseInt(this.state.redeemCount, 10) || 1));
+    const minutes = Math.max(1, parseInt(this.state.redeemMinutes, 10) || 60);
+    if (!usingBackend()) { this.toastMsg("需接入后端才能生成兑换码"); return; }
+    const codes = await genRedeemCodes(count, minutes);
+    if (!codes) { this.toastMsg("生成失败，请重试"); return; }
+    this.setState({ generatedCodes: codes });
+    const list = await loadRedeemCodes();
+    if (list) this.redeemCodes = list;
+    this.setState({});
+    this.toastMsg(`已生成 ${codes.length} 个兑换码`);
+  }
+
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
   private async loadRealData() {
-    const [dash, users, calls, orders, tickets, invites] = await Promise.all([
-      loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(), loadInvites(),
+    const [dash, users, calls, orders, tickets, invites, codes] = await Promise.all([
+      loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(), loadInvites(), loadRedeemCodes(),
     ]);
+    if (codes) this.redeemCodes = codes;
     if (dash) { this.realStats = dash.stats; this.realTopChars = dash.top_characters || []; }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
                    "linear-gradient(140deg,#5BE0A0,#1FA971)", "linear-gradient(140deg,#6FC8FF,#2E7BFF)",
@@ -297,7 +315,7 @@ export class AdminLogic {
         invited: v.invited, success: v.invited, pending: 0, mins: String(v.mins),
       }));
     }
-    if (dash || users || calls || orders || tickets || invites) this.setState({});
+    if (dash || users || calls || orders || tickets || invites || codes) this.setState({});
   }
 
   _splitList(s: string): string[] {
@@ -700,6 +718,17 @@ export class AdminLogic {
       notifs: this.notifs, notifOpen: s.notifOpen, notifUnread: !s.notifRead,
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),
       userFilters, usersView, charsView, sceneTabs, scenesView, callsView, ticketsView, ordersView, plans,
+      redeemCount: s.redeemCount, onRedeemCount: (e: any) => this.setState({ redeemCount: e.target.value }),
+      redeemMinutes: s.redeemMinutes, onRedeemMinutes: (e: any) => this.setState({ redeemMinutes: e.target.value }),
+      genRedeem: () => this.genRedeem(),
+      hasGenerated: (s.generatedCodes || []).length > 0,
+      generatedCodes: s.generatedCodes || [],
+      redeemCodesView: this.redeemCodes.map((r: any) => {
+        const used = !!r.used_at;
+        return { code: r.code, mins: Math.round((r.seconds || 0) / 60) + " 分钟",
+          status: used ? "已使用" : "未使用", stColor: used ? "#878B95" : "#1FA971",
+          stBg: used ? "#F0F0F3" : "rgba(31,169,113,.1)", usedBy: r.used_by_email || "—" };
+      }),
       detailOpen: !!d, closeDetail: () => this.setState({ detail: null }), detailTitle,
       dUser, dChar, dCall, dTicket, dCharExpr,
       banLabel, banColor, banBg, toggleBan: () => { const id = d.id; this.setState((p) => ({ banned: { ...p.banned, [id]: !p.banned[id] } })); this.toastMsg(s.banned[d.id] ? "已解除封禁" : "已封禁该用户"); },

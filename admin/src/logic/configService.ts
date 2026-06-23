@@ -154,6 +154,23 @@ export const loadCalls = () => getList("/admin/calls", "calls");
 export const loadOrders = () => getList("/admin/orders", "orders");
 export const loadTickets = () => getList("/admin/tickets", "tickets");
 export const loadInvites = () => getList("/admin/invites", "invites");
+export const loadRedeemCodes = () => getList("/admin/redeem-codes", "codes");
+
+/** 批量生成兑换码，返回码数组（无后端返回 null）。 */
+export async function genRedeemCodes(count: number, minutes: number): Promise<string[] | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/redeem-codes`, {
+      method: "POST", headers: authHeaders(true), credentials: "include",
+      body: JSON.stringify({ count, minutes }),
+    });
+    if (r.ok) { const d = await r.json(); if (d && d.ok) return d.codes || []; }
+  } catch {
+    /* noop */
+  }
+  return null;
+}
 
 /** 回复工单（后台）。返回是否成功。 */
 export async function replyTicket(id: any, reply: string): Promise<boolean> {
