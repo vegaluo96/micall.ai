@@ -131,7 +131,11 @@ export class MiCallLogic {
     try {
       seen = localStorage.getItem("micall_seen_guide") === "1";
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
-      this.halfDuplex = localStorage.getItem("micall_duplex") === "half";  // 兜底：某些机型外放 AEC 不行可切半双工
+      // 通话模式可用 URL 一键切换并记住（手机无需控制台）：
+      //   ?duplex=full（默认，麦克风全程开、可随时打断）  ?duplex=half（最稳无回声、但不能插话）
+      const dux = new URLSearchParams(location.search).get("duplex");
+      if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
+      this.halfDuplex = localStorage.getItem("micall_duplex") === "half";
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
     try {  // 邀请链接 ?invite=CODE：记下来，注册时带上 → 双方各得 60 分钟
