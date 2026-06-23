@@ -70,22 +70,8 @@ export class MiCallLogic {
   private _scenesBuilt = false;
 
   buildChars() {
-    const surnames = "林江夏顾苏沈陆唐许周白温安裴乔程谢卫薛元穆向尹洛祁".split("");
-    const givens = ["晚", "野", "鸣", "辞", "窈", "川", "屿", "昭", "知", "澈", "眠", "笙", "隐", "予", "屹", "央", "聿", "简", "南", "序", "怀", "清", "越", "见", "时", "遇", "归", "宁", "深", "延", "和", "愈", "暖", "念", "栖", "旧"];
-    const descs = ["温柔的深夜倾听者", "理性可靠的陪伴", "元气满满的朋友", "沉静睿智的对话者", "俏皮灵动的伙伴", "会讲故事的旅人", "耐心的解忧搭子", "清冷的疏离感", "治愈系暖心人", "毒舌但很真诚", "安静的陪伴者", "爱笑的乐天派", "深夜不打烊的朋友", "懂你欲言又止", "温暖的过来人"];
-    const traitPool = [["温柔", "耐心"], ["理性", "冷静"], ["元气", "幽默"], ["沉静", "文艺"], ["俏皮", "好奇"], ["真诚", "直率"], ["治愈", "共情"], ["清冷", "疏离"], ["乐观", "松弛"]];
-    const out: Char[] = [];
-    for (let i = 0; i < 96; i++) {
-      const nm = surnames[i % surnames.length] + givens[(i * 7 + 3) % givens.length];
-      out.push({
-        name: nm,
-        hue: Math.round((i * 47) % 360),
-        desc: descs[(i * 5 + 2) % descs.length],
-        traits: traitPool[(i + 1) % traitPool.length],
-        bio: "性格温和，喜欢在安静里慢慢和你聊。无论是开心还是低落，TA 都愿意陪你说说话。",
-      });
-    }
-    this.chars = [...this.chars, ...out];
+    // 上线只保留 5 个真出厂角色（林晚/江野/夏鸣/顾辞/苏窈，spec 在 asset-pipeline/characters）。
+    // 之前为撑满目录生成的占位角色已移除——不上线假角色。新角色做好 spec 后加进上面的 chars 即可。
   }
 
   state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: ["陪我练习模拟面试", "假装我们在咖啡馆", "用轻松的语气聊聊天"], settingsOpen: false, setSound: true, setVibrate: true, setSubtitle: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", genVoicesByChar: {}, pendingVoiceDel: null, cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", fontScale: 0, tickets: [{ type: "功能异常", msg: "通话偶尔会有杂音", date: "2026-06-19", status: "已回复", reply: "已优化降噪,请更新到最新版试试,给你补了 30 分钟时长~" }], voiceByChar: {}, voiceCustomOpen: false, voiceCustomText: "", lowWarned: false, micGranted: false, permOpen: false, callFailed: false, remaining: 720, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle" };
