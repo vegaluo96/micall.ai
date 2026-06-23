@@ -81,11 +81,33 @@ export class AudioPlayer {
   private playhead = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private logged = false;
+  // 全双工关键：TTS 不直连 ctx.destination，而是经 MediaStream 走一个隐藏 <audio> 元素出声。
+  // 浏览器会把"媒体元素的播放"纳入回声消除(AEC)的参考信号，移动端外放（尤其 iOS Safari，纯 WebAudio
+  // 直连 destination 时 AEC 不生效）也能消回声 → 麦克风全程开着也不回授，支持边说边随时打断。
+  private out: AudioNode | null = null;        // 实际接音频的节点（MediaStream 目标 或 退回 destination）
+  private el: HTMLAudioElement | null = null;
 
   /** 必须在用户手势（点接听）里调一次，iOS 才允许出声。 */
   resume(): void {
-    if (!this.ctx) this.ctx = audioCtx();
+    if (!this.ctx) {
+      this.ctx = audioCtx();
+      try {
+        const dest = this.ctx.createMediaStreamDestination();
+        const el = document.createElement("audio");
+        el.autoplay = true;
+        el.setAttribute("playsinline", "");       // iOS 不接管/不全屏
+        (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+        el.srcObject = dest.stream;
+        el.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;";
+        document.body.appendChild(el);            // 个别浏览器要求在 DOM 内才出声
+        this.el = el;
+        this.out = dest;                          // AEC 友好输出
+      } catch {
+        this.out = this.ctx.destination;          // 不支持 MediaStreamDestination：退回直连（仍可出声）
+      }
+    }
     if (this.ctx.state === "suspended") void this.ctx.resume();
+    if (this.el) void this.el.play().catch(() => { /* 手势内调用，通常已可播 */ });
   }
 
   play(frame: ArrayBuffer): void {
@@ -104,7 +126,7 @@ export class AudioPlayer {
       buf.getChannelData(0).set(f32);
       const node = this.ctx.createBufferSource();
       node.buffer = buf;
-      node.connect(this.ctx.destination);
+      node.connect(this.out || this.ctx.destination);
       const start = Math.max(this.ctx.currentTime + 0.02, this.playhead);
       node.start(start);
       this.playhead = start + buf.duration;
@@ -115,7 +137,7 @@ export class AudioPlayer {
     }
   }
 
-  /** AI 音频此刻是否正在外放（含一小段衰减拖尾）。半双工据此判断要不要暂停麦克风上行：
+  /** AI 音频此刻是否正在外放（含一小段衰减拖尾）。仅"半双工兜底模式"用它判断要不要暂停上行：
    *  playhead = 已排队音频播放到的终点；currentTime 还没追上 playhead+tail 就当作「还在响」。
    *  flush 后 playhead 归 0 → false；自然播完后 currentTime 越过终点 → false。 */
   isPlaying(tailMs = 250): boolean {
@@ -132,6 +154,8 @@ export class AudioPlayer {
 
   close(): void {
     this.flush();
+    if (this.el) { try { this.el.pause(); this.el.srcObject = null; this.el.remove(); } catch { /* noop */ } this.el = null; }
+    this.out = null;
     try { void this.ctx?.close(); } catch { /* noop */ }
     this.ctx = null;
   }

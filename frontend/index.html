@@ -2,7 +2,13 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- 锁定缩放：maximum-scale=1 同时根治 iOS 聚焦输入框时整页自动放大（打字突然变大）的 bug，
+       以及双指/双击缩放。这是 App 化 H5 的标准做法（内容已全屏自适应，无需用户缩放）。 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
   <title>MiCall.ai</title>
 </head>
 <body>

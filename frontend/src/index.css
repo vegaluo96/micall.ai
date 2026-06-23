@@ -10,6 +10,49 @@ body {
 #dc-root {
   min-height: 100%;
 }
+
+/* ── 移动端 H5 交互打磨（让"网页"摸起来像原生 App）─────────────────────────────
+   逐项对症那些"不丝滑"的小毛病：点击灰块闪烁、双击/双指缩放、长按弹菜单、整页橡皮筋
+   回弹/下拉刷新、误选中文字、字体被系统强行放大、滚动不带惯性。 */
+* {
+  -webkit-tap-highlight-color: transparent;   /* 点任何东西都不再闪灰块 */
+}
+html {
+  -webkit-text-size-adjust: 100%;              /* iOS 横竖屏不强行放大正文 */
+  text-size-adjust: 100%;
+}
+body {
+  touch-action: manipulation;                  /* 去掉 300ms 点击延迟 + 禁双击放大 */
+  overscroll-behavior: none;                   /* 禁整页橡皮筋回弹 / 下拉刷新 */
+  -webkit-touch-callout: none;                 /* 长按不弹"拷贝/分享"菜单 */
+  -webkit-user-select: none;                   /* UI 文案默认不可选中（误触不高亮） */
+  user-select: none;
+}
+/* 输入区要能正常选词/编辑，单独放开 */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+/* 所有可滚动列表都带惯性滚动，滑起来跟手 */
+.nobar,
+[style*="overflow-y:auto"],
+[style*="overflow-y: auto"] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;                /* 列表滚到底不把滚动"传染"给外层 */
+}
+
+/* iOS 聚焦 font-size<16px 的输入框会触发整页自动放大（"打字突然变大"）。移动端把所有输入
+   字号兜到 16px，与 viewport 的 maximum-scale=1 形成双保险，彻底根治。桌面端不受影响。 */
+@media (max-width: 1099.98px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
 /* Interpolated text spans (the runtime wraps {{ }} output in these). */
 .sc-interp {
   font: inherit;

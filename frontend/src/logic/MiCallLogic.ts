@@ -84,6 +84,7 @@ export class MiCallLogic {
   private micStream: MediaStream | null = null;
   private micCapture: MicCapture | null = null;  // 麦克风 → 上行 PCM 帧
   private player = new AudioPlayer();             // 下行 TTS PCM → 播放
+  private halfDuplex = false;                     // 默认全双工（麦克风全程开、可随时打断）；=true 退半双工兜底
 
   bills: any[] = [];
 
@@ -130,6 +131,7 @@ export class MiCallLogic {
     try {
       seen = localStorage.getItem("micall_seen_guide") === "1";
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
+      this.halfDuplex = localStorage.getItem("micall_duplex") === "half";  // 兜底：某些机型外放 AEC 不行可切半双工
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
     try {  // 邀请链接 ?invite=CODE：记下来，注册时带上 → 双方各得 60 分钟
@@ -381,9 +383,12 @@ export class MiCallLogic {
     if (this.micCapture || !this.micStream) return;
     const sig = this.ensureSignaling();
     this.micCapture = new MicCapture(this.micStream, (pcm) => {
-      // 半双工：AI 音频正在外放时不上行——从源头杜绝公放回声被 ASR 当成用户说话（自己断/凭空冒话/重复「你好」）。
-      // AI 一停（含 ~250ms 衰减拖尾）立刻恢复全量上行；回合短，体验仍顺。静音时也不上行（本地已禁音轨）。
-      if (!this.state.mute && !this.player.isPlaying()) sig.sendAudio(pcm);
+      if (this.state.mute) return;                       // 静音：不上行（本地已禁音轨）
+      // 默认全双工：麦克风全程开着，靠浏览器 AEC（TTS 经 <audio> 出声已启用回声消除）消掉自己的声音
+      //   → 用户可边说边随时打断 AI（豆包式体验）。
+      // 兜底：localStorage.micall_duplex='half' 的机型退半双工——AI 外放时不上行，最稳无回声但不能插话。
+      if (this.halfDuplex && this.player.isPlaying()) return;
+      sig.sendAudio(pcm);
     });
     try { this.micCapture.start(); } catch { /* 不支持音频采集时静默降级 */ }
   }
@@ -402,10 +407,15 @@ export class MiCallLogic {
   private async acquireMic(): Promise<boolean> {
     if (this.micStream) return true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        // AEC 抑回声（防回声误打断）；NS 抑噪、AGC 归一化音量 → 上行 VAD 阈值更稳、AI 说话期麦克风近静音不上行省 ASR。
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      // 全双工核心：开足回声消除/降噪/自动增益。echoCancellation 让浏览器消掉外放的 AI 声音，
+      // 配合 TTS 经 <audio> 出声（AudioPlayer），移动端外放也能 AEC → 麦克风全程开也不回授。
+      // 单声道、16k 贴合 ASR；voiceIsolation 是较新机型的人声分离（不支持自动忽略，故用 any 附加）。
+      const audio: MediaTrackConstraints = {
+        echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+        channelCount: 1, sampleRate: 16000,
+      };
+      (audio as Record<string, unknown>).voiceIsolation = true;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio });
       this.micStream = stream;
       this.applyMuteToTracks();
       return true;

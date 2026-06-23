@@ -133,7 +133,7 @@ class CallSession:
         #   echo_tail_ms  —— AI 音频播完后仍按「可能回声」对待的拖尾窗（盖住前端半双工放开的瞬间 + ASR 延迟）。
         #   echo_overlap  —— 音频播放中，识别文本与 AI 已说内容的字符重叠达此比例即判回声。
         turn = config.turn or {}
-        self._echo_tail = float(turn.get("echo_tail_ms", 800)) / 1000.0
+        self._echo_tail = float(turn.get("echo_tail_ms", 1200)) / 1000.0
         self._echo_overlap = float(turn.get("echo_overlap", 0.7))
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
