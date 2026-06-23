@@ -92,3 +92,12 @@ def logout(repo, token: str) -> tuple[int, dict]:
     if token:
         repo.delete_session(token)
     return 200, {"ok": True}
+
+
+def change_password(repo, token: str, new_password: str) -> tuple[int, dict]:
+    uid = repo.user_for_token(token or "")
+    if not uid:
+        return 401, {"ok": False, "error": "未登录"}
+    if len(new_password or "") < 6:
+        return 400, {"ok": False, "error": "密码至少 6 位"}
+    return (200, {"ok": True}) if repo.update_password(uid, hash_password(new_password)) else (400, {"ok": False, "error": "修改失败"})

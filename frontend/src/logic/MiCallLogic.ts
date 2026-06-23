@@ -85,50 +85,11 @@ export class MiCallLogic {
   private micCapture: MicCapture | null = null;  // 麦克风 → 上行 PCM 帧
   private player = new AudioPlayer();             // 下行 TTS PCM → 播放
 
-  bills = [
-    { type: "sub", title: "畅聊会员 · 月付", date: "2026-06-18", amount: "-$9.99", mins: "+1500 分钟" },
-    { type: "call", title: "通话消费 · 林晚", date: "2026-06-18 23:14", amount: "", mins: "-12 分钟" },
-    { type: "call", title: "通话消费 · 夏鸣", date: "2026-06-17 19:02", amount: "", mins: "-4 分钟" },
-    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-06-15", amount: "", mins: "+60 分钟" },
-    { type: "call", title: "通话消费 · 顾辞", date: "2026-06-14 21:35", amount: "", mins: "-9 分钟" },
-    { type: "call", title: "通话消费 · 苏窈", date: "2026-06-14 12:08", amount: "", mins: "-7 分钟" },
-    { type: "call", title: "通话消费 · 林晚", date: "2026-06-13 23:40", amount: "", mins: "-18 分钟" },
-    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-06-12", amount: "", mins: "+60 分钟" },
-    { type: "call", title: "通话消费 · 江野", date: "2026-06-11 20:15", amount: "", mins: "-5 分钟" },
-    { type: "call", title: "通话消费 · 夏鸣", date: "2026-06-10 18:30", amount: "", mins: "-11 分钟" },
-    { type: "call", title: "通话消费 · 顾辞", date: "2026-06-09 22:02", amount: "", mins: "-6 分钟" },
-    { type: "sub", title: "轻享会员 · 月付", date: "2026-05-18", amount: "-$4.99", mins: "+300 分钟" },
-    { type: "call", title: "通话消费 · 林晚", date: "2026-05-17 23:55", amount: "", mins: "-22 分钟" },
-    { type: "call", title: "通话消费 · 苏窈", date: "2026-05-16 13:20", amount: "", mins: "-8 分钟" },
-    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-05-14", amount: "", mins: "+60 分钟" },
-    { type: "call", title: "通话消费 · 江野", date: "2026-05-13 19:48", amount: "", mins: "-3 分钟" },
-    { type: "call", title: "通话消费 · 夏鸣", date: "2026-05-12 21:10", amount: "", mins: "-14 分钟" },
-    { type: "call", title: "通话消费 · 顾辞", date: "2026-05-11 22:33", amount: "", mins: "-9 分钟" },
-    { type: "call", title: "通话消费 · 林晚", date: "2026-05-10 23:18", amount: "", mins: "-16 分钟" },
-    { type: "invite", title: "邀请奖励 · 好友注册", date: "2026-05-08", amount: "", mins: "+60 分钟" },
-  ];
+  bills: any[] = [];
 
-  invites = [
-    { name: "小柚", date: "2026-06-15", status: "已注册", reward: "+60 分钟" },
-    { name: "阿哲", date: "2026-06-12", status: "已注册", reward: "+60 分钟" },
-    { name: "Momo", date: "2026-06-08", status: "待激活", reward: "待到账" },
-    { name: "林夕", date: "2026-05-14", status: "已注册", reward: "+60 分钟" },
-  ];
+  invites: any[] = [];
 
-  history = [
-    { name: "林晚", hue: 0, idx: 0, sceneKey: "heart", scene: "心情树洞", dur: "12:08", when: "今天 23:14" },
-    { name: "夏鸣", hue: 60, idx: 2, sceneKey: "chat", scene: "随便聊聊", dur: "04:21", when: "今天 12:30" },
-    { name: "顾辞", hue: 225, idx: 3, sceneKey: "idiom", scene: "成语接龙", dur: "08:47", when: "昨天 21:35" },
-    { name: "苏窈", hue: 300, idx: 4, sceneKey: "chat", scene: "随便聊聊", dur: "03:12", when: "昨天 13:08" },
-    { name: "林晚", hue: 0, idx: 0, sceneKey: "heart", scene: "心情树洞", dur: "18:40", when: "昨天 00:22" },
-    { name: "江野", hue: 135, idx: 1, sceneKey: "interview", scene: "模拟面试", dur: "15:03", when: "周一 20:15" },
-    { name: "夏鸣", hue: 60, idx: 2, sceneKey: "sc0", scene: "睡前故事", dur: "06:55", when: "周一 23:50" },
-    { name: "顾辞", hue: 225, idx: 3, sceneKey: "chat", scene: "随便聊聊", dur: "09:18", when: "周日 22:02" },
-    { name: "苏窈", hue: 300, idx: 4, sceneKey: "english", scene: "英语陪练", dur: "11:27", when: "周日 15:40" },
-    { name: "林晚", hue: 0, idx: 0, sceneKey: "heart", scene: "心情树洞", dur: "22:14", when: "周六 23:58" },
-    { name: "江野", hue: 135, idx: 1, sceneKey: "chat", scene: "随便聊聊", dur: "05:46", when: "周五 19:30" },
-    { name: "顾辞", hue: 225, idx: 3, sceneKey: "idiom", scene: "成语接龙", dur: "07:33", when: "周四 21:12" },
-  ];
+  history: any[] = [];
 
   // scenarioDefs[].lines: static design copy only (slogan source); NOT replayed.
   scenarioDefs: ScenarioDef[] = [
@@ -618,8 +579,10 @@ export class MiCallLogic {
     const actionBg = isCall ? "#33C376" : "#F2554E";
     const actionGlow = isCall ? "rgba(51,195,118,.40)" : "rgba(242,85,78,.40)";
 
+    const remainMin = Math.max(0, Math.round((this.state.remaining || 0) / 60));
+    const remainLabel = "剩余 " + remainMin + " 分钟";
     let hint = "";
-    if (p === "idle") hint = "剩余 12 分钟";
+    if (p === "idle") hint = remainLabel;
     else if (p === "ended") hint = "已保存";
 
     const textMode = this.state.textMode;
@@ -799,6 +762,9 @@ export class MiCallLogic {
       actionBg,
       actionGlow,
       hint,
+      remainLabel,
+      remainMinNum: Math.max(0, Math.round((this.state.remaining || 0) / 60)),
+      remainPct: Math.max(4, Math.min(100, Math.round((this.state.remaining || 0) / (this.state.loggedIn ? 3600 : 60) * 100))) + "%",
       orbCursor: "pointer",
       orbTap: () => this.setState((s) => ({ charDetailOpen: !s.charDetailOpen })),
       onShuffle: (e: any) => {
@@ -1050,10 +1016,14 @@ export class MiCallLogic {
       newPw2: this.state.newPw2,
       onNewPw1: (e: any) => this.setState({ newPw1: e.target.value }),
       onNewPw2: (e: any) => this.setState({ newPw2: e.target.value }),
-      submitNewPw: () => {
+      submitNewPw: async () => {
         const a = this.state.newPw1 || "", b = this.state.newPw2 || "";
-        if (a.length < 6) { this.setState({ toast: "新密码至少 6 位" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
-        if (a !== b) { this.setState({ toast: "两次密码不一致" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
+        if (a.length < 6) { this.toast("新密码至少 6 位"); return; }
+        if (a !== b) { this.toast("两次密码不一致"); return; }
+        if (!authApi.authConfigured()) { this.setState({ pwResetOpen: false, newPw1: "", newPw2: "", toast: "密码已修改" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800)); return; }
+        if (!this.state.loggedIn) { this.setState({ pwResetOpen: false, authOpen: true, authMode: "login", toast: "请先登录" }); return; }
+        const res = await authApi.changePassword(a);
+        if (!res.ok) { this.toast(res.error || "修改失败"); return; }
         this.setState({ pwResetOpen: false, newPw1: "", newPw2: "", toast: "密码已修改" });
         this.t.push(setTimeout(() => this.setState({ toast: "" }), 1800));
       },

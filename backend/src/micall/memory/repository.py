@@ -102,6 +102,10 @@ class MemoryRepository(ABC):
         """email → (user_id, password_hash)；无则 None。登录校验用。"""
         return None
 
+    def update_password(self, user_id: str, password_hash: str) -> bool:
+        """改密码。返回是否成功。"""
+        return False
+
     def get_user(self, user_id: str) -> dict | None:
         """user_id → {user_id,email,display_name,remaining_seconds}；无则 None。"""
         return None
@@ -346,6 +350,13 @@ class InMemoryRepository(MemoryRepository):
     def auth_user(self, email):
         uid = self._email_idx.get((email or "").strip().lower())
         return (uid, self._users[uid]["password_hash"]) if uid else None
+
+    def update_password(self, user_id, password_hash) -> bool:
+        u = self._users.get(user_id)
+        if not u:
+            return False
+        u["password_hash"] = password_hash
+        return True
 
     def get_user(self, user_id):
         u = self._users.get(user_id)

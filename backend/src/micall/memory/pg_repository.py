@@ -279,6 +279,16 @@ class PgRepository(MemoryRepository):
         except Exception:
             return None
 
+    def update_password(self, user_id, password_hash) -> bool:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute("UPDATE users SET password_hash=%s WHERE user_id=%s RETURNING user_id",
+                              (password_hash, user_id)).fetchone()
+            return r is not None
+        except Exception as e:
+            log.warning("update_password 失败：%r", e)
+            return False
+
     def get_user(self, user_id):
         try:
             with self.pool.connection() as c:

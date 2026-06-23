@@ -43,6 +43,14 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(auth.login(self.repo, "a@b.com", "nope")[0], 401)
         self.assertEqual(auth.login(self.repo, "ghost@b.com", "secret1")[0], 401)
 
+    def test_change_password(self):
+        token = auth.register(self.repo, "a@b.com", "secret1")[1]["token"]
+        self.assertEqual(auth.change_password(self.repo, token, "short")[0], 400)   # 太短
+        self.assertEqual(auth.change_password(self.repo, "bad-token", "newsecret")[0], 401)
+        self.assertEqual(auth.change_password(self.repo, token, "newsecret")[0], 200)
+        self.assertEqual(auth.login(self.repo, "a@b.com", "secret1")[0], 401)        # 旧密码失效
+        self.assertEqual(auth.login(self.repo, "a@b.com", "newsecret")[0], 200)      # 新密码可登录
+
     def test_me_and_logout(self):
         token = auth.register(self.repo, "a@b.com", "secret1")[1]["token"]
         code, me = auth.me(self.repo, token)

@@ -108,6 +108,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(*_auth.login(_REPO, b.get("email"), b.get("password")))
         if route == "/api/auth/logout":
             return self._json(*_auth.logout(_REPO, _bearer(self.headers)))
+        if route == "/api/auth/change-password":
+            return self._json(*_auth.change_password(_REPO, _bearer(self.headers), (self._body().get("new_password") or "")))
         if route == "/api/redeem":
             uid = self._uid()
             if not uid:

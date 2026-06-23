@@ -91,9 +91,6 @@ export class AdminLogic {
       { id: "s7", name: "解压冥想", type: "hot", desc: "一起深呼吸放松", prompt: "请带我做一次简短的放松冥想。用平稳缓慢的语气引导我关注呼吸，逐步放松身体的每一处。", uses: "7.8k" },
       { id: "s8", name: "哄睡晚安", type: "hot", desc: "轻声陪你入眠", prompt: "现在请用最轻最柔的声音陪我说晚安，聊些安静温暖的话，直到我慢慢睡去。", uses: "6.1k" },
       { id: "s9", name: "早安叫醒", type: "hot", desc: "元气满满开启一天", prompt: "现在是早晨。请用轻快有活力的语气叫我起床，给我一点温暖的鼓励，开启美好的一天。", uses: "3.3k" },
-      { id: "s10", name: "陪我背单词", type: "custom", byUser: "陈思远", desc: "", prompt: "现在请扮演一个英语陪练。每次给我一个六级单词，我说出释义，你判断对错并给出例句和记忆方法。", uses: "待审核", status: "待审核" },
-      { id: "s11", name: "深夜哲学辩论", type: "custom", byUser: "Marcus Lee", desc: "", prompt: "现在请和我进行一场关于自由意志的哲学辩论，你持反方立场，用犀利但尊重的方式反驳我的观点。", uses: "待审核", status: "待审核" },
-      { id: "s12", name: "扮演我的猫", type: "custom", byUser: "刘梦琪", desc: "", prompt: "请扮演我养的橘猫「团子」，用慵懒傲娇的语气和我说话，偶尔卖个萌，但其实很黏人。", uses: "待审核", status: "待审核" },
     ];
     this.users = [];
     this.calls = [];
@@ -188,6 +185,19 @@ export class AdminLogic {
       this.setState({}); // 用真实角色数据重渲染
     }
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
+  }
+
+  /** 导出角色为 JSON 文件（真实下载）。 */
+  private exportChars() {
+    try {
+      const data = JSON.stringify(this.chars.map((c) => ({ id: c.cid || c.id, name: c.name, tagline: c.desc, traits: c.traits, speaking_style: c.speaking_style, background_story: c.bio, likes: c.likes, dislikes: c.dislikes, voice_id: c.voiceId })), null, 2);
+      const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = "micall_characters.json"; a.click();
+      URL.revokeObjectURL(url);
+      this.toastMsg("已导出 micall_characters.json");
+    } catch {
+      this.toastMsg("导出失败");
+    }
   }
 
   /** 创建自定义兑换码：调后端、显示新码、刷新列表。 */
@@ -467,7 +477,7 @@ export class AdminLogic {
     const navConfigView = navCfg.map((n) => ({ label: n.label, icon: n.icon, go: () => this.go(n.key), bg: s.section === n.key ? "rgba(110,92,255,.1)" : "transparent", color: s.section === n.key ? "#6E5CFF" : "#4A4E5A", weight: s.section === n.key ? 600 : 500 }));
     const engStyle = (e: string) => (({ "火山引擎": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "MiniMax": { c: "#6E5CFF", b: "rgba(110,92,255,.1)" }, "Azure": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" }, "ElevenLabs": { c: "#1FA971", b: "rgba(31,169,113,.1)" } } as Record<string, any>)[e] || { c: "#878B95", b: "#F0F0F3" });
     const matchedBy: Record<string, number> = { v1: 230, v2: 96, v3: 142, v4: 61, v5: 58, v6: 120, v7: 78, v8: 0, v9: 72 };
-    const voicesView = this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("正在播放「" + v.name + "」试听…") }; });
+    const voicesView = this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("音色试听功能开发中") }; });
     const voicePresetCount = this.voices.length;
     const voiceCloneCount = this.chars.reduce((a, c) => a + c.customVoices, 0).toLocaleString();
     const voiceMatchTotal = Object.values(matchedBy).reduce((a, b) => a + b, 0).toLocaleString();
@@ -623,7 +633,7 @@ export class AdminLogic {
     const voiceIdMap: Record<string, string> = { c1: "female-shaonv-01", c2: "male-cixing-02", c3: "female-yuanqi-03", c4: "male-chenwen-04", c5: "female-tianmei-05" };
     const charMatched: Record<string, number> = { c1: 230, c2: 96, c3: 142, c4: 61, c5: 58 };
     const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => ({ ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
-      voiceId: voiceIdMap[c.id] || "default", voiceMatched: (charMatched[c.id] || 0) + " 次匹配", playVoice: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toastMsg("播放 " + c.name + " 原本音色…"); },
+      voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toastMsg("音色试听功能开发中"); },
       status: s.charOff[c.id] ? "已下架" : c.status,
       // NB: stColor/stBg are set by the trailing status-based spread below
       // (it unconditionally overwrites), matching the prototype's exact output.
@@ -710,11 +720,11 @@ export class AdminLogic {
         { item: "超额后", free: "提示充值 / 切低成本模式", paid: "切低成本模式 · 不中断" },
         { item: "高成本模型", free: "不可用", paid: "仅高级会员" },
       ],
-      nodeTest: () => this.toastMsg("正在测试该节点…"), fbTest: () => this.toastMsg("一键测试兜底链路中…"), fbLog: () => this.toastMsg("打开最近兜底日志"), fbSwitch: () => this.toastMsg("已切换主供应商"),
+      nodeTest: () => this.toastMsg("请在「接口配置」页用各节点的测试连接"), fbTest: () => this.toastMsg("功能开发中"), fbLog: () => this.toastMsg("功能开发中"), fbSwitch: () => this.toastMsg("功能开发中"),
       expr12: this.expressions.map((e) => e.name),
       ioOpen: s.ioOpen, isIoExport: s.ioMode === "export", isIoImport: s.ioMode === "import", ioTabs, exportSample, exprFiles,
       openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), openImport: () => this.setState({ ioOpen: true, ioMode: "import" }), closeIO: () => this.setState({ ioOpen: false }),
-      runExport: () => this.toastMsg("已导出 micall_characters.json"), runImport: () => this.toastMsg("正在解析并按文件名归位导入资产…"),
+      runExport: () => this.exportChars(), runImport: () => this.toastMsg("功能开发中"),
       voicePresetCount, voiceCloneCount, voiceMatchTotal, ttsEngine, voicesView, apiCards,
       exprView, exprCharName, exprCharHue, exprCount, exprCharList,
       exprListMode: !s.exprOpen, exprDetailMode: !!s.exprOpen, exprBack: () => this.setState({ exprOpen: null }),
@@ -724,7 +734,7 @@ export class AdminLogic {
       asrMs: s.testMs.asr || "", llmMs: s.testMs.llm || "", seedMs: s.testMs.seed || "", memMs: s.testMs.mem || "", testAllDone: st >= 6,
       testReply: s.testReply, testAsr: s.testAsr, testDone: st >= 3,
       testVoiceName: selVoice ? selVoice.name : "", testCharHue: s.testChar ? "hue-rotate(" + ((this.chars.find((c) => c.id === s.testChar) || {}).hue || 0) + "deg)" : "none",
-      ttsMs: s.testMs.tts || "", replay: () => this.toastMsg("正在用「" + (selVoice ? selVoice.name : "默认") + "」播放合成语音…"),
+      ttsMs: s.testMs.tts || "", replay: () => this.toastMsg("合成语音回放功能开发中"),
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
       isDashboard: s.section === "dashboard", isUsers: s.section === "users", isChars: s.section === "characters",
@@ -737,7 +747,7 @@ export class AdminLogic {
       inviteRuleOn: s.inviteRuleOn, toggleInviteRule: () => this.setState((p) => ({ inviteRuleOn: !p.inviteRuleOn })),
       ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",
       saveInviteRule: () => this.toastMsg("邀请奖励规则已保存"),
-      adminsView, permModules: this.permModules, roleMatrixView, addAdmin: () => this.toastMsg("打开「添加管理员」表单…"),
+      adminsView, permModules: this.permModules, roleMatrixView, addAdmin: () => this.toastMsg("功能开发中"),
       notifs: this.realStats ? (this.tickets.filter((t: any) => t.status === "待处理").length > 0 ? [{ title: this.tickets.filter((t: any) => t.status === "待处理").length + " 条工单待处理", time: "实时", dot: "#E0594F" }] : []) : this.notifs,
       notifOpen: s.notifOpen, notifUnread: this.realStats ? this.tickets.some((t: any) => t.status === "待处理") : !s.notifRead,
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),

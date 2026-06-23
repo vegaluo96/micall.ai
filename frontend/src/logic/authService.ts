@@ -47,6 +47,22 @@ export function register(email: string, password: string, inviteCode = ""): Prom
   return postJSON("/api/auth/register", { email, password, invite_code: inviteCode });
 }
 
+/** 修改密码（需登录）。 */
+export async function changePassword(newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  const tok = getToken();
+  if (!tok) return { ok: false, error: "请先登录" };
+  try {
+    const r = await fetch(BASE + "/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ new_password: newPassword }),
+    });
+    return (await r.json()) as { ok: boolean; error?: string };
+  } catch {
+    return { ok: false, error: "网络错误，请稍后再试" };
+  }
+}
+
 /** 公开角色列表（含运营新建、剔除已删除）。失败 → null（前端用内置 5 个）。 */
 export async function getCharacters(): Promise<any[] | null> {
   try {
