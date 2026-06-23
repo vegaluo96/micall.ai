@@ -16,7 +16,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices } from "./configService";
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -31,20 +31,15 @@ export class AdminLogic {
 
   chars: any[];
   hueOf: Record<string, string> = {};
-  scenes: any[];
   users: any[];
   calls: any[];
   tickets: any[];
   orders: any[];
   plans: any[];
   voices: any[];
-  expressions: any[];
   apiSections: any[];
   inviters: any[];
   inviteRecords: any[];
-  admins: any[];
-  permModules: string[];
-  roleMatrix: Record<string, number[]>;
   notifs: any[];
   realStats: any = null;        // 接后端后的首页 KPI（null = 用演示数据）
   realVoices: any[] | null = null;    // 接后端后的 MiniMax 系统音色库（null = 用演示）
@@ -60,8 +55,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
-    testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {},
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
     apiCfg: {
@@ -87,17 +81,6 @@ export class AdminLogic {
     ];
     this.hueOf = {};
     this.chars.forEach((c) => (this.hueOf[c.name] = "hue-rotate(" + c.hue + "deg)"));
-    this.scenes = [
-      { id: "s1", name: "随便聊聊", type: "rec", desc: "想到什么说什么", prompt: "现在是轻松的闲聊时间。请用自然随意的语气和我聊天，话题不限，可以从今天发生的小事聊起。", uses: "6.7k" },
-      { id: "s2", name: "心情树洞", type: "rec", desc: "我会认真听你说", prompt: "我可能心情不太好，需要找人倾诉。请你耐心倾听，不评判也不说教，多共情、多接纳我的情绪。", uses: "8.2k" },
-      { id: "s3", name: "模拟面试", type: "rec", desc: "我陪你一起准备", prompt: "请扮演一位专业又友善的面试官，围绕我的经历依次提问，包括自我介绍、项目细节和应变问题，最后给出诚恳反馈。", uses: "5.1k" },
-      { id: "s4", name: "英语陪练", type: "rec", desc: "快和我用英语聊吧", prompt: "Let's practice English together. Speak naturally but slowly, ask me simple follow-up questions, and gently correct my mistakes.", uses: "4.4k" },
-      { id: "s5", name: "成语接龙", type: "rec", desc: "测试你的成语储备", prompt: "我们来玩成语接龙。你先说一个四字成语，我用它的最后一个字开头接下一个，轮流进行，接不上算输。", uses: "3.9k" },
-      { id: "s6", name: "睡前故事", type: "hot", desc: "伴你慢慢入睡", prompt: "现在是睡前时间。请用极轻柔、缓慢的语气给我讲一个温暖平静的小故事，帮助我放松入睡。", uses: "12.4k" },
-      { id: "s7", name: "解压冥想", type: "hot", desc: "一起深呼吸放松", prompt: "请带我做一次简短的放松冥想。用平稳缓慢的语气引导我关注呼吸，逐步放松身体的每一处。", uses: "7.8k" },
-      { id: "s8", name: "哄睡晚安", type: "hot", desc: "轻声陪你入眠", prompt: "现在请用最轻最柔的声音陪我说晚安，聊些安静温暖的话，直到我慢慢睡去。", uses: "6.1k" },
-      { id: "s9", name: "早安叫醒", type: "hot", desc: "元气满满开启一天", prompt: "现在是早晨。请用轻快有活力的语气叫我起床，给我一点温暖的鼓励，开启美好的一天。", uses: "3.3k" },
-    ];
     this.users = [];
     this.calls = [];
     this.tickets = [];
@@ -118,20 +101,6 @@ export class AdminLogic {
       { id: "v8", name: "甜美童声", engine: "Azure", gender: "女声", lang: "中文", char: "", status: "停用" },
       { id: "v9", name: "English · Aria", engine: "ElevenLabs", gender: "女声", lang: "English", char: "", status: "启用" },
     ];
-    this.expressions = [
-      { key: "idle_normal", name: "默认待机", emoji: "🙂" },
-      { key: "listening", name: "正在听你说", emoji: "👂" },
-      { key: "thinking", name: "思考中", emoji: "🤔" },
-      { key: "speaking_happy", name: "开心说话", emoji: "😄" },
-      { key: "speaking_soft", name: "温柔说话", emoji: "🥰" },
-      { key: "speaking_serious", name: "认真说话", emoji: "🧐" },
-      { key: "surprised", name: "惊讶", emoji: "😮" },
-      { key: "concerned", name: "担心", emoji: "😟" },
-      { key: "shy", name: "害羞", emoji: "😳" },
-      { key: "laughing", name: "笑", emoji: "😆" },
-      { key: "sad_soft", name: "轻微低落", emoji: "😔" },
-      { key: "goodbye", name: "挂断告别", emoji: "👋" },
-    ];
     this.apiSections = [
       { key: "asr", name: "ASR · 语音识别", chain: "快链路", desc: "实时把用户语音转写为文字 · 默认 Qwen3-ASR-Flash（阿里百炼）", icon: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8", req: "快 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "lang", label: "识别语言" }] },
       { key: "fast", name: "LLM · 快脑（通话中）", chain: "快链路", desc: "通话中实时生成简短回复 · 默认 deepseek-v4-flash（DeepSeek 直连，小写；deepseek-chat 是其旧别名，2026-07-24 停用）", icon: "M13 2L3 14h7l-1 8 10-12h-7l1-8z", req: "快 · 短 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "temp", label: "温度" }, { k: "maxTokens", label: "回复上限 Token" }] },
@@ -141,9 +110,6 @@ export class AdminLogic {
     ];
     this.inviters = [];
     this.inviteRecords = [];
-    this.admins = [];
-    this.permModules = ["用户", "角色", "场景", "通话", "工单", "订单", "邀请", "配置"];
-    this.roleMatrix = { "超级管理员": [1, 1, 1, 1, 1, 1, 1, 1], "运营": [1, 1, 1, 1, 1, 0, 1, 0], "客服": [1, 0, 0, 1, 1, 1, 0, 0], "只读（仅查看）": [1, 1, 1, 1, 1, 1, 1, 0] };
     this.notifs = [];
   }
 
@@ -255,6 +221,20 @@ export class AdminLogic {
     this.toastMsg(`已创建兑换码 ${res.code || code}`);
   }
 
+  /** 封禁/解封用户：写后端（账号级，封后该用户登录被拒、通话被拒），成功后同步本地。 */
+  async toggleBan(userId?: string) {
+    if (!userId) return;
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const u = this.users.find((x) => x.id === userId);
+    if (!u) return;
+    const next = !u.banned;
+    const ok = await setUserBanned(userId, next);
+    if (!ok) { this.toastMsg("操作失败"); return; }
+    u.banned = next;
+    this.setState({});
+    this.toastMsg(next ? "已封禁该用户（登录/通话将被拒）" : "已解除封禁");
+  }
+
   /** 删除兑换码。 */
   private async delRedeem(code: string) {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
@@ -298,6 +278,7 @@ export class AdminLogic {
         plan: "免费用户", minsRaw: `${Math.round((u.remaining_seconds || 0) / 60)} 分钟`,
         usedRaw: `${Math.round((u.total_seconds || 0) / 60)} 分钟`,
         spent: "$0.00", joined: (u.created_at || "").slice(0, 10), recharges: [],
+        banned: !!u.banned,   // 后端权威封禁态（账号级）
       }));
     }
     if (calls) {
@@ -467,27 +448,6 @@ export class AdminLogic {
   setCfg(sk: string, fk: string, v: string) {
     this.setState((p) => ({ apiCfg: { ...p.apiCfg, [sk]: { ...p.apiCfg[sk], [fk]: v } } }));
   }
-  genReply() {
-    const t = (this.state.testText || "").trim();
-    const c = this.chars.find((x) => x.id === this.state.testChar);
-    const tone = ({ "林晚": "嗯，我都听到了。", "江野": "明白，我们一条条来看。", "夏鸣": "哈哈，这个我喜欢!", "顾辞": "我懂你的意思。", "苏窈": "诶~让我想想哦。" } as Record<string, string>)[c && c.name] || "好的，我明白了。";
-    return tone + "你说「" + t + "」，别急，我陪你慢慢聊。";
-  }
-  runTest() {
-    if (!(this.state.testText || "").trim()) {
-      this.toastMsg("请输入测试语句");
-      return;
-    }
-    (this._tt || []).forEach(clearTimeout);
-    this._tt = [];
-    const ms = { asr: 160 + Math.floor(Math.random() * 130), llm: 600 + Math.floor(Math.random() * 480), tts: 220 + Math.floor(Math.random() * 180), seed: 40 + Math.floor(Math.random() * 60), mem: 1700 + Math.floor(Math.random() * 700) };
-    this.setState({ testStage: 1, testRunning: true, testMs: {}, testReply: "", testAsr: this.state.testText });
-    this._tt.push(setTimeout(() => this.setState((p) => ({ testStage: 2, testMs: { ...p.testMs, asr: ms.asr } })), 600));
-    this._tt.push(setTimeout(() => this.setState((p) => ({ testStage: 3, testReply: this.genReply(), testMs: { ...p.testMs, llm: ms.llm } })), 1400));
-    this._tt.push(setTimeout(() => this.setState((p) => ({ testStage: 4, testMs: { ...p.testMs, tts: ms.tts } })), 2000));
-    this._tt.push(setTimeout(() => this.setState((p) => ({ testStage: 5, testMs: { ...p.testMs, seed: ms.seed } })), 2350));
-    this._tt.push(setTimeout(() => this.setState((p) => ({ testStage: 6, testRunning: false, testMs: { ...p.testMs, mem: ms.mem } })), 3100));
-  }
 
   renderVals(): Vals {
     const s = this.state;
@@ -499,26 +459,23 @@ export class AdminLogic {
       { key: "users", label: "用户管理", icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
       { key: "characters", label: "角色管理", icon: "M12 3l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z" },
       { key: "voices", label: "音色管理", icon: "M2 10v4M6 7v10M10 4v16M14 8v8M18 6v12M22 10v4" },
-      { key: "scenarios", label: "场景管理", icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" },
       { key: "calls", label: "通话记录", icon: "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" },
       { key: "tickets", label: "工单反馈", icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
       { key: "orders", label: "订单充值", icon: "M2 4h20v16H2zM2 10h20" },
       { key: "invites", label: "邀请裂变", icon: "M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" },
     ];
-    const pendingCount = 0;
     const openTicketCount = this.tickets.filter((t) => !(s.ticketReplies[t.id]) && t.status !== "已回复").length;
     const navView = nav.map((n) => ({
       label: n.label, icon: n.icon, go: () => this.go(n.key),
       bg: s.section === n.key ? "rgba(110,92,255,.1)" : "transparent",
       color: s.section === n.key ? "#6E5CFF" : "#4A4E5A",
       weight: s.section === n.key ? 600 : 500,
-      badge: n.key === "scenarios" && pendingCount ? pendingCount : (n.key === "tickets" && openTicketCount ? openTicketCount : ""),
+      badge: n.key === "tickets" && openTicketCount ? openTicketCount : "",
     }));
 
     const navCfg = [
       { key: "api", label: "接口配置", icon: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" },
       { key: "cost", label: "成本与限流", icon: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" },
-      { key: "admins", label: "权限管理", icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" },
     ];
     const navConfigView = navCfg.map((n) => ({ label: n.label, icon: n.icon, go: () => this.go(n.key), bg: s.section === n.key ? "rgba(110,92,255,.1)" : "transparent", color: s.section === n.key ? "#6E5CFF" : "#4A4E5A", weight: s.section === n.key ? 600 : 500 }));
     const engStyle = (e: string) => (({ "火山引擎": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "MiniMax": { c: "#6E5CFF", b: "rgba(110,92,255,.1)" }, "Azure": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" }, "ElevenLabs": { c: "#1FA971", b: "rgba(31,169,113,.1)" } } as Record<string, any>)[e] || { c: "#878B95", b: "#F0F0F3" });
@@ -544,27 +501,8 @@ export class AdminLogic {
       ? String(this.realVoices.filter((v: any) => (v.used_by || []).length > 0).length)
       : Object.values(matchedBy).reduce((a, b) => a + b, 0).toLocaleString();
     const ttsEngine = s.apiCfg.tts.model;
-    const charTabs = ([["role", "角色"], ["voice", "音色"], ["expr", "表情"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ charTab: k }), bg: s.charTab === k ? "#16161A" : "#fff", color: s.charTab === k ? "#fff" : "#5A5E6B", border: s.charTab === k ? "#16161A" : "#E6E7EB" }));
-    const ioTabs = ([["export", "导出规则"], ["import", "导入规则"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ ioMode: k }), bg: s.ioMode === k ? "#16161A" : "#fff", color: s.ioMode === k ? "#fff" : "#5A5E6B", border: s.ioMode === k ? "#16161A" : "#E6E7EB" }));
-    const exprFiles = this.expressions.map((e) => ({ key: e.key, name: e.name, file: "{id}__expr__" + e.key + ".png" }));
-    const exportSample = '{\n  "id": "c1",\n  "name": "林晚",\n  "gender": "女", "age": 18, "height": 156, "weight": 44,\n  "birthday": "2006年1月1日", "nationality": "中国", "race": "东亚人",\n  "desc": "温柔的深夜倾听者",\n  "traits": ["温柔", "耐心", "共情"],\n  "tags": ["治愈系", "深夜", "倾听", "温柔"],\n  "slogan": "今天也辛苦了，想聊点什么都可以。",\n  "bio": "深夜电台主播出身……",\n  "likes": "安静的深夜、下雨天……",\n  "dislikes": "被敷衍、嘈杂的人群……",\n  "voice": { "engine": "MiniMax", "voice_id": "female-shaonv-01", "file": "c1__voice.wav" },\n  "expressions": [\n    { "key": "idle_normal", "file": "c1__expr__idle_normal.png" },\n    { "key": "listening",   "file": "c1__expr__listening.png" },\n    "……（共 12 个状态，见导入规则）……",\n    { "key": "goodbye",     "file": "c1__expr__goodbye.png" }\n  ],\n  "status": "上线"\n}';
-    const exprCount = this.expressions.length;
-    const exprCharList = this.chars.map((c) => { const offN = this.expressions.filter((e) => s.exprOff[c.id + "_" + e.key]).length; return { name: c.name, desc: c.desc, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: c.gender === "女" ? "#FF6FA5" : "#5B8DEF", enabled: exprCount - offN, total: exprCount, open: () => this.setState({ exprOpen: c.id }) }; });
-    const exprChar = this.chars.find((c) => c.id === s.exprOpen);
-    const exprCharName = exprChar ? exprChar.name : "";
-    const exprCharHue = exprChar ? "hue-rotate(" + exprChar.hue + "deg)" : "none";
-    const exprView = this.expressions.map((e) => { const ok = s.exprOpen + "_" + e.key; const off = !!s.exprOff[ok]; return { key: e.key, name: e.name, emoji: e.emoji, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggle: () => { this.setState((p) => ({ exprOff: { ...p.exprOff, [ok]: !p.exprOff[ok] } })); this.toastMsg(off ? "已启用「" + e.name + "」" : "已停用「" + e.name + "」"); }, preview: () => this.toastMsg("预览 " + exprCharName + " 的「" + e.name + "」表情…") }; });
-    const testChars = this.chars.map((c) => ({ name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", sel: s.testChar === c.id, bg: s.testChar === c.id ? "rgba(110,92,255,.1)" : "#fff", border: s.testChar === c.id ? "#D9D6FF" : "#E6E7EB", color: s.testChar === c.id ? "#6E5CFF" : "#5A5E6B", pick: () => this.setState({ testChar: c.id }) }));
-    const testVoices = this.voices.filter((v) => v.status === "启用").map((v) => ({ name: v.name, sel: s.testVoice === v.id, bg: s.testVoice === v.id ? "#16161A" : "#fff", border: s.testVoice === v.id ? "#16161A" : "#E6E7EB", color: s.testVoice === v.id ? "#fff" : "#5A5E6B", pick: () => this.setState({ testVoice: v.id }) }));
-    const selVoice = this.voices.find((v) => v.id === s.testVoice);
-    const node = (running: boolean, done: boolean, ms: any) => running ? { color: "#6E5CFF", sub: "#9A8FE0", bg: "rgba(110,92,255,.06)", border: "#D9D6FF", status: "进行中…" } : (done ? { color: "#1FA971", sub: "#7BBF9F", bg: "rgba(31,169,113,.06)", border: "rgba(31,169,113,.28)", status: "✓ " + ms + "ms" } : { color: "#878B95", sub: "#B8BBC4", bg: "#FAFAFB", border: "#EEEFF2", status: "待命" });
-    const st = s.testStage;
-    const asrNode = node(st === 1, st >= 2, s.testMs.asr);
-    const llmNode = node(st === 2, st >= 3, s.testMs.llm);
-    const ttsNode = node(st === 3, st >= 4, s.testMs.tts);
-    const seedNode = node(st === 4, st >= 5, s.testMs.seed);
-    const memNode = node(st === 5, st >= 6, s.testMs.mem);
-    const testVideoState = s.testReply ? (this.genReply().indexOf("哈哈") >= 0 ? "speaking_happy" : "speaking_soft") : "";
+    const charTabs = ([["role", "角色"], ["voice", "音色"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ charTab: k }), bg: s.charTab === k ? "#16161A" : "#fff", color: s.charTab === k ? "#fff" : "#5A5E6B", border: s.charTab === k ? "#16161A" : "#E6E7EB" }));
+    const exportSample = '{\n  "id": "c1",\n  "name": "林晚",\n  "gender": "女", "age": 18, "height": 156, "weight": 44,\n  "birthday": "2006年1月1日", "nationality": "中国", "race": "东亚人",\n  "desc": "温柔的深夜倾听者",\n  "traits": ["温柔", "耐心", "共情"],\n  "tags": ["治愈系", "深夜", "倾听", "温柔"],\n  "slogan": "今天也辛苦了，想聊点什么都可以。",\n  "bio": "深夜电台主播出身……",\n  "likes": "安静的深夜、下雨天……",\n  "dislikes": "被敷衍、嘈杂的人群……",\n  "voice": { "engine": "MiniMax", "voice_id": "female-shaonv-01", "file": "c1__voice.wav" },\n  "status": "上线"\n}';
     const mkKpi = (label: string, value: string, delta: string, dc: string, db: string, note: string) => ({ label, value, delta, deltaColor: dc, deltaBg: db, note });
     const istat = this.realInviteStats || { total_invites: 0, reward_minutes: 0 };   // 全真实，无演示回退
     const inviteKpis = [
@@ -576,11 +514,6 @@ export class AdminLogic {
     const invStatus = (st2: string) => st2 === "已注册" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" };
     const invitersView = this.inviters.map((v, i) => ({ rank: i + 1, name: v.name, initial: v.initial, grad: v.grad, invited: v.invited, success: v.success, pending: v.pending, mins: v.mins }));
     const inviteRecordsView = this.inviteRecords.map((r) => { const ist = invStatus(r.status); return { inviter: r.inviter, invitee: r.invitee, status: r.status, stColor: ist.c, stBg: ist.b, reward: r.reward, rewardColor: r.reward.indexOf("+") === 0 ? "#1FA971" : "#A8ABB5", date: r.date }; });
-    const roleStyle = (r: string) => (r.indexOf("超级") === 0 ? { c: "#6E5CFF", b: "rgba(110,92,255,.1)" } : r === "运营" ? { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } : r === "客服" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#878B95", b: "#F0F0F3" });
-    // 真实后端：暂无团队成员管理表 → 只显示当前登录运营，不展示演示花名册。
-    const adminRoster = [{ id: "self", name: "运营管理员", email: "admin@micall.ai", role: "超级管理员", last: "在线", initial: "运", grad: "linear-gradient(140deg,#A78BFF,#6E5CFF)" }];
-    const adminsView = adminRoster.map((a) => { const off = !!s.adminOff[a.id]; const rs = roleStyle(a.role); return { name: a.name, email: a.email, initial: a.initial, grad: a.grad, role: a.role, roleColor: rs.c, roleBg: rs.b, last: a.last, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggleLabel: off ? "启用" : "停用", toggle: () => { this.setState((p) => ({ adminOff: { ...p.adminOff, [a.id]: !p.adminOff[a.id] } })); this.toastMsg(off ? "已启用 " + a.name : "已停用 " + a.name); } }; });
-    const roleMatrixView = Object.keys(this.roleMatrix).map((role) => { const rs = roleStyle(role); return { role, roleColor: rs.c, roleBg: rs.b, cells: this.roleMatrix[role].map((v) => ({ mark: v === 1 ? "✓" : "—", color: v === 1 ? "#1FA971" : "#C9CBD2", bg: v === 1 ? "rgba(31,169,113,.08)" : "transparent" })) }; });
     const apiCards = this.apiSections.map((sec) => { const cfg = s.apiCfg[sec.key]; return {
       name: sec.name, desc: sec.desc, icon: sec.icon, req: sec.req,
       chain: sec.chain, chainColor: sec.chain === "快链路" ? "#6E5CFF" : "#1FA971", chainBg: sec.chain === "快链路" ? "rgba(110,92,255,.1)" : "rgba(31,169,113,.1)",
@@ -624,30 +557,20 @@ export class AdminLogic {
     const memTypeC: Record<string, string> = { fact: "#2E7BFF", preference: "#6E5CFF", project: "#E0954F", relationship: "#FF6FA5", open_loop: "#1FA971" };
     // 真实记忆涉及用户隐私，不在后台明文展示（始终空）。
     const memoryRecent: any[] = ([] as any[]).map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
-    const fallbackRows = [
-      { kind: "ASR", primary: "阿里云", backups: "火山 ASR · ElevenLabs Scribe", cond: "连续失败 3 次 / 延迟 > 2s / 错误率 > 5%" },
-      { kind: "LLM 快脑", primary: "deepseek-chat", backups: "Qwen Flash · 豆包", cond: "超时 / 连续失败 / 成本超阈值" },
-      { kind: "TTS", primary: "MiniMax speech-2.8-turbo", backups: "阿里 Qwen-TTS · ElevenLabs", cond: "超时 / 延迟超阈值 / 手动切换" },
-      { kind: "表情视频", primary: "Seedance 预生成库", backups: "回退 idle_normal → 静态头像", cond: "video_state 缺失 / 视频加载失败" },
-      { kind: "记忆总结", primary: "Qwen-Long", backups: "保存 transcript 后台重试", cond: "总结失败 / 超时" },
-    ];
     const limitItems = [["免费用户每日通话", "30 分钟"], ["会员每月高级语音", "1500 分钟"], ["单次通话最长", "60 分钟"], ["静音自动挂断", "45 秒"], ["AI 单次最大回复", "120 字"], ["超额后", "切换低成本模式"], ["高成本模型", "仅高级会员"]];
     const warnItems = ["单用户今日成本 > $20", "某模型失败率 > 5%", "TTS 成本环比上涨 > 30%", "通话平均时长异常波动", "单个 voice_id 调用量激增"];
-    const seedanceCoverage = this.chars.map((c) => { const offN = this.expressions.filter((e) => s.exprOff[c.id + "_" + e.key]).length; return { name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", got: this.expressions.length - offN, total: this.expressions.length }; });
 
     const titles: Record<string, [string, string]> = {
       dashboard: ["数据概览", "MiCall.ai 运营核心指标"],
       users: ["用户管理", this.users.length + " 名注册用户"],
       characters: ["角色管理", this.chars.length + " 个 AI 角色"],
       voices: ["音色管理", "MiniMax 系统音色库 · 试听并分配给角色"],
-      scenarios: ["场景管理", "官方场景库"],
       calls: ["通话记录", "会话明细与对话回放"],
       tickets: ["工单反馈", openTicketCount + " 条待处理"],
       orders: ["订单充值", "会员套餐与交易记录"],
       api: ["接口配置", "ASR · LLM · TTS 服务接入"],
       cost: ["成本与限流", "成本结构与付费/免费策略"],
       invites: ["邀请裂变", "邀请奖励规则与裂变数据"],
-      admins: ["权限管理", "管理员账号与角色权限"],
     };
 
     const rs = this.realStats || {};   // 全真实，无演示回退（未加载时显示 0）
@@ -687,7 +610,7 @@ export class AdminLogic {
     }));
     const q = s.query.trim().toLowerCase();
     const usersView = this.users.map((u) => {
-      const plan = s.banned[u.id] ? "已封禁" : u.plan;
+      const plan = u.banned ? "已封禁" : u.plan;   // 封禁态来自后端（账号级），非本地
       const ps = planStyle(plan);
       return { ...u, plan, mins: plan === "已封禁" ? "—" : u.minsRaw, planColor: ps.c, planBg: ps.b, open: () => this.open("user", u.id) };
     }).filter((u) => (s.userFilter === "all" || u.plan === s.userFilter) && (!q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
@@ -701,30 +624,8 @@ export class AdminLogic {
       isDefault: !!c.cid && c.cid === this.defaultCharId,
       notDefault: !(!!c.cid && c.cid === this.defaultCharId),
       setDefault: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.setDefaultChar(c.cid || c.id); },
-      status: s.charOff[c.id] ? "已下架" : c.status,
-      // NB: stColor/stBg are set by the trailing status-based spread below
-      // (it unconditionally overwrites), matching the prototype's exact output.
-      offLabel: s.charOff[c.id] ? "重新上线" : "下架", offColor: s.charOff[c.id] ? "#1FA971" : "#E0594F", offBg: s.charOff[c.id] ? "rgba(31,169,113,.08)" : "rgba(224,89,79,.08)",
-      offToggle: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState((p) => ({ charOff: { ...p.charOff, [c.id]: !p.charOff[c.id] } })); this.toastMsg(s.charOff[c.id] ? "已重新上线 " + c.name : "已下架 " + c.name); },
-      exprGot: this.expressions.length - this.expressions.filter((e) => s.exprOff[c.id + "_" + e.key]).length, exprTotal: this.expressions.length,
-      exprChips: this.expressions.map((e) => ({ emoji: e.emoji, op: s.exprOff[c.id + "_" + e.key] ? "0.28" : "1" })), ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status), open: () => this.open("char", c.id) }));
-
-    const tabDefs: [string, string][] = [["rec", "推荐"], ["hot", "热门"]];
-    const sceneTabs = tabDefs.map(([k, label]) => ({
-      label, pick: () => this.setState({ sceneTab: k }),
-      bg: s.sceneTab === k ? "#16161A" : "#fff", color: s.sceneTab === k ? "#fff" : "#5A5E6B",
-      border: s.sceneTab === k ? "#16161A" : "#E6E7EB",
-      badge: k === "custom" && pendingCount ? pendingCount : "",
-    }));
-    const scenesView = this.scenes.filter((x) => x.type === s.sceneTab && (!q || (x.name + (x.prompt || "")).toLowerCase().includes(q))).map((x) => {
-      const st = s.sceneStatus[x.id] || x.status || (x.type === "custom" ? "待审核" : "已上线");
-      const pending = st === "待审核";
-      const stStyle = st === "已上线" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : (st === "已拒绝" ? { c: "#E0594F", b: "rgba(224,89,79,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" });
-      const realUses = this.realSceneCalls ? (this.realSceneCalls[Object.keys(SCENE_NAME).find((k) => SCENE_NAME[k] === x.name) || ""] || 0) : null;
-      return { name: x.name, desc: x.desc || "", prompt: x.prompt, byUser: x.byUser || "", uses: x.type === "custom" ? "" : (realUses != null ? realUses + " 次使用" : x.uses + " 次使用"), status: st, stColor: stStyle.c, stBg: stStyle.b, pending,
-        approve: () => { this.setState((p) => ({ sceneStatus: { ...p.sceneStatus, [x.id]: "已上线" } })); this.toastMsg("已通过「" + x.name + "」"); },
-        reject: () => { this.setState((p) => ({ sceneStatus: { ...p.sceneStatus, [x.id]: "已拒绝" } })); this.toastMsg("已拒绝「" + x.name + "」"); } };
-    });
+      status: c.status,
+      ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status), open: () => this.open("char", c.id) }));
 
     const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => ({ char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time, open: () => this.open("call", c.id) }));
 
@@ -741,10 +642,10 @@ export class AdminLogic {
     const plans = this.plans.map((p) => ({ ...p, subs: this.realStats ? "—" : p.subs, border: p.popular ? "#D9D6FF" : "#EBECEF" }));
 
     const d = s.detail;
-    let dUser: any = null, dChar: any = null, dCall: any = null, dTicket: any = null, dCharExpr: any = null, detailTitle = "";
+    let dUser: any = null, dChar: any = null, dCall: any = null, dTicket: any = null, detailTitle = "";
     let banLabel = "", banColor = "", banBg = "", charBioLen = 0, ticketNeedsReply = false;
     if (d && d.type === "user") {
-      const u = this.users.find((x) => x.id === d.id); const isBan = !!s.banned[u.id];
+      const u = this.users.find((x) => x.id === d.id); const isBan = !!u.banned;
       const plan = isBan ? "已封禁" : u.plan;
       dUser = { ...u, plan, mins: isBan ? "—" : u.minsRaw, noRecharge: u.recharges.length === 0 };
       detailTitle = "用户详情";
@@ -754,7 +655,6 @@ export class AdminLogic {
       const c = isNew ? { name: "新角色", hue: 270, gender: (s.charEdit as any).gender || "女", age: (s.charEdit as any).age || "20", height: "—", weight: "—", desc: "AI 生成或手填", status: "上线" } : this.chars.find((x) => x.id === d.id);
       dChar = { ...c, isNew, notNew: !isNew, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: c.gender === "女" ? "#FF6FA5" : "#5B8DEF", ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status) };
       detailTitle = isNew ? "新建角色" : "角色编辑"; charBioLen = ((s.charEdit as any).background_story || "").length;
-      dCharExpr = this.expressions.map((e) => { const ok = d.id + "_" + e.key; const off = !!s.exprOff[ok]; return { name: e.name, emoji: e.emoji, key: e.key, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggle: () => { this.setState((p) => ({ exprOff: { ...p.exprOff, [ok]: !p.exprOff[ok] } })); }, preview: () => this.toastMsg("预览「" + e.name + "」表情…") }; });
     } else if (d && d.type === "call") {
       const c = this.calls.find((x) => x.id === d.id);
       // 只展示后端真实留存的字段（角色/用户/场景/时长/结束方式/时间）。通话文字内容出于隐私不落库 → 不伪造回放。
@@ -772,8 +672,8 @@ export class AdminLogic {
 
     return {
       nav: navView, navConfig: navConfigView,
-      charTabs, isRoleTab: s.charTab === "role", isVoiceTab: s.charTab === "voice", isExprTab: s.charTab === "expr", isApi: s.section === "api", isCost: s.section === "cost",
-      linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, fallbackRows, limitItems, warnItems, seedanceCoverage,
+      charTabs, isRoleTab: s.charTab === "role", isVoiceTab: s.charTab === "voice", isApi: s.section === "api", isCost: s.section === "cost",
+      linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, limitItems, warnItems,
       ccCpt: s.costCfg.chars_per_token, onCcCpt: (e: any) => this.setCost("chars_per_token", e.target.value),
       ccLlmFast: s.costCfg.llm_fast, onCcLlmFast: (e: any) => this.setCost("llm_fast", e.target.value),
       ccLlmSlow: s.costCfg.llm_slow, onCcLlmSlow: (e: any) => this.setCost("llm_slow", e.target.value),
@@ -792,38 +692,26 @@ export class AdminLogic {
         { item: "超额后", free: "提示充值 / 切低成本模式", paid: "切低成本模式 · 不中断" },
         { item: "高成本模型", free: "不可用", paid: "仅高级会员" },
       ],
-      nodeTest: () => this.toastMsg("请在「接口配置」页用各节点的测试连接"), fbTest: () => this.toastMsg("功能开发中"), fbLog: () => this.toastMsg("功能开发中"), fbSwitch: () => this.toastMsg("功能开发中"),
-      expr12: this.expressions.map((e) => e.name),
-      ioOpen: s.ioOpen, isIoExport: s.ioMode === "export", isIoImport: s.ioMode === "import", ioTabs, exportSample, exprFiles,
-      openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), openImport: () => this.setState({ ioOpen: true, ioMode: "import" }), closeIO: () => this.setState({ ioOpen: false }),
-      runExport: () => this.exportChars(), runImport: () => this.toastMsg("功能开发中"),
+      ioOpen: s.ioOpen, exportSample,
+      openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), closeIO: () => this.setState({ ioOpen: false }),
+      runExport: () => this.exportChars(),
       voicePresetCount, voiceCloneCount, voiceMatchTotal, ttsEngine, voicesView, apiCards,
-      exprView, exprCharName, exprCharHue, exprCount, exprCharList,
-      exprListMode: !s.exprOpen, exprDetailMode: !!s.exprOpen, exprBack: () => this.setState({ exprOpen: null }),
-      testChars, testVoices, testText: s.testText, onTestText: (e: any) => this.setState({ testText: e.target.value }),
-      runTest: () => this.runTest(), runLabel: s.testRunning ? "测试中…" : "开始测试",
-      asrNode, llmNode, ttsNode, seedNode, memNode, testVideoState,
-      asrMs: s.testMs.asr || "", llmMs: s.testMs.llm || "", seedMs: s.testMs.seed || "", memMs: s.testMs.mem || "", testAllDone: st >= 6,
-      testReply: s.testReply, testAsr: s.testAsr, testDone: st >= 3,
-      testVoiceName: selVoice ? selVoice.name : "", testCharHue: s.testChar ? "hue-rotate(" + ((this.chars.find((c) => c.id === s.testChar) || {}).hue || 0) + "deg)" : "none",
-      ttsMs: s.testMs.tts || "", replay: async () => { if (!usingBackend()) { this.toastMsg("接入后端后可真实回放"); return; } const ch = this.chars.find((c) => c.id === s.testChar); this.toastMsg("正在合成回放…"); const ok = await playVoicePreview({ characterId: (ch && ch.cid) || "" }); this.toastMsg(ok ? "" : "回放失败：请确认 TTS 接口已配置"); },
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
       isDashboard: s.section === "dashboard", isUsers: s.section === "users", isChars: s.section === "characters", isVoices: s.section === "voices",
-      isScenes: s.section === "scenarios", isCalls: s.section === "calls", isTickets: s.section === "tickets", isOrders: s.section === "orders",
+      isCalls: s.section === "calls", isTickets: s.section === "tickets", isOrders: s.section === "orders",
       kpis, trend, trendTitle, dateChips, topChars, topScenes, recentCalls,
-      isInvites: s.section === "invites", isAdmins: s.section === "admins",
+      isInvites: s.section === "invites",
       inviteKpis, invitersView, inviteRecordsView,
       inviteReward: s.inviteReward, onInviteReward: (e: any) => this.setState({ inviteReward: e.target.value }),
       inviteeReward: s.inviteeReward, onInviteeReward: (e: any) => this.setState({ inviteeReward: e.target.value }),
       inviteRuleOn: s.inviteRuleOn, toggleInviteRule: () => this.setState((p) => ({ inviteRuleOn: !p.inviteRuleOn })),
       ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",
       saveInviteRule: () => this.saveInvite(),
-      adminsView, permModules: this.permModules, roleMatrixView, addAdmin: () => this.toastMsg("功能开发中"),
       notifs: this.realStats ? (this.tickets.filter((t: any) => t.status === "待处理").length > 0 ? [{ title: this.tickets.filter((t: any) => t.status === "待处理").length + " 条工单待处理", time: "实时", dot: "#E0594F" }] : []) : this.notifs,
       notifOpen: s.notifOpen, notifUnread: this.realStats ? this.tickets.some((t: any) => t.status === "待处理") : !s.notifRead,
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),
-      userFilters, usersView, charsView, sceneTabs, scenesView, callsView, ticketsView, ordersView, plans,
+      userFilters, usersView, charsView, callsView, ticketsView, ordersView, plans,
       redeemCode: s.redeemCode, onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
       redeemUses: s.redeemUses, onRedeemUses: (e: any) => this.setState({ redeemUses: e.target.value }),
       redeemMinutes: s.redeemMinutes, onRedeemMinutes: (e: any) => this.setState({ redeemMinutes: e.target.value }),
@@ -838,8 +726,8 @@ export class AdminLogic {
           del: () => this.delRedeem(r.code) };
       }),
       detailOpen: !!d, closeDetail: () => this.setState({ detail: null }), detailTitle,
-      dUser, dChar, dCall, dTicket, dCharExpr,
-      banLabel, banColor, banBg, toggleBan: () => { const id = d.id; this.setState((p) => ({ banned: { ...p.banned, [id]: !p.banned[id] } })); this.toastMsg(s.banned[d.id] ? "已解除封禁" : "已封禁该用户"); },
+      dUser, dChar, dCall, dTicket,
+      banLabel, banColor, banBg, toggleBan: () => this.toggleBan(d && d.id),
       charBioLen, saveChar: () => this.saveChar(),
       saveCharLabel: (s.detail && s.detail.id === "__new__") ? "创建角色" : "保存修改",
       openNewChar: () => this.openNewChar(), genCharAI: () => this.genCharAI(), delChar: () => this.delChar(),

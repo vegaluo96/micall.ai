@@ -465,6 +465,15 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": False, "error": "no repo"})
             ok = _REPO.delete_redeem_code((self._body().get("code") or "").strip())
             return self._json(200, {"ok": ok})
+        if route == "/admin/users/ban":          # 封禁/解封用户：封后登录被拒、通话被拒
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            b = self._body()
+            uid = (b.get("user_id") or "").strip()
+            if not uid:
+                return self._json(400, {"ok": False, "error": "缺少 user_id"})
+            _REPO.set_user_banned(uid, bool(b.get("banned")))
+            return self._json(200, {"ok": True})
         if route == "/admin/tickets/reply":     # 回复工单
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

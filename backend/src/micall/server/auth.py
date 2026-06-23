@@ -84,6 +84,8 @@ def login(repo, email: str, password: str) -> tuple[int, dict]:
     row = repo.auth_user((email or "").strip())
     if not row or not verify_password(password or "", row[1]):
         return 401, {"ok": False, "error": "邮箱或密码错误"}
+    if repo.is_banned(row[0]):
+        return 403, {"ok": False, "error": "账号已被封禁，如有疑问请联系客服"}
     user = repo.get_user(row[0]) or {"user_id": row[0], "email": email}
     return 200, {"ok": True, "token": _issue(repo, row[0]), "user": _public(user)}
 

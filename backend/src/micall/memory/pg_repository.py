@@ -322,6 +322,21 @@ class PgRepository(MemoryRepository):
         except Exception:
             return None
 
+    def set_user_banned(self, user_id, banned) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute("UPDATE users SET banned=%s WHERE user_id=%s", (bool(banned), user_id))
+        except Exception as e:
+            log.warning("set_user_banned 失败：%r", e)
+
+    def is_banned(self, user_id) -> bool:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute("SELECT banned FROM users WHERE user_id=%s", (user_id,)).fetchone()
+            return bool(r and r[0])
+        except Exception:
+            return False
+
     def create_session(self, token, user_id, ttl_seconds) -> None:
         try:
             with self.pool.connection() as c:
@@ -485,7 +500,8 @@ class PgRepository(MemoryRepository):
             with self.pool.connection() as c:
                 rows = c.execute(
                     "SELECT u.user_id, u.email, u.remaining_seconds, u.created_at, "
-                    "  count(c.id) AS total_calls, COALESCE(sum(c.duration_seconds),0) AS total_seconds "
+                    "  count(c.id) AS total_calls, COALESCE(sum(c.duration_seconds),0) AS total_seconds, "
+                    "  u.banned "
                     "FROM users u LEFT JOIN calls c ON c.user_id = u.user_id "
                     "WHERE u.email IS NOT NULL AND u.email <> '' "   # 只看真实注册用户：游客/无邮箱测试行不进后台
                     "GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT %s", (int(limit),),
@@ -493,6 +509,7 @@ class PgRepository(MemoryRepository):
             return [{
                 "user_id": r[0], "email": r[1] or "", "remaining_seconds": r[2],
                 "created_at": r[3].isoformat() if r[3] else "", "total_calls": r[4], "total_seconds": r[5],
+                "banned": bool(r[6]),
             } for r in rows]
         except Exception as e:
             log.warning("list_all_users 失败：%r", e)

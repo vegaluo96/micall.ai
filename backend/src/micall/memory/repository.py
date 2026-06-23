@@ -120,6 +120,13 @@ class MemoryRepository(ABC):
         """user_id → {user_id,email,display_name,remaining_seconds}；无则 None。"""
         return None
 
+    def set_user_banned(self, user_id: str, banned: bool) -> None:
+        """运营封禁/解封某用户。基类（游客）no-op。"""
+
+    def is_banned(self, user_id: str) -> bool:
+        """该用户是否被封禁（登录/通话据此拒绝）。基类默认 False。"""
+        return False
+
     def create_session(self, token: str, user_id: str, ttl_seconds: int) -> None:
         """登录发 token：记 token→user_id，ttl_seconds 后过期。"""
 
@@ -392,6 +399,15 @@ class InMemoryRepository(MemoryRepository):
         u = self._users.get(user_id)
         return {k: u[k] for k in ("user_id", "email", "display_name", "remaining_seconds")} if u else None
 
+    def set_user_banned(self, user_id, banned) -> None:
+        u = self._users.get(user_id)
+        if u is not None:
+            u["banned"] = bool(banned)
+
+    def is_banned(self, user_id) -> bool:
+        u = self._users.get(user_id)
+        return bool(u and u.get("banned"))
+
     def create_session(self, token, user_id, ttl_seconds) -> None:
         self._sessions[token] = (user_id, time.time() + ttl_seconds)
 
@@ -477,6 +493,7 @@ class InMemoryRepository(MemoryRepository):
                 "user_id": u["user_id"], "email": u.get("email") or "",
                 "remaining_seconds": u["remaining_seconds"], "created_at": u.get("created_at", ""),
                 "total_calls": len(mine), "total_seconds": sum(c["duration_seconds"] for c in mine),
+                "banned": bool(u.get("banned")),
             })
         out.sort(key=lambda x: x["created_at"], reverse=True)
         return out[:limit]

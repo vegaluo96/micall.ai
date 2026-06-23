@@ -60,8 +60,9 @@ export async function login(username: string, password: string): Promise<{ ok: b
       return { ok: false, error: "无法连接服务器" };
     }
   }
-  // 无后端：本地软门禁（仅 UX，真防护靠 nginx Basic Auth）
-  const expected = (import.meta.env?.VITE_ADMIN_PASSWORD || "luoweijia").trim();
+  // 无后端：本地软门禁（仅 UX，真防护靠 nginx Basic Auth / 后端登录）。
+  // 绝不把真实密码写进源码（会进 git）：未配 VITE_ADMIN_PASSWORD 时用非敏感占位，生产必须显式设置。
+  const expected = (import.meta.env?.VITE_ADMIN_PASSWORD || "micall-admin").trim();
   if (password === expected) {
     sessionStorage.setItem(TOKEN_KEY, "dev");
     return { ok: true };

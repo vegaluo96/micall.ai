@@ -273,6 +273,21 @@ export async function deleteRedeemCode(code: string): Promise<boolean> {
   }
   return false;
 }
+/** 封禁/解封用户：封后该用户登录被拒、通话被拒（账号级）。返回是否成功。 */
+export async function setUserBanned(userId: string, banned: boolean): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/users/ban`, {
+      method: "POST", headers: authHeaders(true), credentials: "include",
+      body: JSON.stringify({ user_id: userId, banned }),
+    });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch {
+    /* noop */
+  }
+  return false;
+}
 export async function createRedeemCode(code: string, minutes: number, maxUses: number): Promise<{ ok: boolean; code?: string; error?: string }> {
   const b = base();
   if (!b) return { ok: false, error: "需接入后端" };

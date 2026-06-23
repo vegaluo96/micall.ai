@@ -43,6 +43,25 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(auth.login(self.repo, "a@b.com", "nope")[0], 401)
         self.assertEqual(auth.login(self.repo, "ghost@b.com", "secret1")[0], 401)
 
+    def test_ban_blocks_login_and_roundtrip(self):
+        _, body = auth.register(self.repo, "a@b.com", "secret1")
+        uid = body["user"]["user_id"]
+        self.assertFalse(self.repo.is_banned(uid))
+        self.repo.set_user_banned(uid, True)
+        self.assertTrue(self.repo.is_banned(uid))
+        code, lo = auth.login(self.repo, "a@b.com", "secret1")     # 密码对，但被封
+        self.assertEqual(code, 403)
+        self.assertFalse(lo["ok"])
+        self.repo.set_user_banned(uid, False)                      # 解封 → 恢复登录
+        self.assertEqual(auth.login(self.repo, "a@b.com", "secret1")[0], 200)
+
+    def test_banned_flag_in_admin_user_list(self):
+        _, body = auth.register(self.repo, "a@b.com", "secret1")
+        uid = body["user"]["user_id"]
+        self.repo.set_user_banned(uid, True)
+        row = next(u for u in self.repo.list_all_users() if u["user_id"] == uid)
+        self.assertTrue(row["banned"])
+
     def test_guest_trial_per_ip(self):
         ip = "203.0.113.7"
         self.assertEqual(self.repo.guest_trial_remaining(ip, 60), 60)   # 新 IP 满额

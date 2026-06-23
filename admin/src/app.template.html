@@ -200,7 +200,6 @@
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;">
             <div onClick="{{ openNewChar }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:#16161A;border-radius:10px;padding:8px 15px;cursor:pointer;" style-active="transform:scale(.97)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>新建角色</div>
             <div onClick="{{ openExport }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:10px;padding:8px 15px;cursor:pointer;" style-active="transform:scale(.97)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>导出角色</div>
-            <div onClick="{{ openImport }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:10px;padding:8px 15px;cursor:pointer;box-shadow:0 6px 14px rgba(110,92,255,.26);" style-active="transform:scale(.97)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 9l5-5 5 5M12 4v12"/></svg>导入资产</div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
             <sc-for list="{{ charsView }}" as="c" hint-placeholder-count="6">
@@ -236,41 +235,8 @@
                     <sc-if value="{{ c.isDefault }}" hint-placeholder-val="{{ false }}">
                       <div style="font-size:11.5px;font-weight:600;color:#9A9DA7;background:#F2F2F5;border-radius:8px;padding:5px 12px;">当前默认</div>
                     </sc-if>
-                    <div onClick="{{ c.offToggle }}" style="font-size:11.5px;font-weight:600;color:{{ c.offColor }};background:{{ c.offBg }};border-radius:8px;padding:5px 12px;cursor:pointer;" style-active="transform:scale(.95)">{{ c.offLabel }}</div>
                   </div>
                 </div>
-              </div>
-            </sc-for>
-          </div>
-        </div>
-      </sc-if>
-
-      <!-- SCENARIOS -->
-      <sc-if value="{{ isScenes }}" hint-placeholder-val="{{ false }}">
-        <div style="animation:adRise .3s ease;">
-          <div style="display:flex;gap:8px;margin-bottom:16px;">
-            <sc-for list="{{ sceneTabs }}" as="t" hint-placeholder-count="3">
-              <div onClick="{{ t.pick }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;padding:7px 15px;border-radius:9px;cursor:pointer;background:{{ t.bg }};color:{{ t.color }};border:1px solid {{ t.border }};">{{ t.label }}<sc-if value="{{ t.badge }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;color:#fff;background:#E0954F;border-radius:8px;padding:0 6px;">{{ t.badge }}</span></sc-if></div>
-            </sc-for>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <sc-for list="{{ scenesView }}" as="s" hint-placeholder-count="5">
-              <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:14.5px;font-weight:600;">{{ s.name }}</span>
-                  <sc-if value="{{ s.desc }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:#A8ABB5;">{{ s.desc }}</span></sc-if>
-                  <span style="font-size:11.5px;font-weight:600;color:{{ s.stColor }};background:{{ s.stBg }};border-radius:7px;padding:2px 8px;">{{ s.status }}</span>
-                  <sc-if value="{{ s.byUser }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#A8ABB5;">由 {{ s.byUser }} 提交</span></sc-if>
-                  <span style="flex:1;"></span>
-                  <span style="font-size:12.5px;color:#A8ABB5;">{{ s.uses }}</span>
-                </div>
-                <div style="font-size:13px;color:#6B6F7A;line-height:1.65;margin-top:9px;text-wrap:pretty;">{{ s.prompt }}</div>
-                <sc-if value="{{ s.pending }}" hint-placeholder-val="{{ false }}">
-                  <div style="display:flex;gap:9px;margin-top:14px;">
-                    <div onClick="{{ s.approve }}" style="font-size:13px;font-weight:600;color:#fff;background:#1FA971;border-radius:9px;padding:7px 18px;cursor:pointer;" style-active="transform:scale(.97)">通过</div>
-                    <div onClick="{{ s.reject }}" style="font-size:13px;font-weight:600;color:#E0594F;background:rgba(224,89,79,.1);border-radius:9px;padding:7px 18px;cursor:pointer;" style-active="transform:scale(.97)">拒绝</div>
-                  </div>
-                </sc-if>
               </div>
             </sc-for>
           </div>
@@ -419,42 +385,6 @@
             </sc-for>
           </div>
           </sc-if>
-          <sc-if value="{{ isExprTab }}" hint-placeholder-val="{{ false }}">
-            <sc-if value="{{ exprListMode }}" hint-placeholder-val="{{ true }}">
-              <div style="font-size:13px;color:#878B95;margin-bottom:14px;">点开角色查看并配置其情绪表情（每角色 {{ exprCount }} 种状态）</div>
-              <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-                <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr 30px;gap:12px;padding:13px 20px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:600;color:#9A9DA7;"><span>角色</span><span>性别 / 年龄</span><span>已启用表情</span><span></span></div>
-                <sc-for list="{{ exprCharList }}" as="c" hint-placeholder-count="5">
-                  <div onClick="{{ c.open }}" style="display:grid;grid-template-columns:2fr 1.2fr 1fr 30px;gap:12px;padding:13px 20px;border-bottom:1px solid #F4F4F6;align-items:center;cursor:pointer;" style-hover="background:#F8F8FB">
-                    <div style="display:flex;align-items:center;gap:11px;"><div style="width:34px;height:34px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><div><div style="font-size:13.5px;font-weight:500;">{{ c.name }}</div><div style="font-size:12px;color:#A8ABB5;">{{ c.desc }}</div></div></div>
-                    <span style="font-size:13px;font-weight:500;color:{{ c.genderColor }};">{{ c.genderAge }}</span>
-                    <span style="font-size:13px;color:#5A5E6B;font-variant-numeric:tabular-nums;">{{ c.enabled }} / {{ c.total }}</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-            <sc-if value="{{ exprDetailMode }}" hint-placeholder-val="{{ false }}">
-              <div onClick="{{ exprBack }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:#5A5E6B;cursor:pointer;margin-bottom:14px;" style-active="transform:scale(.97)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>返回角色列表</div>
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div style="width:38px;height:38px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ exprCharHue }};"></div><div style="font-size:16px;font-weight:600;">{{ exprCharName }} · 表情库</div></div>
-              <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-                <div style="display:grid;grid-template-columns:1.5fr 1.4fr .8fr 110px;gap:12px;padding:13px 20px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:600;color:#9A9DA7;">
-                  <span>表情</span><span>状态标识</span><span>状态</span><span></span>
-                </div>
-                <sc-for list="{{ exprView }}" as="e" hint-placeholder-count="12">
-                  <div style="display:grid;grid-template-columns:1.5fr 1.4fr .8fr 110px;gap:12px;padding:11px 20px;border-bottom:1px solid #F4F4F6;align-items:center;">
-                    <div style="display:flex;align-items:center;gap:11px;"><span style="font-size:22px;line-height:1;">{{ e.emoji }}</span><span style="font-size:13.5px;font-weight:500;">{{ e.name }}</span></div>
-                    <span style="font-size:12.5px;font-family:ui-monospace,monospace;color:#878B95;">{{ e.key }}</span>
-                    <span><span style="font-size:11.5px;font-weight:600;color:{{ e.stColor }};background:{{ e.stBg }};border-radius:7px;padding:3px 9px;">{{ e.status }}</span></span>
-                    <div style="display:flex;gap:8px;align-items:center;justify-self:end;">
-                      <div onClick="{{ e.preview }}" style="width:30px;height:30px;border-radius:9px;background:#F2F3F5;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.92)"><svg width="13" height="13" viewBox="0 0 24 24" fill="#5A5E6B" stroke="none"><path d="M8 5v14l11-7z"/></svg></div>
-                      <div onClick="{{ e.toggle }}" style="width:30px;height:30px;border-radius:9px;background:#F2F3F5;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#5A5E6B;" style-active="transform:scale(.92)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64A9 9 0 1 1 5.64 6.64M12 2v10"/></svg></div>
-                    </div>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-          </sc-if>
         </div>
       </sc-if>
 
@@ -500,7 +430,7 @@
                   <span style="font-size:12px;color:#5A5E6B;font-variant-numeric:tabular-nums;">{{ n.latency }}</span>
                   <span style="font-size:12px;color:#5A5E6B;">{{ n.calls }}</span>
                   <span style="font-size:12px;font-weight:600;color:#16161A;font-variant-numeric:tabular-nums;">{{ n.cost }}</span>
-                  <div onClick="{{ nodeTest }}" style="font-size:11.5px;font-weight:600;color:#6E5CFF;cursor:pointer;justify-self:end;" style-active="transform:scale(.95)">测试</div>
+                  <span></span>
                 </div>
               </sc-for>
             </div>
@@ -528,90 +458,10 @@
             </div>
           </sc-for>
 
-          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;font-weight:600;">Seedance 表情视频库</span><span style="font-size:11px;font-weight:600;color:#9277F5;background:rgba(146,119,245,.1);border-radius:7px;padding:2px 8px;">预生成</span></div>
-            <div style="font-size:12.5px;color:#7A7E8A;line-height:1.7;margin-top:10px;background:#FAFAFB;border-radius:10px;padding:11px 14px;text-wrap:pretty;">映射逻辑：LLM 快脑输出 <b>video_state</b> → 前端播放对应 Seedance 预生成视频；缺失对应视频则回退 <b>idle_normal</b>；视频加载失败则显示静态头像。</div>
-            <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 9px;">12 个基础状态</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-              <sc-for list="{{ expr12 }}" as="x" hint-placeholder-count="12"><span style="font-size:12px;color:#5A5E6B;background:#F2F3F5;border-radius:7px;padding:4px 10px;">{{ x }}</span></sc-for>
-            </div>
-            <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 9px;">各角色覆盖率</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              <sc-for list="{{ seedanceCoverage }}" as="c" hint-placeholder-count="5">
-                <div style="display:flex;align-items:center;gap:11px;"><div style="width:26px;height:26px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div><span style="flex:1;font-size:13px;font-weight:500;">{{ c.name }}</span><span style="font-size:12.5px;color:#5A5E6B;font-variant-numeric:tabular-nums;">{{ c.got }} / {{ c.total }} 个状态</span></div>
-              </sc-for>
-            </div>
-          </div>
 
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
             <div style="font-size:14px;font-weight:600;margin-bottom:6px;">角色级覆盖</div>
             <div style="font-size:12.5px;color:#7A7E8A;line-height:1.7;">每个角色可覆盖自己的 voice_id、TTS 模型、表情视频库、实时 prompt、记忆深度与回复长度。优先级 <b>用户自定义 &gt; 角色配置 &gt; 全局默认</b>。</div>
-          </div>
-          </div>
-          <div style="order:-1;">
-          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:flex;align-items:center;gap:13px;">
-              <div style="width:40px;height:40px;border-radius:11px;flex:none;background:linear-gradient(140deg,#5BE0A0,#1FA971);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(31,169,113,.28);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
-              <div style="flex:1;"><div style="font-size:16px;font-weight:600;">测试通话</div><div style="font-size:12.5px;color:#9A9DA7;">选择角色与音色，模拟一次 ASR → LLM → TTS 完整链路调用</div></div>
-            </div>
-            <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:20px 0 9px;">角色</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;">
-              <sc-for list="{{ testChars }}" as="c" hint-placeholder-count="5">
-                <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;padding:6px 13px 6px 7px;border-radius:9px;cursor:pointer;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.border }};"><div style="width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ c.hueFilter }};"></div>{{ c.name }}</div>
-              </sc-for>
-            </div>
-            <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 9px;">音色</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;">
-              <sc-for list="{{ testVoices }}" as="v" hint-placeholder-count="6">
-                <div onClick="{{ v.pick }}" style="font-size:13px;font-weight:500;padding:6px 13px;border-radius:9px;cursor:pointer;background:{{ v.bg }};color:{{ v.color }};border:1px solid {{ v.border }};">{{ v.name }}</div>
-              </sc-for>
-            </div>
-            <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 9px;">测试语句（模拟用户语音输入）</div>
-            <div style="display:flex;gap:10px;">
-              <input value="{{ testText }}" onInput="{{ onTestText }}" placeholder="输入一句用户会说的话…" style="flex:1;min-width:0;border:1px solid #E6E7EB;border-radius:10px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
-              <div onClick="{{ runTest }}" style="flex:none;font-size:13.5px;font-weight:600;color:#fff;background:#1FA971;border-radius:10px;padding:11px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(31,169,113,.26);" style-active="transform:scale(.97)">{{ runLabel }}</div>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:20px;">
-              <div style="flex:1;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:5px;background:{{ asrNode.bg }};border:1px solid {{ asrNode.border }};border-radius:11px;padding:11px;transition:all .25s ease;">
-                <div style="font-size:13px;font-weight:600;color:{{ asrNode.color }};">ASR</div>
-                <div style="font-size:11.5px;color:{{ asrNode.sub }};font-variant-numeric:tabular-nums;">{{ asrNode.status }}</div>
-              </div>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><polyline points="9 18 15 12 9 6"/></svg>
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:{{ llmNode.bg }};border:1px solid {{ llmNode.border }};border-radius:11px;padding:13px;transition:all .25s ease;">
-                <div style="font-size:13px;font-weight:600;color:{{ llmNode.color }};">LLM 快脑</div>
-                <div style="font-size:11.5px;color:{{ llmNode.sub }};font-variant-numeric:tabular-nums;">{{ llmNode.status }}</div>
-              </div>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><polyline points="9 18 15 12 9 6"/></svg>
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:{{ ttsNode.bg }};border:1px solid {{ ttsNode.border }};border-radius:11px;padding:13px;transition:all .25s ease;">
-                <div style="font-size:13px;font-weight:600;color:{{ ttsNode.color }};">TTS</div>
-                <div style="font-size:11.5px;color:{{ ttsNode.sub }};font-variant-numeric:tabular-nums;">{{ ttsNode.status }}</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><polyline points="9 18 15 12 9 6"/></svg>
-              <div style="flex:1;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:5px;background:{{ seedNode.bg }};border:1px solid {{ seedNode.border }};border-radius:11px;padding:11px;transition:all .25s ease;">
-                <div style="font-size:13px;font-weight:600;color:{{ seedNode.color }};">表情视频</div>
-                <div style="font-size:11.5px;color:{{ seedNode.sub }};font-variant-numeric:tabular-nums;">{{ seedNode.status }}</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><polyline points="9 18 15 12 9 6"/></svg>
-              <div style="flex:1;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:5px;background:{{ memNode.bg }};border:1px solid {{ memNode.border }};border-radius:11px;padding:11px;transition:all .25s ease;">
-                <div style="font-size:13px;font-weight:600;color:{{ memNode.color }};">记忆整理</div>
-                <div style="font-size:11.5px;color:{{ memNode.sub }};font-variant-numeric:tabular-nums;">{{ memNode.status }}</div>
-              </div>
-            </div>
-            <sc-if value="{{ testDone }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top:18px;border-top:1px solid #F0F0F3;padding-top:16px;animation:adRise .3s ease;">
-                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;"><span style="font-size:12px;color:#A8ABB5;flex:none;">识别结果</span><span style="font-size:13.5px;color:#3A3D47;">{{ testAsr }}</span></div>
-                <div style="display:flex;gap:10px;">
-                  <div style="width:32px;height:32px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ testCharHue }};"></div>
-                  <div style="flex:1;font-size:13.5px;color:#2A2A2E;line-height:1.6;background:#F2F2F5;border-radius:4px 14px 14px 14px;padding:11px 14px;text-wrap:pretty;">{{ testReply }}</div>
-                </div>
-                <div onClick="{{ replay }}" style="display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.08);border-radius:10px;padding:9px 16px;cursor:pointer;" style-active="transform:scale(.97)"><svg width="14" height="14" viewBox="0 0 24 24" fill="#6E5CFF" stroke="none"><path d="M8 5v14l11-7z"/></svg>播放合成语音（{{ testVoiceName }}）· {{ ttsMs }}ms</div>
-                <sc-if value="{{ testAllDone }}" hint-placeholder-val="{{ false }}">
-                  <div style="margin-top:12px;display:flex;align-items:center;gap:8px;font-size:12.5px;"><span style="color:#9277F5;font-weight:600;">表情状态</span><span style="font-family:ui-monospace,monospace;color:#9277F5;background:rgba(146,119,245,.1);border-radius:6px;padding:2px 8px;">{{ testVideoState }}</span><span style="color:#A8ABB5;">· {{ seedMs }}ms</span></div>
-                  <div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:12.5px;"><span style="color:#1FA971;font-weight:600;">记忆日志</span><span style="color:#3A3D47;">已生成摘要并写入长期记忆</span><span style="color:#A8ABB5;">· {{ memMs }}ms（异步）</span></div>
-                  <div style="margin-top:11px;font-size:11.5px;color:#7A7E8A;background:#FAFAFB;border-radius:8px;padding:9px 12px;">单次链路成本 ≈ $0.021　ASR $0.004 · 快脑 $0.009 · TTS $0.006 · 记忆 $0.002</div>
-                </sc-if>
-              </div>
-            </sc-if>
           </div>
           </div>
         </div>
@@ -733,40 +583,6 @@
         </div>
       </sc-if>
 
-      <!-- ADMINS -->
-      <sc-if value="{{ isAdmins }}" hint-placeholder-val="{{ false }}">
-        <div style="animation:adRise .3s ease;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <span style="font-size:13px;font-weight:600;color:#878B95;">管理员账号</span>
-            <div onClick="{{ addAdmin }}" style="font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:10px;padding:8px 16px;cursor:pointer;box-shadow:0 6px 14px rgba(110,92,255,.26);" style-active="transform:scale(.97)">+ 添加管理员</div>
-          </div>
-          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:grid;grid-template-columns:2fr 1fr 1.2fr .8fr 64px;gap:12px;padding:13px 20px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:600;color:#9A9DA7;"><span>管理员</span><span>角色</span><span>最后登录</span><span>状态</span><span></span></div>
-            <sc-for list="{{ adminsView }}" as="a" hint-placeholder-count="4">
-              <div style="display:grid;grid-template-columns:2fr 1fr 1.2fr .8fr 64px;gap:12px;padding:13px 20px;border-bottom:1px solid #F4F4F6;align-items:center;">
-                <div style="display:flex;align-items:center;gap:11px;min-width:0;"><div style="width:34px;height:34px;border-radius:50%;flex:none;background:{{ a.grad }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;">{{ a.initial }}</div><div style="min-width:0;"><div style="font-size:13.5px;font-weight:500;">{{ a.name }}</div><div style="font-size:12px;color:#A8ABB5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.email }}</div></div></div>
-                <span><span style="font-size:12px;font-weight:600;color:{{ a.roleColor }};background:{{ a.roleBg }};border-radius:7px;padding:3px 9px;">{{ a.role }}</span></span>
-                <span style="font-size:12.5px;color:#9A9DA7;">{{ a.last }}</span>
-                <span><span style="font-size:12px;font-weight:600;color:{{ a.stColor }};background:{{ a.stBg }};border-radius:7px;padding:3px 9px;">{{ a.status }}</span></span>
-                <div onClick="{{ a.toggle }}" style="font-size:12.5px;font-weight:600;color:#5A5E6B;cursor:pointer;justify-self:end;" style-active="transform:scale(.95)">{{ a.toggleLabel }}</div>
-              </div>
-            </sc-for>
-          </div>
-          <div style="font-size:13px;font-weight:600;color:#878B95;margin:24px 0 14px;">角色权限</div>
-          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:grid;grid-template-columns:130px repeat(8,1fr);gap:8px;padding:13px 18px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:600;color:#9A9DA7;">
-              <span>角色</span>
-              <sc-for list="{{ permModules }}" as="m" hint-placeholder-count="8"><span style="text-align:center;">{{ m }}</span></sc-for>
-            </div>
-            <sc-for list="{{ roleMatrixView }}" as="r" hint-placeholder-count="4">
-              <div style="display:grid;grid-template-columns:130px repeat(8,1fr);gap:8px;padding:13px 18px;border-bottom:1px solid #F4F4F6;align-items:center;">
-                <span><span style="font-size:12px;font-weight:600;color:{{ r.roleColor }};background:{{ r.roleBg }};border-radius:7px;padding:3px 9px;">{{ r.role }}</span></span>
-                <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="8"><span style="text-align:center;font-size:14px;font-weight:700;color:{{ c.color }};">{{ c.mark }}</span></sc-for>
-              </div>
-            </sc-for>
-          </div>
-        </div>
-      </sc-if>
 
     </div>
   </div>
@@ -776,13 +592,8 @@
     <div onClick="{{ closeIO }}" style="position:fixed;inset:0;background:rgba(20,20,28,.32);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:20;animation:adIn .25s ease;"></div>
     <div class="scrl" style="position:fixed;top:0;right:0;bottom:0;width:480px;max-width:94vw;background:#fff;z-index:21;box-shadow:-20px 0 60px rgba(0,0,0,.18);animation:adDraw .32s cubic-bezier(.16,1,.3,1);overflow-y:auto;padding:24px 26px 40px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <div style="font-size:16px;font-weight:700;">角色导入 / 导出</div>
+        <div style="font-size:16px;font-weight:700;">角色导出</div>
         <div onClick="{{ closeIO }}" style="width:32px;height:32px;border-radius:9px;background:#F2F3F5;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.92)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A5E6B" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:18px;">
-        <sc-for list="{{ ioTabs }}" as="t" hint-placeholder-count="2">
-          <div onClick="{{ t.pick }}" style="font-size:13px;font-weight:500;padding:7px 16px;border-radius:9px;cursor:pointer;background:{{ t.bg }};color:{{ t.color }};border:1px solid {{ t.border }};">{{ t.label }}</div>
-        </sc-for>
       </div>
 
       <sc-if value="{{ isIoExport }}" hint-placeholder-val="{{ true }}">
@@ -795,28 +606,6 @@
         <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 8px;">JSON 结构</div>
         <div style="background:#16161A;border-radius:12px;padding:15px 16px;overflow-x:auto;"><pre style="margin:0;font-size:12px;line-height:1.65;font-family:ui-monospace,monospace;color:#D8DEE9;white-space:pre;">{{ exportSample }}</pre></div>
         <div onClick="{{ runExport }}" style="margin-top:20px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">导出 micall_characters.json</div>
-      </sc-if>
-
-      <sc-if value="{{ isIoImport }}" hint-placeholder-val="{{ false }}">
-        <div style="font-size:13.5px;color:#5A5E6B;line-height:1.7;text-wrap:pretty;">大模型按以下规则生成并命名音色与表情文件，后台据<b>文件名前缀</b>自动归位到对应角色与状态，无需人工匹配。</div>
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 8px;">目录与打包</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="background:#FAFAFB;border-radius:10px;padding:11px 14px;"><div style="font-size:12.5px;font-family:ui-monospace,monospace;color:#6E5CFF;">{角色ID}_{角色名}.zip</div><div style="font-size:12px;color:#9A9DA7;margin-top:3px;">单角色资产包，如 c1_林晚.zip，后台解压自动归位</div></div>
-          <div style="background:#FAFAFB;border-radius:10px;padding:11px 14px;"><div style="font-size:12.5px;font-family:ui-monospace,monospace;color:#6E5CFF;">{角色ID}__manifest.json</div><div style="font-size:12px;color:#9A9DA7;margin-top:3px;">清单：列出包内资产、格式与版本</div></div>
-        </div>
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 8px;">音色文件</div>
-        <div style="background:#FAFAFB;border-radius:10px;padding:11px 14px;"><span style="font-size:12.5px;font-family:ui-monospace,monospace;color:#6E5CFF;">{角色ID}__voice.wav</span><span style="font-size:12px;color:#9A9DA7;margin-left:8px;">或 .mp3，如 c1__voice.wav</span></div>
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 8px;">表情文件（12 个状态，各一个文件 · 静态 .png / 动画 .riv）</div>
-        <div style="background:#fff;border:1px solid #EBECEF;border-radius:12px;overflow:hidden;">
-          <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:10px 14px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:11.5px;font-weight:600;color:#9A9DA7;"><span>状态</span><span>文件名（{id} 替换为角色 ID）</span></div>
-          <sc-for list="{{ exprFiles }}" as="f" hint-placeholder-count="12">
-            <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:9px 14px;border-bottom:1px solid #F4F4F6;align-items:center;">
-              <span style="font-size:12.5px;color:#3A3D47;">{{ f.name }}</span>
-              <span style="font-size:12px;font-family:ui-monospace,monospace;color:#6E5CFF;">{{ f.file }}</span>
-            </div>
-          </sc-for>
-        </div>
-        <div onClick="{{ runImport }}" style="margin-top:20px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">选择导入文件 / 资产包</div>
       </sc-if>
     </div>
   </sc-if>
@@ -930,19 +719,6 @@
           <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">自定义匹配</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.customVoices }} 个</div></div>
           <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">累计通话</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.calls }} 次</div></div>
           <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">被收藏</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.favs }} 次</div></div>
-        </div>
-
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">表情库状态（12 种）</div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <sc-for list="{{ dCharExpr }}" as="e" hint-placeholder-count="12">
-            <div style="display:flex;align-items:center;gap:11px;background:#FAFAFB;border-radius:10px;padding:9px 13px;">
-              <span style="font-size:18px;line-height:1;">{{ e.emoji }}</span>
-              <span style="font-size:13px;font-weight:500;">{{ e.name }}</span>
-              <span style="font-size:11.5px;font-family:ui-monospace,monospace;color:#A8ABB5;flex:1;">{{ e.key }}</span>
-              <div onClick="{{ e.preview }}" style="width:28px;height:28px;border-radius:8px;background:#fff;border:1px solid #E6E7EB;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.92)"><svg width="12" height="12" viewBox="0 0 24 24" fill="#5A5E6B" stroke="none"><path d="M8 5v14l11-7z"/></svg></div>
-              <div onClick="{{ e.toggle }}" style="font-size:11px;font-weight:600;color:{{ e.stColor }};background:{{ e.stBg }};border-radius:7px;padding:4px 10px;cursor:pointer;" style-active="transform:scale(.95)">{{ e.status }}</div>
-            </div>
-          </sc-for>
         </div>
 
         <div onClick="{{ saveChar }}" style="margin-top:22px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">{{ saveCharLabel }}</div>

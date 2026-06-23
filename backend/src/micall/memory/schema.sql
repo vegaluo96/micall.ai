@@ -24,8 +24,11 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash      TEXT NOT NULL DEFAULT '',     -- 注册/登录（pbkdf2，见 auth.py）；游客留空
     display_name       TEXT NOT NULL DEFAULT '',
     remaining_seconds  INTEGER NOT NULL DEFAULT 0,   -- 服务端权威计费余额（§5）
+    banned             BOOLEAN NOT NULL DEFAULT false, -- 运营封禁：被封后登录被拒、通话被拒（后台「用户管理」开关）
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 兼容已有库：旧 users 表补 banned 列（幂等，_init_schema 逐句执行）
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT false;
 
 -- 登录会话（token → user_id）。前端带 Authorization: Bearer <token> 访问个人接口。
 CREATE TABLE IF NOT EXISTS sessions (

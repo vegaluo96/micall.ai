@@ -297,6 +297,9 @@ class SignalingServer:
                     continue  # 畸形/未知帧静默丢弃（与前端容错一致）
                 log.info("⟵ %s%s", msg.type, f" {msg.text!r}" if msg.text else "")
                 if msg.type == "start_call":
+                    if user_id != _ANON and self.repo.is_banned(user_id):
+                        await emit(ServerEvent.call_failed("banned"))   # 封禁用户（即便持旧 token）：拒接
+                        continue
                     if session:
                         await session.end(emit_ended=False)
                     self._reload_config()  # 拾取后台「接口配置」最新改动（无需重启）
