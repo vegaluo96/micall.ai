@@ -154,7 +154,9 @@
         </div>
         </sc-if>
         <sc-if value="{{ showText }}" hint-placeholder-val="{{ false }}">
-        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 36px;">
+        <!-- 转写滚动区：min-height:0 + overflow-y:auto 让长对话在自己区域内滚动；justify-content:flex-end
+             让最新一句贴底显示（聊天式），多出的旧消息向上滚走，绝不溢出盖住下方通话按钮。 -->
+        <div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:16px 36px;">
           <sc-for list="{{ lines }}" as="line" hint-placeholder-count="2">
             <div style="align-self:{{ line.align }};max-width:84%;font-size:21px;line-height:1.5;letter-spacing:.3px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
           </sc-for>

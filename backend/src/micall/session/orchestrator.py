@@ -127,6 +127,16 @@ class CallSession:
         self._ai_said = ""                  # 本轮 AI 已说出的文本（用于回声判定）
         self._audio_until = 0.0             # AI 下行音频估计播放到的时刻（monotonic 秒）
         self._muted = False
+        # 回声/打断门槛（config.turn，每通重载即生效，不必改代码/重启）：
+        #   echo_tail_ms     —— AI 音频播完后仍按「可能回声」对待的拖尾窗（要盖住 ASR 自身识别延迟，
+        #                       否则 AI 自己的话拖几秒被当成用户新说的一轮 → 凭空冒话/重复「你好」）。
+        #   echo_overlap     —— 音频播放中，识别文本与 AI 已说内容的字符重叠达此比例即判回声。
+        #   barge_in_min_chars —— AI 说话期间，要打断/触发新一轮所需的最短实质字数（短碎片多为漏检回声，
+        #                       抬高门槛避免「自己断」；AI 不在说话时仍按 2 字灵敏响应）。
+        turn = config.turn or {}
+        self._echo_tail = float(turn.get("echo_tail_ms", 2500)) / 1000.0
+        self._echo_overlap = float(turn.get("echo_overlap", 0.7))
+        self._barge_min_chars = max(2, int(turn.get("barge_in_min_chars", 3)))
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
 
@@ -162,10 +172,16 @@ class CallSession:
             yield frame
 
     def _looks_like_echo(self, text: str) -> bool:
-        """识别到的"用户"文本是不是 AI 自己声音的回灌：在音频播放窗口内、且与 AI 已说内容高度重叠。
-        防"她说着说着自己停下来"——回声误触发打断。ASR 把回声转写得往往不全字对字，故用模糊重叠
-        而非严格子串：子串命中 或 八成字符都在 AI 已说内容里 → 判回声。真插话用词不同，不会命中。"""
-        if not self._ai_said or time.monotonic() > self._audio_until + 0.8:
+        """识别到的"用户"文本是不是 AI 自己声音的回灌。两段窗口、两种力度：
+          • 子串命中（AI 说过的原话被原样转写回来）→ 任何回声窗内都判回声（高置信）。
+          • 模糊重叠（ASR 把回声转写得不全字对字）→ 仅在音频「仍在播放」时启用；此刻真实用户多在打断、
+            会另走门槛逻辑，宁可严一点。播放结束后的拖尾窗只认子串，避免把「附和式真回复」误判成回声。
+        回声窗 = 直到 _audio_until + echo_tail：echo_tail 要盖住 ASR 自身识别延迟（VAD 判句+网络），
+        否则 AI 自己的话拖几秒后被识别出来，会被当成用户「凭空说的一轮」（用户实测：重复冒出「你好」）。"""
+        if not self._ai_said:
+            return False
+        now = time.monotonic()
+        if now > self._audio_until + self._echo_tail:
             return False
         nt = _norm(text)
         if len(nt) < 2:
@@ -173,13 +189,15 @@ class CallSession:
         said = _norm(self._ai_said)
         if nt in said:
             return True
-        chars = set(nt)
-        overlap = sum(1 for ch in chars if ch in said) / len(chars)
-        return overlap >= 0.8
+        if now <= self._audio_until:        # 音频还在播：模糊重叠也判回声
+            chars = set(nt)
+            overlap = sum(1 for ch in chars if ch in said) / len(chars)
+            return overlap >= self._echo_overlap
+        return False
 
     # ── task A：实时 ASR 感知（partial 回显 / final 触发一轮 / 开口即打断 §1.4-1.5）──
     async def _listen_loop(self) -> None:
-        last_final = ""
+        recent: dict[str, float] = {}  # 最近 final → 时刻：同句短时间内重复出现（回声/幻听）去重
         flushed = False  # 本次用户开口是否已让前端停播（每句一次，防刷）
         try:
             async for text, is_final in self._asr_rt.stream(self._mic_frames()):
@@ -190,24 +208,33 @@ class CallSession:
                     continue  # AI 自己的声音回灌麦克风，忽略（不打断、不触发新一轮）
                 if _is_filler(t):
                     continue  # 纯语气词「嗯/啊/哦…」（多为回声/呼吸误识）：不打断、不触发轮次、不上字幕
+                # AI 正在说话、或音频刚发完还在前端缓冲播放（拖尾窗内）：此刻 ASR 多半是回声/环境音，
+                # 要么被 _looks_like_echo 拦掉，要么只言片语 → 抬高打断/触发门槛，避免「自己断 / 凭空冒话」。
+                # AI 没在说话时维持 2 字灵敏，正常对话不受影响。
+                ai_speaking = (self.sm.phase in (Phase.THINKING, Phase.SPEAKING)
+                               or time.monotonic() < self._audio_until + self._echo_tail)
+                need = self._barge_min_chars if ai_speaking else 2
                 if not is_final:
-                    # 用户开口（首个实质中间结果）→ 立刻打断：停后端生成 + 让前端停播。
-                    # 关键：后端可能已把整句音频发完、状态回 listening，但前端还在播缓冲，
-                    # 所以即便不在 speaking 也要发 interrupted 去 flush，否则"打断无效"。
-                    if len(t) >= 2 and not flushed:
-                        flushed = True
-                        if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
-                            await self.interrupt()
-                        else:
-                            await self._emit(ServerEvent.interrupted())
-                    await self._emit(ServerEvent.subtitle("user", t, partial=True))
+                    # 用户开口（实质中间结果）→ 打断：停后端生成 + 让前端停播。
+                    # 后端可能已把整句音频发完、状态回 listening 但前端还在播缓冲，故即便不在 speaking
+                    # 也发 interrupted 去 flush，否则"打断无效"。门槛不够的短碎片不打断、不上字幕（防回声露馅）。
+                    if len(_norm(t)) >= need:
+                        if not flushed:
+                            flushed = True
+                            if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
+                                await self.interrupt()
+                            else:
+                                await self._emit(ServerEvent.interrupted())
+                        await self._emit(ServerEvent.subtitle("user", t, partial=True))
                     continue
                 flushed = False  # 这句说完，下一句重新允许打断
-                # 最终结果门控：太短（多半是噪声/静音误识别）或与上一句重复 → 丢弃，
-                # 否则会"自说自话"刷屏（§1.4 end-of-turn 需要的是真说完，不是任何声响）。
-                if len(t) < 2 or t == last_final:
+                now = time.monotonic()
+                recent = {k: ts for k, ts in recent.items() if now - ts < 10.0}  # 只看近 10 秒
+                # 最终结果门控：太短/AI 说话期间的只言片语（噪声·漏检回声）、或 10 秒内重复出现的同句
+                # （回声·幻听）→ 丢弃，否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：要的是真说完）。
+                if len(_norm(t)) < need or t in recent:
                     continue
-                last_final = t
+                recent[t] = now
                 log.info("⟵ 用户说完：%r", t)
                 if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
                     await self.interrupt()
@@ -263,7 +290,8 @@ class CallSession:
 
     async def _generate_turn(self, user_text: str) -> None:
         self._interrupt.clear()
-        self._ai_said = ""  # 新一轮：清空回声基准（上一轮 AI 文本已无需再防）
+        # 注意：回声基准 _ai_said 不在此清空——上一轮 AI 的音频可能还在前端缓冲播放，
+        # 思考阶段(THINKING)仍要靠它拦住拖尾回声；等真正开口(open_speak)再以本轮文本重置。
         await self._emit(ServerEvent.subtitle("user", user_text))
         self.history.append({"role": "user", "content": user_text})
 
@@ -285,6 +313,7 @@ class CallSession:
         async def open_speak() -> None:
             nonlocal speaking, emotion_sent
             if not speaking:
+                self._ai_said = ""  # 进入发声：以本轮 AI 文本作为新的回声基准（此前保留上一轮防拖尾回声）
                 self.sm.to(Phase.SPEAKING)
                 await self._emit(ServerEvent.state(Phase.SPEAKING.value))
                 speaking = True

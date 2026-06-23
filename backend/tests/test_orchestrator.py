@@ -41,6 +41,51 @@ class TestFiller(unittest.TestCase):
             self.assertFalse(_is_filler(x), x)
 
 
+class TestEchoGuard(unittest.TestCase):
+    """AI 自己的声音回灌麦克风 → 不该被当成用户说话（防自己断/凭空冒话/重复『你好』）。"""
+
+    def _sess(self):
+        async def emit(ev):
+            pass
+        return _make_session(emit)
+
+    def test_substring_echo_caught_across_whole_window(self):
+        import time
+        s = self._sess()
+        s._ai_said = "你好呀，今天过得怎么样"
+        s._audio_until = time.monotonic() - 1.0      # 音频已播完（进入拖尾窗）
+        self.assertTrue(s._looks_like_echo("你好呀"))  # 原话子串 → 高置信回声
+        self.assertTrue(s._looks_like_echo("今天过得怎么样"))
+
+    def test_fuzzy_overlap_only_while_playing(self):
+        import time
+        s = self._sess()
+        s._ai_said = "我在这儿陪着你呢"
+        # 播放中：字打乱但几乎都来自 AI 原话 → 模糊重叠判回声
+        s._audio_until = time.monotonic() + 5.0
+        self.assertTrue(s._looks_like_echo("陪着你在这儿"))
+        # 播完进拖尾窗：模糊重叠不再判回声（避免误杀附和式真回复），只认子串
+        s._audio_until = time.monotonic() - 0.5
+        self.assertFalse(s._looks_like_echo("陪着你在这儿"))
+
+    def test_window_expires(self):
+        import time
+        s = self._sess()
+        s._ai_said = "你好呀"
+        s._audio_until = time.monotonic() - 999     # 远超拖尾窗
+        self.assertFalse(s._looks_like_echo("你好呀"))
+
+    def test_real_reply_not_echo(self):
+        import time
+        s = self._sess()
+        s._ai_said = "你今天想聊点什么"
+        s._audio_until = time.monotonic() + 5.0
+        self.assertFalse(s._looks_like_echo("我想去爬山"))   # 用词不同 → 不是回声
+        self.assertFalse(s._looks_like_echo("", ))           # 空 → 不是
+        s._ai_said = ""
+        self.assertFalse(s._looks_like_echo("你好呀"))        # 没有基准 → 不是
+
+
 class TestOrchestrator(unittest.TestCase):
     def test_turn_event_sequence(self):
         events: list[dict] = []
