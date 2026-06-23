@@ -37,6 +37,31 @@ function authHeaders(json = false): Record<string, string> {
   return h;
 }
 
+/** 音色试听：拉后端用该角色/voice_id 真实 TTS 合成的 WAV 并播放（非占位提示）。
+ *  成功返回 true；无后端或合成失败返回 false（调用方据此提示）。 */
+let _previewAudio: HTMLAudioElement | null = null;
+export async function playVoicePreview(opts: { characterId?: string; voiceId?: string }): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  const q = opts.characterId ? "c=" + encodeURIComponent(opts.characterId)
+    : "v=" + encodeURIComponent(opts.voiceId || "");
+  try {
+    const r = await fetch(`${b}/admin/voice-preview?${q}`, { credentials: "include", headers: authHeaders() });
+    if (!r.ok) return false;
+    const blob = await r.blob();
+    if (!blob.size || blob.size <= 64) return false;   // 仅 WAV 头（TTS 未配置）→ 当作失败
+    try { _previewAudio?.pause(); } catch { /* noop */ }
+    const url = URL.createObjectURL(blob);
+    const a = new Audio(url);
+    _previewAudio = a;
+    a.onended = () => URL.revokeObjectURL(url);
+    await a.play();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 读取已保存的配置；无则返回 null（调用方回退到内置默认）。 */
 export async function loadApiConfig(): Promise<ApiConfig | null> {
   const b = base();

@@ -318,6 +318,19 @@ class _Handler(BaseHTTPRequestHandler):
     def _route(self) -> str:
         return self.path.split("?", 1)[0].rstrip("/")
 
+    def _query(self, key: str) -> str:
+        from urllib.parse import parse_qs, urlparse
+        return (parse_qs(urlparse(self.path).query).get(key, [""])[0] or "").strip()
+
+    def _audio_wav(self, data: bytes) -> None:
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "audio/wav")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self._cors()
@@ -328,6 +341,12 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(401, {"error": "unauthorized"})
         if self._route() == "/admin/api-config":
             return self._json(200, read_config_for_admin())
+        if self._route() == "/admin/voice-preview":   # 后台音色试听 → 真实 TTS 合成的 WAV（按角色或 voice_id）
+            try:
+                from .voice_preview import preview_wav
+                return self._audio_wav(preview_wav(character_id=self._query("c"), voice_id=self._query("v")))
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if self._route() == "/admin/characters":
             from .characters_admin import read_characters_for_admin
             return self._json(200, {"characters": read_characters_for_admin()})

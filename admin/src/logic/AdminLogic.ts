@@ -16,7 +16,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend } from "./configService";
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -675,7 +675,7 @@ export class AdminLogic {
     const voiceIdMap: Record<string, string> = { c1: "female-shaonv-01", c2: "male-cixing-02", c3: "female-yuanqi-03", c4: "male-chenwen-04", c5: "female-tianmei-05" };
     const charMatched: Record<string, number> = { c1: 230, c2: 96, c3: 142, c4: 61, c5: 58 };
     const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => ({ ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
-      voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toastMsg("音色试听功能开发中"); },
+      voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: async (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); if (!usingBackend()) { this.toastMsg("接入后端后可真实试听"); return; } this.toastMsg("正在合成试听…"); const ok = await playVoicePreview({ characterId: c.cid || "" }); this.toastMsg(ok ? "" : "试听失败：请确认 TTS 接口已配置"); },
       // 默认角色：用户端进来先选它。当前为默认显徽标；非默认给「设为默认」按钮。
       isDefault: !!c.cid && c.cid === this.defaultCharId,
       notDefault: !(!!c.cid && c.cid === this.defaultCharId),
@@ -785,7 +785,7 @@ export class AdminLogic {
       asrMs: s.testMs.asr || "", llmMs: s.testMs.llm || "", seedMs: s.testMs.seed || "", memMs: s.testMs.mem || "", testAllDone: st >= 6,
       testReply: s.testReply, testAsr: s.testAsr, testDone: st >= 3,
       testVoiceName: selVoice ? selVoice.name : "", testCharHue: s.testChar ? "hue-rotate(" + ((this.chars.find((c) => c.id === s.testChar) || {}).hue || 0) + "deg)" : "none",
-      ttsMs: s.testMs.tts || "", replay: () => this.toastMsg("合成语音回放功能开发中"),
+      ttsMs: s.testMs.tts || "", replay: async () => { if (!usingBackend()) { this.toastMsg("接入后端后可真实回放"); return; } const ch = this.chars.find((c) => c.id === s.testChar); this.toastMsg("正在合成回放…"); const ok = await playVoicePreview({ characterId: (ch && ch.cid) || "" }); this.toastMsg(ok ? "" : "回放失败：请确认 TTS 接口已配置"); },
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
       isDashboard: s.section === "dashboard", isUsers: s.section === "users", isChars: s.section === "characters",

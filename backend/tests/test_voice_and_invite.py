@@ -1,0 +1,68 @@
+"""音色试听 WAV + 邀请奖励链路（后台改了即对外可见）—— 防住反复出现的「邀请仍显 60」。
+
+不碰真实 admin_overrides.json：把 adminapi.OVERRIDES_PATH 与 config 的覆盖路径指到临时文件。
+"""
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from micall.server import adminapi
+from micall.server import auth
+from micall.server import voice_preview as vp
+
+
+class TestVoicePreview(unittest.TestCase):
+    def test_preview_returns_valid_wav(self):
+        # 未配置 TTS（stub）也应返回合法 WAV 头，前端据 size 判断是否有声。
+        wav = vp.preview_wav(character_id="lin_wan")
+        self.assertEqual(wav[:4], b"RIFF")
+        self.assertEqual(wav[8:12], b"WAVE")
+
+    def test_preview_unknown_char_still_wav(self):
+        wav = vp.preview_wav(character_id="does_not_exist")
+        self.assertEqual(wav[:4], b"RIFF")
+
+
+class TestInviteRewardChain(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()) / "admin_overrides.json"
+        self._orig = adminapi.OVERRIDES_PATH
+        adminapi.OVERRIDES_PATH = self.tmp
+        # config.load_config 按模块位置找 admin_overrides.json；测试改 reward 走 adminapi 写、
+        # 再用 read_invite_for_admin 读回（与 load_config 同源），避免依赖真实仓库文件。
+
+    def tearDown(self):
+        adminapi.OVERRIDES_PATH = self._orig
+        if self.tmp.exists():
+            self.tmp.unlink()
+
+    # 注：read_invite_for_admin / load_config 在生产读的是与 write 同一个 admin_overrides.json，
+    # 这里只隔离了 write 路径（adminapi.OVERRIDES_PATH），故断言写出的文件内容（最能说明问题的一环）。
+    def test_admin_write_persists_minutes(self):
+        adminapi.write_invite_from_admin({"reward_minutes": 25})
+        saved = json.loads(self.tmp.read_text("utf-8"))
+        self.assertEqual(saved["invite"]["reward_minutes"], 25)
+
+    def test_admin_write_preserves_other_keys(self):
+        # 别的后台设置（如 cost）不应被邀请写入覆盖掉，反之亦然。
+        self.tmp.write_text(json.dumps({"cost": {"tts": 0.025}}), "utf-8")
+        adminapi.write_invite_from_admin({"reward_minutes": 30})
+        saved = json.loads(self.tmp.read_text("utf-8"))
+        self.assertEqual(saved["cost"]["tts"], 0.025)
+        self.assertEqual(saved["invite"]["reward_minutes"], 30)
+
+    def test_clamps_negative(self):
+        adminapi.write_invite_from_admin({"reward_minutes": -5})
+        saved = json.loads(self.tmp.read_text("utf-8"))
+        self.assertEqual(saved["invite"]["reward_minutes"], 0)   # 负数夹到 0（禁用奖励）
+
+
+class TestInviteRewardSeconds(unittest.TestCase):
+    def test_reads_config_minutes(self):
+        # 默认配置（default.json invite.reward_minutes=60）→ 3600 秒。
+        self.assertEqual(auth.invite_reward_seconds(), 60 * 60)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -79,8 +79,21 @@ class _Handler(BaseHTTPRequestHandler):
         except (ValueError, OSError):
             return {}
 
+    def _audio_wav(self, data: bytes) -> None:
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "audio/wav")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _route(self) -> str:
         return self.path.split("?", 1)[0].rstrip("/")
+
+    def _query(self, key: str) -> str:
+        from urllib.parse import parse_qs, urlparse
+        return (parse_qs(urlparse(self.path).query).get(key, [""])[0] or "").strip()
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)
@@ -111,6 +124,14 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": False, "characters": [], "error": str(e)[:200]})
         if route == "/api/guest-trial":      # 公开：本 IP 剩余试用秒（刷新不重置）
             return self._json(200, {"ok": True, "remaining_seconds": _REPO.guest_trial_remaining(self._ip(), GUEST_TRIAL_SECONDS)})
+        if route == "/api/invite-reward":     # 公开：后台配置的邀请奖励（分钟），登录与否都拿真实值（不再写死 60）
+            return self._json(200, {"ok": True, "reward_minutes": _auth.invite_reward_seconds() // 60})
+        if route == "/api/voice-preview":     # 公开：角色音色试听 → 真实 TTS 合成的 WAV（非占位动画）
+            try:
+                from .voice_preview import preview_wav
+                return self._audio_wav(preview_wav(character_id=self._query("c"), voice_id=self._query("v")))
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if route == "/api/auth/me":
             return self._json(*_auth.me(_REPO, _bearer(self.headers)))
         if route == "/api/calls":

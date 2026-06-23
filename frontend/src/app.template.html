@@ -48,13 +48,11 @@
 </helmet>
 
 <div class="appwrap" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#86868b;padding:28px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;">
-  <div class="deskside" data-theme="{{ theme }}" style="zoom:{{ rootZoom }};--fz:{{ rootZoom }};">
+  <div class="deskside" data-theme="{{ theme }}" style="--fz:1;">
     <div style="padding:0 14px 18px;font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span>MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
     <div onClick="{{ billFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h12l2 2v18l-3-2-3 2-3-2-3 2V4z"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg><span style="font-size:15px;font-weight:500;">账单</span></div>
     <div onClick="{{ inviteFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span style="font-size:15px;font-weight:500;">邀请好友</span></div>
     <div onClick="{{ themeToggle }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span style="flex:1;font-size:15px;font-weight:500;">深色模式</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ themeLabel }}</span></div>
-    <div onClick="{{ langFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg><span style="flex:1;font-size:15px;font-weight:500;">语言</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ langCurrent }}</span></div>
-    <div onClick="{{ cycleFont }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h12v2"/><path d="M10 5v14"/><path d="M8 19h4"/></svg><span style="flex:1;font-size:15px;font-weight:500;">字体大小</span><span style="font-size:13px;color:rgba(0,0,0,.45);">{{ fontLabel }}</span></div>
     <div onClick="{{ contactFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg><span style="font-size:15px;font-weight:500;">联系我们</span></div>
     <div onClick="{{ settingsFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A2A2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span style="font-size:15px;font-weight:500;">设置</span></div>
     <div style="flex:1;"></div>
@@ -73,7 +71,7 @@
     </sc-if>
   </div>
   <div class="phone" data-theme="{{ theme }}" style="position:relative;width:390px;height:844px;border-radius:55px;background:var(--bezel);box-shadow:0 50px 100px rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.3),inset 0 0 0 2px rgba(255,255,255,.05);">
-    <div data-theme="{{ theme }}" class="screen" style="position:absolute;inset:7px;border-radius:48px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;color:var(--fg);zoom:{{ rootZoom }};--fz:{{ rootZoom }};transition:background .6s ease,color .6s ease;">
+    <div data-theme="{{ theme }}" class="screen" style="position:absolute;inset:7px;border-radius:48px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;color:var(--fg);--fz:1;transition:background .6s ease,color .6s ease;">
 
       <div class="statusbar" style="height:56px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 32px 6px 36px;">
         <span style="font-size:15px;font-weight:600;letter-spacing:.4px;font-variant-numeric:tabular-nums;">9:41</span>
@@ -122,7 +120,7 @@
         <sc-if value="{{ showOrb }}" hint-placeholder-val="{{ true }}">
         <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;pointer-events:none;">
         <div style="display:flex;align-items:center;justify-content:center;">
-          <div style="position:relative;width:300px;height:300px;display:flex;align-items:center;justify-content:center;pointer-events:none;zoom:{{ orbCounterZoom }};">
+          <div style="position:relative;width:300px;height:300px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
           <sc-if value="{{ phaseCalling }}" hint-placeholder-val="{{ false }}">
             <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,transparent 58%,rgba(110,92,255,.22) 70%,transparent 80%);filter:blur(6px);animation:ripple 3s ease-out infinite;"></div>
             <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,transparent 58%,rgba(255,79,160,.18) 70%,transparent 80%);filter:blur(6px);animation:ripple 3s ease-out infinite 1.5s;"></div>
@@ -284,16 +282,6 @@
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">深色模式</span>
             <span style="font-size:13px;color:var(--dim);">{{ themeLabel }}</span>
           </div>
-          <div onClick="{{ langFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg>
-            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">语言</span>
-            <span style="font-size:13px;color:var(--dim);">{{ langCurrent }}</span>
-          </div>
-          <div onClick="{{ cycleFont }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h12v2"/><path d="M10 5v14"/><path d="M8 19h4"/><path d="M16 13v-1.5h6V13"/><path d="M19 11.5V19"/><path d="M17.5 19h3"/></svg>
-            <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">字体大小</span>
-            <span style="font-size:13px;color:var(--dim);">{{ fontLabel }}</span>
-          </div>
           <div onClick="{{ contactFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">联系我们</span>
@@ -339,12 +327,37 @@
         </div>
       </sc-if>
 
+      <sc-if value="{{ autoHangupOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ autoHangupClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:6px;">无人说话自动挂断</div>
+          <div style="font-size:13px;color:var(--dim);text-align:center;padding-bottom:14px;line-height:1.5;">通话中持续无人说话达到设定时长就自动结束，<br/>避免睡着后一直占线。</div>
+          <sc-for list="{{ autoHangupOpts }}" as="ah" hint-placeholder-count="6">
+            <div onClick="{{ ah.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:8px;border-radius:16px;cursor:pointer;background:{{ ah.bg }};border:{{ ah.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+              <span style="flex:1;font-size:16px;font-weight:500;color:{{ ah.color }};letter-spacing:.2px;">{{ ah.name }}</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ ah.check }};"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
       <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ settingsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 26px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">设置</div>
           <div style="display:flex;flex-direction:column;gap:2px;">
+            <div onClick="{{ autoHangupOpenSheet }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">无人说话自动挂断</span>
+              <span style="font-size:13px;color:var(--dim);">{{ autoHangupLabel }}</span>
+            </div>
+            <div onClick="{{ langFromSettings }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg>
+              <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">语言</span>
+              <span style="font-size:13px;color:var(--dim);">{{ langCurrent }}</span>
+            </div>
             <div onClick="{{ resetPassword }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">修改密码</span>
@@ -673,10 +686,21 @@
       <sc-if value="{{ historyOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ historyClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
         <div class="dcx-drawer-right" style="position:absolute;top:0;bottom:0;right:0;width:74%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:drawerRight .34s cubic-bezier(.16,1,.3,1);border-radius:0 48px 48px 0;box-shadow:-14px 0 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:74px 10px 24px;box-sizing:border-box;">
-          <div style="padding:6px 16px 14px;font-size:21px;font-weight:600;color:var(--fg);letter-spacing:.5px;flex:none;">通话记录</div>
+          <div style="padding:6px 16px 14px;display:flex;align-items:center;justify-content:space-between;flex:none;">
+            <span style="font-size:21px;font-weight:600;color:var(--fg);letter-spacing:.5px;">通话记录</span>
+            <sc-if value="{{ histShowSelect }}" hint-placeholder-val="{{ false }}">
+              <span onClick="{{ enterHistSel }}" style="font-size:14px;font-weight:500;color:#6E5CFF;cursor:pointer;padding:4px 6px;" style-active="opacity:.6">选择</span>
+            </sc-if>
+            <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
+              <span onClick="{{ exitHistSel }}" style="font-size:14px;font-weight:500;color:var(--dim);cursor:pointer;padding:4px 6px;" style-active="opacity:.6">取消</span>
+            </sc-if>
+          </div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="3">
             <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 12px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
+              <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
+              </div>
               <div style="width:42px;height:42px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};box-shadow:0 4px 10px rgba(0,0,0,.14);"></div>
               <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
                 <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ h.name }}</span>
@@ -685,6 +709,26 @@
               <span style="font-size:14px;font-weight:500;color:var(--dim);font-variant-numeric:tabular-nums;flex:none;">{{ h.dur }}</span>
             </div>
           </sc-for>
+          </div>
+          <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;padding:12px 14px 4px;">
+              <div onClick="{{ histDelAsk }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:15px;background:rgba(224,89,79,.12);color:#E0594F;font-size:15px;font-weight:600;cursor:pointer;" style-active="transform:scale(.98)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#E0594F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                <span>删除选中（{{ histSelCount }}）</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ histDelConfirm }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ histDelCancel }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+        <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除通话记录？</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">{{ histDelConfirmText }}</div>
+          <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
+            <div onClick="{{ histDelCancel }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
+            <div onClick="{{ histDoDelete }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">删除</div>
           </div>
         </div>
       </sc-if>
@@ -927,7 +971,7 @@
 
     </div>
   </div>
-  <div class="deskside" data-theme="{{ theme }}" style="zoom:{{ rootZoom }};--fz:{{ rootZoom }};">
+  <div class="deskside" data-theme="{{ theme }}" style="--fz:1;">
     <div style="font-size:20px;font-weight:600;padding:0 10px 14px;flex:none;">通话记录</div>
     <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;">
       <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="6">

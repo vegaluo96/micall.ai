@@ -92,6 +92,21 @@ export async function getInvite(): Promise<{ code: string; invited: number; rewa
   const j = await getJSON("/api/invite");
   return j && j.ok ? j.invite : null;
 }
+
+/** 角色音色试听 WAV 地址（真实 TTS 合成，非占位动画）。前端 new Audio(url) 直接播。 */
+export function voicePreviewUrl(characterId: string): string {
+  return BASE + "/api/voice-preview?c=" + encodeURIComponent(characterId || "");
+}
+
+/** 后台配置的邀请奖励（分钟）—— 公开接口，登录与否都返回真实值。失败 → null。 */
+export async function getInviteReward(): Promise<number | null> {
+  try {
+    const r = await fetch(BASE + "/api/invite-reward");
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && j.ok && typeof j.reward_minutes === "number" ? j.reward_minutes : null;
+  } catch { return null; }
+}
 export function login(email: string, password: string): Promise<AuthResult> {
   return postJSON("/api/auth/login", { email, password });
 }
