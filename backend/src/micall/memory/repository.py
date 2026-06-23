@@ -166,6 +166,14 @@ class MemoryRepository(ABC):
         """通话量趋势（从 calls 真实聚合）：{today:[{day,v}], "7d":[...], "30d":[...]}。后台首页图表。"""
         return {"today": [], "7d": [], "30d": []}
 
+    # ── 用量/成本埋点 ──
+    def add_usage(self, user_id: str, node: str, units: int, cost_micros: int) -> None:
+        """通话结束记一行某节点用量+成本（micros=微美元）。"""
+
+    def cost_summary(self) -> dict:
+        """后台成本看板：{today_micros,month_micros,by_node:{node:micros},per_hour_micros,per_100min_micros}。"""
+        return {"today_micros": 0, "month_micros": 0, "by_node": {}, "per_hour_micros": 0, "per_100min_micros": 0}
+
     # ── 兑换码（P5：后台生成、用户核销充值）──
     def create_redeem_codes(self, count: int, seconds: int) -> list[str]:
         """批量生成兑换码（每个值 seconds），返回码列表。后台「兑换码」用。"""
@@ -233,6 +241,7 @@ class InMemoryRepository(MemoryRepository):
         self._redeem: dict[str, dict] = {}                 # code → 兑换码
         self._tickets: list[dict] = []                     # 工单（含 user_id）
         self._tid = 0                                      # 工单自增 id
+        self._usage_log: list[dict] = []                   # 用量/成本埋点
         self._invite_by_user: dict[str, str] = {}          # user_id → 邀请码
         self._invite_owner: dict[str, str] = {}            # 邀请码 → user_id
         self._invite_uses: list[dict] = []                 # 邀请使用记录
@@ -426,6 +435,27 @@ class InMemoryRepository(MemoryRepository):
     def character_call_counts(self) -> dict:
         from collections import Counter
         return dict(Counter(c["character_id"] for c in self._calls))
+
+    def add_usage(self, user_id, node, units, cost_micros) -> None:
+        self._usage_log.append({"user_id": user_id, "node": node, "units": int(units),
+                                "cost_micros": int(cost_micros), "created_at": _now_iso()})
+
+    def cost_summary(self) -> dict:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        today, month = now.date().isoformat(), now.strftime("%Y-%m")
+        today_rows = [u for u in self._usage_log if u["created_at"][:10] == today]
+        today_micros = sum(u["cost_micros"] for u in today_rows)
+        month_micros = sum(u["cost_micros"] for u in self._usage_log if u["created_at"][:7] == month)
+        by_node: dict = {}
+        for u in today_rows:
+            by_node[u["node"]] = by_node.get(u["node"], 0) + u["cost_micros"]
+        mins_today = sum(c["duration_seconds"] for c in self._calls if c["started_at"][:10] == today) / 60
+        return {
+            "today_micros": today_micros, "month_micros": month_micros, "by_node": by_node,
+            "per_hour_micros": round(today_micros / max(1, now.hour + 1)),
+            "per_100min_micros": round(today_micros / (mins_today / 100)) if mins_today >= 1 else 0,
+        }
 
     def call_trends(self) -> dict:
         from datetime import datetime, timedelta, timezone

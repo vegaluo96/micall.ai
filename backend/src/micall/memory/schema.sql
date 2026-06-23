@@ -138,6 +138,19 @@ CREATE TABLE IF NOT EXISTS invite_uses (
 );
 CREATE INDEX IF NOT EXISTS invite_uses_inviter_idx ON invite_uses (inviter_id);
 
+-- ───────────────────────── 用量/成本埋点 ─────────────────────────
+-- 每通电话结束按各节点实际用量（token/字符/秒）× 可配单价记一行，供后台成本看板真实聚合。
+CREATE TABLE IF NOT EXISTS usage_log (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     TEXT,
+    node        TEXT NOT NULL,                    -- llm_fast / tts / asr / llm_slow / embedding
+    units       INTEGER NOT NULL DEFAULT 0,       -- token / 字符 / 秒（按节点）
+    cost_micros BIGINT NOT NULL DEFAULT 0,        -- 成本（微美元 1e-6 USD，整数防漂移）
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS usage_log_created_idx ON usage_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS usage_log_node_idx ON usage_log (node);
+
 -- ───────────────────────── 兑换码（充值）─────────────────────────
 -- 后台批量生成、用户在 App 弹窗输入核销 → 余额入账 + 记 billing_ledger(reason=redeem)。单次有效。
 CREATE TABLE IF NOT EXISTS redeem_codes (

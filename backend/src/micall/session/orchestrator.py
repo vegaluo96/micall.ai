@@ -123,6 +123,7 @@ class CallSession:
         self._turn_lock = asyncio.Lock()  # 串行化一轮生成，防并发触发
         self.history: list[dict] = []      # 对话滑窗（assistant 只记实际播出，§1.5）
         self.emotion_tag = "neutral"
+        self._usage = {"llm_in_chars": 0, "llm_out_chars": 0, "tts_chars": 0}  # 成本埋点累计（整通）
         self._ai_said = ""                  # 本轮 AI 已说出的文本（用于回声判定）
         self._audio_until = 0.0             # AI 下行音频估计播放到的时刻（monotonic 秒）
         self._muted = False
@@ -274,6 +275,7 @@ class CallSession:
             character_id=self.character_id, scenario=self.scenario, history=self.history,
             query_vector=qvec,
         )
+        self._usage["llm_in_chars"] += sum(len(str(m.get("content", ""))) for m in messages)  # 成本：LLM 输入
         stripper = EmotionStripper()
         spoke: list[str] = []   # 实际播出的句子（ack 边界 → 进上下文，§1.5）
         buf = ""
@@ -316,6 +318,7 @@ class CallSession:
         # 实际播出的话进上下文；被打断则标注，让下轮能自然接住（§1.5 难点4）。
         if spoke:
             said = "".join(spoke)
+            self._usage["llm_out_chars"] += len(said)   # 成本：LLM 输出
             if self._interrupt.is_set():
                 said += "……（被打断）"
             self.history.append({"role": "assistant", "content": said})
@@ -331,6 +334,7 @@ class CallSession:
         spoken = _strip_actions(sentence)   # 去掉（轻声笑）这类舞台提示，别让 TTS 念出来
         if not spoken:
             return  # 整句都是括号动作/旁白：不发音、不进上下文
+        self._usage["tts_chars"] += len(spoken)   # 成本：TTS 合成字符
         # 字幕逐句下发（短行，不撑屏）；音频整段一次合成（句间不断气）。
         for seg in _split_sentences(spoken):
             await self._emit(ServerEvent.subtitle("ai", seg))
@@ -378,6 +382,26 @@ class CallSession:
 
     def set_scene(self, scene: str) -> None:
         self.scenario = scene  # 作为情境注入（assembler 下轮读取）；画面不变（固定背景）
+
+    def cost_breakdown(self) -> list[tuple[str, int, int]]:
+        """按整通实际用量×config.cost 估算成本，返回 [(node, units, cost_micros)]（micros=微美元）。
+        实时路径三节点：llm_fast（输入+输出 token）、tts（合成字符）、asr（整通秒）。挂断时写 usage_log。"""
+        c = self.config.cost or {}
+        cpt = float(c.get("chars_per_token", 2)) or 2.0
+        tok_rate = (c.get("usd_per_1k_tokens") or {})
+        out: list[tuple[str, int, int]] = []
+        llm_tokens = (self._usage["llm_in_chars"] + self._usage["llm_out_chars"]) / cpt
+        if llm_tokens >= 1:
+            micros = round(llm_tokens / 1000 * float(tok_rate.get("llm_fast", 0)) * 1_000_000)
+            out.append(("llm_fast", round(llm_tokens), micros))
+        if self._usage["tts_chars"] >= 1:
+            micros = round(self._usage["tts_chars"] / 1000 * float(c.get("usd_per_1k_chars_tts", 0)) * 1_000_000)
+            out.append(("tts", self._usage["tts_chars"], micros))
+        asr_sec = int(getattr(self.billing, "elapsed", 0) or 0)
+        if asr_sec >= 1:
+            micros = round(asr_sec / 60 * float(c.get("usd_per_minute_asr", 0)) * 1_000_000)
+            out.append(("asr", asr_sec, micros))
+        return out
 
     async def end(self, emit_ended: bool = True) -> None:
         self._interrupt.set()

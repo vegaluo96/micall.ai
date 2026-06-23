@@ -175,6 +175,19 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(recs[0]["inviter_email"], "boss@b.com")
         self.assertEqual(recs[0]["invitee_email"], "new@b.com")
 
+    def test_usage_cost(self):
+        uid = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
+        self.repo.add_call(uid, "lin_wan", "heart", 600, "ended")     # 10 分钟通话
+        self.repo.add_usage(uid, "llm_fast", 5000, 10000)             # 0.01 美元
+        self.repo.add_usage(uid, "tts", 800, 16000)                   # 0.016 美元
+        self.repo.add_usage(uid, "asr", 600, 60000)                   # 0.06 美元
+
+        cs = self.repo.cost_summary()
+        self.assertEqual(cs["today_micros"], 86000)                   # 合计 0.086 美元
+        self.assertEqual(cs["month_micros"], 86000)
+        self.assertEqual(cs["by_node"]["asr"], 60000)
+        self.assertEqual(cs["per_100min_micros"], round(86000 / (10 / 100)))  # 按今日 10 分钟摊
+
 
 if __name__ == "__main__":
     unittest.main()

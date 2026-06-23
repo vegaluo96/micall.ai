@@ -17,5 +17,13 @@
 
   "turn": { "silence_base_ms": 500, "silence_extended_ms": 1200, "turn_confidence": 0.7, "min_speech_ms": 200, "interrupt_min_ms": 250 },
 
-  "database": { "dsn": "", "_comment": "postgresql://user:pass@host:5432/micall（真实部署经环境注入）" }
+  "database": { "dsn": "", "_comment": "postgresql://user:pass@host:5432/micall（真实部署经环境注入）" },
+
+  "cost": {
+    "_comment": "成本估算单价（按各节点实际用量×单价，写 usage_log 供后台成本看板真实聚合）。按你实际供应商价格调整；中文约 2 字/token。",
+    "chars_per_token": 2,
+    "usd_per_1k_tokens": { "llm_fast": 0.002, "llm_slow": 0.01, "embedding": 0.0001 },
+    "usd_per_1k_chars_tts": 0.02,
+    "usd_per_minute_asr": 0.006
+  }
 }

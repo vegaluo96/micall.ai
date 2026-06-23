@@ -99,10 +99,19 @@ class SignalingServer:
         except Exception as e:
             log.warning("通话记录失败 user=%s：%r", user_id, e)
 
+    def _record_usage(self, user_id: str, session: "CallSession") -> None:
+        """挂断 → 按整通实际用量写 usage_log（成本看板数据源）。游客也记（成本与计费无关）。"""
+        try:
+            for node, units, micros in session.cost_breakdown():
+                self.repo.add_usage(user_id, node, units, micros)
+        except Exception as e:
+            log.warning("用量记录失败：%r", e)
+
     def _on_call_end(self, user_id: str, session: "CallSession") -> None:
-        """通话收尾统一入口：扣费 + 记通话 + 触发离线理解。三处结束点（挂断/切角色/断线）共用。"""
+        """通话收尾统一入口：扣费 + 记通话 + 记用量成本 + 触发离线理解。三处结束点共用。"""
         self._consume_balance(user_id, session)
         self._record_call(user_id, session)
+        self._record_usage(user_id, session)
         self._schedule_understanding(session, user_id)
 
     def _schedule_understanding(self, session: "CallSession", user_id: str = _ANON) -> None:

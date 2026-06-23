@@ -45,6 +45,7 @@ export class AdminLogic {
   realStats: any = null;        // 接后端后的首页 KPI（null = 用演示数据）
   realTopChars: any[] | null = null;  // 接后端后的热门角色排名
   realTrends: any = null;       // 接后端后的通话量趋势（null = 用演示）
+  realCost: any = null;         // 接后端后的成本汇总（null = 用演示）
   redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
 
   private _t: Timer | undefined;
@@ -266,6 +267,7 @@ export class AdminLogic {
     if (dash) {
       this.realStats = dash.stats; this.realTopChars = dash.top_characters || [];
       if (dash.trends) this.realTrends = dash.trends;
+      if (dash.cost) this.realCost = dash.cost;
       if (dash.char_calls) for (const c of this.chars) { const n = dash.char_calls[c.cid] ?? dash.char_calls[c.id]; if (n != null) c.calls = String(n); }
     }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
@@ -510,14 +512,16 @@ export class AdminLogic {
     const stC: Record<string, any> = { "正常": { c: "#1FA971", b: "rgba(31,169,113,.1)" }, "未配置": { c: "#878B95", b: "#F0F0F3" }, "延迟高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "成本高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "异常": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "备用中": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } };
     const stp = (st: string) => { const x = stC[st] || stC["正常"]; return { status: st, stColor: x.c, stBg: x.b }; };
     const linkFlow = [{ label: "用户语音", a: "#9AA0AC" }, { label: "Qwen3-ASR-Flash", a: "#2E7BFF" }, { label: "记忆检索", a: "#9AA0AC" }, { label: "deepseek-chat", a: "#6E5CFF" }, { label: "MiniMax TTS", a: "#E0594F" }, { label: "Seedance 表情", a: "#9277F5" }, { label: "用户听到", a: "#1FA971" }, { label: "Qwen-Long 记忆整理", a: "#1FA971" }];
-    // 接了真实后端 → 成本/延迟/失败率需用量埋点，未开启时显示「—」而非假数字（只有「今日通话」是真的）。
+    // 接了真实后端：成本类 KPI 用真实 usage_log 估算（$=micros/1e6）；首句响应/失败率暂无埋点 → 「—」。
     const rc = this.realStats;
+    const usd = (micros: number) => "$" + ((micros || 0) / 1e6).toFixed(2);
+    const cost = this.realCost;
     const healthKpis = rc ? [
       { label: "整体健康", value: "正常", sub: "服务运行中", vc: "#1FA971" },
-      { label: "首句响应", value: "—", sub: "需用量统计", vc: "#878B95" },
-      { label: "每小时成本", value: "—", sub: "需用量统计", vc: "#878B95" },
-      { label: "每 100 分钟成本", value: "—", sub: "需用量统计", vc: "#878B95" },
-      { label: "今日失败率", value: "—", sub: "需用量统计", vc: "#878B95" },
+      { label: "首句响应", value: "—", sub: "需埋点", vc: "#878B95" },
+      { label: "每小时成本", value: cost ? usd(cost.per_hour_micros) : "—", sub: "今日均摊", vc: "#16161A" },
+      { label: "每 100 分钟成本", value: cost ? usd(cost.per_100min_micros) : "—", sub: "时长摊薄", vc: "#16161A" },
+      { label: "今日失败率", value: "—", sub: "需埋点", vc: "#878B95" },
       { label: "今日通话", value: (rc.calls_today || 0).toLocaleString(), sub: "次", vc: "#16161A" },
     ] : [
       { label: "整体健康", value: "正常", sub: "6 / 6 节点在线", vc: "#1FA971" },
@@ -527,17 +531,27 @@ export class AdminLogic {
       { label: "今日失败率", value: "0.7%", sub: "目标 < 2%", vc: "#1FA971" },
       { label: "今日通话", value: "3,219", sub: "分钟", vc: "#16161A" },
     ];
+    const byNode = (cost && cost.by_node) || {};   // 今日各节点成本（micros）
+    const nodeCost = (k: string) => (cost ? usd(byNode[k] || 0) : "—");
     const nodeCards = [
-      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: rc ? "—" : "180ms", calls: rc ? "—" : "42.1k 次", cost: rc ? "—" : "$6.20" },
-      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: rc ? "—" : "620ms", calls: rc ? "—" : "38.7k 次", cost: rc ? "—" : "$14.80" },
-      { name: "TTS · 语音合成", role: "说", model: "", ...stp(rc ? "正常" : "延迟高"), latency: rc ? "—" : "310ms", calls: rc ? "—" : "38.7k 次", cost: rc ? "—" : "$9.40" },
-      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: rc ? "—" : "预生成库", cost: rc ? "—" : "$0" },
-      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: rc ? "—" : "2.1s", calls: rc ? "—" : "3.2k 次", cost: rc ? "—" : "$4.90" },
+      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: rc ? "—" : "180ms", calls: rc ? "—" : "42.1k 次", cost: rc ? nodeCost("asr") : "$6.20" },
+      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: rc ? "—" : "620ms", calls: rc ? "—" : "38.7k 次", cost: rc ? nodeCost("llm_fast") : "$14.80" },
+      { name: "TTS · 语音合成", role: "说", model: "", ...stp(rc ? "正常" : "延迟高"), latency: rc ? "—" : "310ms", calls: rc ? "—" : "38.7k 次", cost: rc ? nodeCost("tts") : "$9.40" },
+      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: rc ? "—" : "预生成库", cost: rc ? "$0.00" : "$0" },
+      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: rc ? "—" : "2.1s", calls: rc ? "—" : "3.2k 次", cost: rc ? nodeCost("llm_slow") : "$4.90" },
     ];
-    const costKpis = rc
+    const costKpis = cost
+      ? [{ label: "今日总成本", value: usd(cost.today_micros) }, { label: "本月总成本", value: usd(cost.month_micros) }, { label: "每小时平均", value: usd(cost.per_hour_micros) }, { label: "每 100 分钟", value: usd(cost.per_100min_micros) }]
+      : rc
       ? [{ label: "今日总成本", value: "—" }, { label: "本月总成本", value: "—" }, { label: "每小时平均", value: "—" }, { label: "每 100 分钟", value: "—" }]
       : [{ label: "今日总成本", value: "$926" }, { label: "本月总成本", value: "$21,480" }, { label: "每小时平均", value: "$38.6" }, { label: "每 100 分钟", value: "$12.4" }];
-    const costByProvider = rc ? [] : [{ name: "LLM 快脑", value: "$352", pct: "38%", c: "#6E5CFF" }, { name: "TTS 语音合成", value: "$231", pct: "25%", c: "#E0594F" }, { name: "音色生成", value: "$120", pct: "13%", c: "#FF6FA5" }, { name: "ASR 语音识别", value: "$139", pct: "15%", c: "#2E7BFF" }, { name: "记忆整理", value: "$56", pct: "6%", c: "#1FA971" }, { name: "表情视频", value: "$28", pct: "3%", c: "#9277F5" }];
+    const NODE_LABEL: Record<string, string> = { llm_fast: "LLM 快脑", tts: "TTS 语音合成", asr: "ASR 语音识别", llm_slow: "记忆整理", embedding: "记忆检索" };
+    const NODE_C: Record<string, string> = { llm_fast: "#6E5CFF", tts: "#E0594F", asr: "#2E7BFF", llm_slow: "#1FA971", embedding: "#9277F5" };
+    const costByProvider = cost
+      ? (() => { const tot = Object.values(byNode).reduce((a: number, b: any) => a + (b || 0), 0) as number;
+          return Object.keys(byNode).filter((k) => byNode[k] > 0).sort((a, b) => byNode[b] - byNode[a]).map((k) => ({
+            name: NODE_LABEL[k] || k, value: usd(byNode[k]), pct: tot > 0 ? Math.round(byNode[k] / tot * 100) + "%" : "0%", c: NODE_C[k] || "#878B95" })); })()
+      : rc ? [] : [{ name: "LLM 快脑", value: "$352", pct: "38%", c: "#6E5CFF" }, { name: "TTS 语音合成", value: "$231", pct: "25%", c: "#E0594F" }, { name: "音色生成", value: "$120", pct: "13%", c: "#FF6FA5" }, { name: "ASR 语音识别", value: "$139", pct: "15%", c: "#2E7BFF" }, { name: "记忆整理", value: "$56", pct: "6%", c: "#1FA971" }, { name: "表情视频", value: "$28", pct: "3%", c: "#9277F5" }];
     const memTypeC: Record<string, string> = { fact: "#2E7BFF", preference: "#6E5CFF", project: "#E0954F", relationship: "#FF6FA5", open_loop: "#1FA971" };
     const memoryRecent = (rc ? [] : [   // 真实记忆涉及用户隐私，不在后台明文展示；演示模式保留示例
       { content: "用户是应届生，正在准备产品经理面试", type: "project", imp: "高", conf: "0.92", source: "林晚 · 今天 23:14", written: true },

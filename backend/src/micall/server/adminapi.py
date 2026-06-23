@@ -274,7 +274,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "stats": _REPO.admin_stats(),
                                     "top_characters": _REPO.top_characters(limit=5),
                                     "trends": _REPO.call_trends(),
-                                    "char_calls": _REPO.character_call_counts()})
+                                    "char_calls": _REPO.character_call_counts(),
+                                    "cost": _REPO.cost_summary()})
         if self._route() == "/admin/users":
             if _REPO is None:
                 return self._json(200, {"ok": False, "users": []})

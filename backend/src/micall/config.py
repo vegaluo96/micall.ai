@@ -61,6 +61,7 @@ class Config:
     billing: dict[str, Any]
     turn: dict[str, Any]
     database: dict[str, Any]
+    cost: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
 
     def node(self, key: str) -> NodeConfig:
@@ -134,6 +135,7 @@ def load_config(path: str | Path | None = None) -> Config:
         billing=raw.get("billing", {}),
         turn=raw.get("turn", {}),
         database=raw.get("database", {}),
+        cost=raw.get("cost", {}),
         raw=raw,
     )
 

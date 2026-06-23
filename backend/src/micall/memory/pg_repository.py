@@ -478,6 +478,40 @@ class PgRepository(MemoryRepository):
             log.warning("character_call_counts 失败：%r", e)
             return {}
 
+    def add_usage(self, user_id, node, units, cost_micros) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute(
+                    "INSERT INTO usage_log (user_id, node, units, cost_micros) VALUES (%s,%s,%s,%s)",
+                    (user_id, node, int(units), int(cost_micros)),
+                )
+        except Exception as e:
+            log.warning("add_usage 失败：%r", e)
+
+    def cost_summary(self) -> dict:
+        out = {"today_micros": 0, "month_micros": 0, "by_node": {}, "per_hour_micros": 0, "per_100min_micros": 0}
+        try:
+            with self.pool.connection() as c:
+                out["today_micros"] = int((c.execute(
+                    "SELECT COALESCE(sum(cost_micros),0) FROM usage_log WHERE created_at::date = current_date"
+                ).fetchone() or [0])[0])
+                out["month_micros"] = int((c.execute(
+                    "SELECT COALESCE(sum(cost_micros),0) FROM usage_log WHERE created_at >= date_trunc('month', now())"
+                ).fetchone() or [0])[0])
+                rows = c.execute(
+                    "SELECT node, sum(cost_micros) FROM usage_log WHERE created_at::date = current_date GROUP BY node"
+                ).fetchall()
+                out["by_node"] = {r[0]: int(r[1]) for r in rows}
+                hour = int((c.execute("SELECT extract(hour from now())").fetchone() or [0])[0]) + 1
+                mins = float((c.execute(
+                    "SELECT COALESCE(sum(duration_seconds),0)/60.0 FROM calls WHERE started_at::date = current_date"
+                ).fetchone() or [0])[0])
+            out["per_hour_micros"] = round(out["today_micros"] / max(1, hour))
+            out["per_100min_micros"] = round(out["today_micros"] / (mins / 100)) if mins >= 1 else 0
+        except Exception as e:
+            log.warning("cost_summary 失败：%r", e)
+        return out
+
     def call_trends(self) -> dict:
         from datetime import date, timedelta
         out = {"today": [], "7d": [], "30d": []}
