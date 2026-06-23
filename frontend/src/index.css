@@ -180,12 +180,19 @@ textarea,
     padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
   }
 
-  /* c) 两侧抽屉：历史抽屉有滚动列表→由列表负责底距；菜单抽屉无→由容器负责。
-        菜单抽屉底部留白与顶部标题留白（≈22px）对称——不再「18+safe」叠加出一截
-        明显比顶部大的空白（用户：下面的间距和上面对齐）；safe-area 仅作下限兜底，
-        保证带 home indicator 的真机上按钮也不贴底。 */
+  /* c) 两侧抽屉：历史抽屉有滚动列表→由列表负责底距；菜单抽屉无→由容器负责。 */
+  /* 菜单抽屉（左）：logo 紧凑贴顶 + 上下留白对称（各 16px，真机再兜安全区）。
+     之前 logo 被那条 56px「标题带」撑出一截顶部空档（用户红框处），且 padding 写在 inline 上被本
+     媒体查询的 !important 覆盖、改了没生效 —— 这里在 CSS 里一并根治：去掉左抽屉的标题带、顶距收 16px。 */
   .dcx-drawer-left {
-    padding-bottom: max(22px, env(safe-area-inset-bottom)) !important;
+    padding-top: max(16px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+  .dcx-drawer-left > div:first-child {
+    height: auto !important;
+    min-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 16px !important;
   }
   .dcx-drawer-right:not(:has(> .nobar)) {
     padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;

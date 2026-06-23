@@ -244,14 +244,16 @@ journalctl -u micall-backend -n 5 --no-pager    # 启动正常即可（未装 ai
 #    或自建 TURN 后只放 TURN 端口）。仅放行 443/TCP 是不够的——WebRTC 媒体走 UDP。
 ```
 
-WebRTC **已设为默认**（连不通会在 ~4.5s 内自动回退 WS 半双工，所以默认开是安全的）。
-强制走 WS：`zsky.com/?rtc=0`；强制 WebRTC：`zsky.com/?rtc=1`。
+**默认走 WS（即时接通）**，WebRTC 仅 `zsky.com/?rtc=1` 显式开启（不记忆）。原因：WebRTC 开场要
+建连(offer/answer/ICE/DTLS)，境内弱网 + 没有自建 STUN/TURN 时会「一上来反应很慢」，不适合做默认。
+要把全双工做成**默认**，正解是**自建 coturn（STUN+TURN）放在 ECS 上或同区**，公网 STUN（尤其 Google）
+在境内不可靠。架好 coturn 后，把它填进前端 RTCPeerConnection 的 iceServers 与 `webrtc.py` 的
+`_ICE_SERVERS`，再把默认切回 WebRTC。
 
-**已知前提 / 局限（务必知悉）**：
+**`?rtc=1` 实验前提 / 局限**：
 - **UDP 必须放行**（上面第 2 步）。只开 443 不行。
-- **服务端不配 STUN**（境内连不通 Google STUN 会让 aiortc 等 ~5s 才发 answer = "一上来很慢"的元凶，已去掉）。
-  服务端用 **host 候选（公网 IP）** 直连：要求 ECS 公网 IP 能被浏览器直达（多数有公网 IP 的 ECS 可以）。
-  若你的 ECS 在 NAT 后（host 是内网 IP）连不通，需自配**境内可达的 STUN/TURN**（别用 Google），
-  在 `backend/src/micall/server/webrtc.py` 的 `_ICE_SERVERS` 填上即可。
-- **移动对称 NAT** 仍可能要 **TURN（coturn）** 中继才能覆盖；先不配试，连不通的用户会自动退回 WS。
+- **服务端不配 STUN**（境内连不通 Google STUN 会让 aiortc 等 ~5s 才发 answer = 慢的元凶，已去掉）。
+  服务端用 **host 候选（公网 IP）** 直连：要求 ECS 公网 IP 能被浏览器直达；NAT 后则需在 `_ICE_SERVERS`
+  填**境内可达的 STUN/TURN**。
+- **移动对称 NAT / 境内手机够不到公网 STUN** → 连不通的会在 ~4.5s 内自动回退 WS（不死寂，但开场仍有几秒）。
 - 前端 RTCPeerConnection + 真机连通性我无法本地验证，请真机实测、把现象反馈给我再迭代。

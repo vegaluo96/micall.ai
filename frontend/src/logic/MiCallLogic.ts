@@ -142,11 +142,10 @@ export class MiCallLogic {
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
       this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工
-      // 服务端 WebRTC（真全双工）默认开启 —— 连不通的网络会被看门狗/failed 自动回退到稳的 WS 半双工，
-      // 所以默认开是安全的（行就全双工，不行就退回今天的体验）。?rtc=0 可强制走 WS 并记住。
-      const rtcQ = qs.get("rtc");
-      if (rtcQ === "1" || rtcQ === "0") localStorage.setItem("micall_rtc", rtcQ);
-      this.rtcEnabled = localStorage.getItem("micall_rtc") !== "0" &&
+      // WebRTC 全双工：仅当前 URL 带 ?rtc=1 才开（不记忆，避免之前存的 '1' 让普通访问也走 RTC）。
+      // 默认走「即时接通」的 WS —— WebRTC 开场要建连(offer/answer/ICE/DTLS)，境内弱网 + 无自建
+      // STUN/TURN 时会慢甚至回退，做默认就是「一上来反应很慢」。等架了 coturn 再考虑设默认。
+      this.rtcEnabled = qs.get("rtc") === "1" &&
                         typeof RTCPeerConnection !== "undefined" && !this.usingMockSignaling();
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
