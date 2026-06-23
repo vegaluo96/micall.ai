@@ -1,0 +1,23 @@
+# 一条命令起一个带 pgvector 的 Postgres（不用 apt，最省事）：
+#   cd deploy && docker compose -f docker-compose.db.yml up -d
+# 然后把下面这行写进 backend/config/micall.env（密码改掉），重启后端即自动建表：
+#   MICALL_DATABASE_DSN=postgresql://micall:change-me@127.0.0.1:5432/micall
+services:
+  db:
+    image: pgvector/pgvector:pg16     # 官方镜像：Postgres 16 + pgvector 预装
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: micall
+      POSTGRES_USER: micall
+      POSTGRES_PASSWORD: change-me     # ← 改成强密码，并同步到 micall.env 的 dsn
+    ports:
+      - "127.0.0.1:5432:5432"          # 只绑本机，不对公网暴露
+    volumes:
+      - micall_pgdata:/var/lib/postgresql/data   # 数据持久化（容器重建不丢）
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U micall -d micall"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  micall_pgdata:

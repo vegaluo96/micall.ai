@@ -67,9 +67,18 @@ class PgRepository(MemoryRepository):
         self._init_schema()
 
     def _init_schema(self) -> None:
+        # 自动建表/扩展（开机即建，无需人工跑脚本）。autocommit 下逐句执行：
+        # CREATE EXTENSION 可能因 app 角色非超级用户而失败（扩展已由 bootstrap 以超管建好），
+        # 单句失败不影响后续建表。
         sql = _SCHEMA.read_text(encoding="utf-8")
         with self.pool.connection() as c:
-            c.execute(sql)
+            for stmt in (s.strip() for s in sql.split(";")):
+                if not stmt or all(ln.lstrip().startswith("--") for ln in stmt.splitlines()):
+                    continue
+                try:
+                    c.execute(stmt)
+                except Exception as e:
+                    log.warning("schema 段落跳过（多半是扩展权限，已由 bootstrap 建好）：%r", e)
 
     # ── 出厂角色 & 用户存在性（FK 前置）──
     def seed_characters(self, specs: dict[str, dict]) -> None:
