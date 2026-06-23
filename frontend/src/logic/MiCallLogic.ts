@@ -74,7 +74,7 @@ export class MiCallLogic {
     // 之前为撑满目录生成的占位角色已移除——不上线假角色。新角色做好 spec 后加进上面的 chars 即可。
   }
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: ["陪我练习模拟面试", "假装我们在咖啡馆", "用轻松的语气聊聊天"], settingsOpen: false, setSound: true, setVibrate: true, setSubtitle: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", genVoicesByChar: {}, pendingVoiceDel: null, cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", fontScale: 0, tickets: [{ type: "功能异常", msg: "通话偶尔会有杂音", date: "2026-06-19", status: "已回复", reply: "已优化降噪,请更新到最新版试试,给你补了 30 分钟时长~" }], voiceByChar: {}, voiceCustomOpen: false, voiceCustomText: "", lowWarned: false, micGranted: false, permOpen: false, callFailed: false, remaining: 720, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle" };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: ["陪我练习模拟面试", "假装我们在咖啡馆", "用轻松的语气聊聊天"], settingsOpen: false, setSound: true, setVibrate: true, setSubtitle: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", genVoicesByChar: {}, pendingVoiceDel: null, cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", fontScale: 0, tickets: [{ type: "功能异常", msg: "通话偶尔会有杂音", date: "2026-06-19", status: "已回复", reply: "已优化降噪,请更新到最新版试试,给你补了 30 分钟时长~" }], voiceByChar: {}, voiceCustomOpen: false, voiceCustomText: "", lowWarned: false, micGranted: false, permOpen: false, callFailed: false, remaining: 720, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle" };
 
   t: Timer[] = [];
   i = 0;
@@ -229,6 +229,23 @@ export class MiCallLogic {
     });
     this.notify();
   }
+  /** 核销兑换码 → 后端入账，更新余额。未登录先引导登录；未接后端给演示提示。 */
+  private async doRedeem() {
+    const code = (this.state.redeemCode || "").trim();
+    if (!code) { this.toast("请输入兑换码"); return; }
+    if (!authApi.authConfigured()) { this.toast("演示模式：接入后端后兑换码即可生效"); return; }
+    if (!this.state.loggedIn) { this.setState({ rechargeOpen: false, authOpen: true, authMode: "login", toast: "请先登录再兑换" }); return; }
+    this.setState({ toast: "兑换中…" });
+    const res = await authApi.redeem(code);
+    if (!res.ok) { this.toast(res.error || "兑换失败"); return; }
+    this.setState({ redeemCode: "", rechargeOpen: false,
+      remaining: res.remaining_seconds ?? this.state.remaining,
+      outOfMins: (res.remaining_seconds ?? 1) <= 0 ? this.state.outOfMins : false,
+      toast: res.message || "充值成功" });
+    this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+  }
+  private toast(msg: string) { this.setState({ toast: msg }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000)); }
+
   private async loadBills() {
     if (!authApi.authConfigured() || !this.state.loggedIn) { this.realBills = null; return; }
     const bills = await authApi.getBills();
@@ -807,6 +824,9 @@ export class MiCallLogic {
       rechargeOpen: this.state.rechargeOpen,
       rechargeToggle: () => this.setState((s) => ({ rechargeOpen: !s.rechargeOpen })),
       rechargeClose: () => this.setState({ rechargeOpen: false }),
+      redeemCode: this.state.redeemCode,
+      onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
+      doRedeem: () => this.doRedeem(),
       billPeriod: this.state.billing,
       setBillMonth: () => this.setState({ billing: "month" }),
       setBillQuarter: () => this.setState({ billing: "quarter" }),
@@ -834,7 +854,7 @@ export class MiCallLogic {
           const total = t.m * cfg.mult * cfg.off;
           const perMonth = t.m * cfg.off;
           const note = this.state.billing === "month" ? t.tag : ("约 " + fmt(perMonth) + "/月");
-          return { tile: t.tile, iconPath: t.iconPath, name: t.name, mins: t.mins, price: fmt(total), unit: cfg.unit, note, pick: () => this.setState({ rechargeOpen: false }) };
+          return { tile: t.tile, iconPath: t.iconPath, name: t.name, mins: t.mins, price: fmt(total), unit: cfg.unit, note, pick: () => { this.setState({ toast: "会员套餐即将上线，当前请用兑换码充值" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200)); } };
         });
       })(),
       historyOpen: this.state.historyOpen,

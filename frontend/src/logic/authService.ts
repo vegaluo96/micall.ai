@@ -86,6 +86,24 @@ export async function getBills(): Promise<any[] | null> {
   return j && j.ok ? j.bills : null;
 }
 
+export interface RedeemResult { ok: boolean; error?: string; message?: string; remaining_seconds?: number; }
+
+/** 核销兑换码 → 后端入账，返回新余额。需登录。 */
+export async function redeem(code: string): Promise<RedeemResult> {
+  const tok = getToken();
+  if (!tok) return { ok: false, error: "请先登录" };
+  try {
+    const r = await fetch(BASE + "/api/redeem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
+      body: JSON.stringify({ code }),
+    });
+    return (await r.json()) as RedeemResult;
+  } catch {
+    return { ok: false, error: "网络错误，请稍后再试" };
+  }
+}
+
 /** 刷新后用存的 token 恢复登录态；token 失效（401）则清掉。 */
 export async function me(): Promise<AuthUser | null> {
   const tok = getToken();

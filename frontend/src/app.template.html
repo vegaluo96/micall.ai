@@ -636,7 +636,16 @@
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 10px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 6px;">
-            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择会员</div>
+            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">充值</div>
+            <!-- 兑换码：输入 + 兑换（当前充值方式）。后台批量生成，核销后立即到账。 -->
+            <div style="display:flex;flex-direction:column;gap:7px;width:100%;">
+              <div style="display:flex;gap:8px;width:100%;">
+                <input value="{{ redeemCode }}" onInput="{{ onRedeemCode }}" placeholder="输入兑换码" style="flex:1;min-width:0;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:13px;padding:12px 14px;font-size:14px;color:var(--fg);font-family:inherit;letter-spacing:.6px;" />
+                <div onClick="{{ doRedeem }}" style="flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:0 20px;border-radius:13px;cursor:pointer;box-shadow:0 4px 12px rgba(110,92,255,.28);" style-active="transform:scale(.96)">兑换</div>
+              </div>
+              <span style="font-size:11.5px;color:var(--faint);text-align:center;">输入兑换码即可充值通话时长</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;color:var(--dim);letter-spacing:.3px;margin-top:4px;">会员套餐（即将上线）</div>
             <div style="display:flex;gap:8px;width:100%;">
               <sc-for list="{{ billOptions }}" as="b" hint-placeholder-count="3">
                 <div onClick="{{ b.pick }}" style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:15px 6px;border-radius:15px;cursor:pointer;border:{{ b.border }};background:{{ b.bg }};transition:all .2s ease;" style-active="transform:scale(.97)">
