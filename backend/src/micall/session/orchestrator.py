@@ -75,15 +75,19 @@ def _split_sentences(s: str) -> list[str]:
     return out
 
 
-def _take_first_sentence(buf: str) -> tuple[str, str]:
+def _take_first_sentence(buf: str, minlen: int = 6) -> tuple[str, str]:
     """从已生成文本切出第一个完整句子（到句末标点，含连续标点），返回 (句子, 剩余)；无完整句 → ("", buf)。
-    用于「首句抢跑」：第一句一成形就立刻合成发声，把首字延迟从「整段 LLM 生成」降到「首句 LLM 生成」。"""
+    用于「首句抢跑」：第一句一成形就立刻合成发声，把首字延迟从「整段 LLM 生成」降到「首句 LLM 生成」。
+    minlen：太短的首句（如「嗯。」「好的。」）并入下一句再抢跑，少一个 TTS 接缝、更丝滑。"""
     for i, ch in enumerate(buf):
         if ch in _SENTENCE_END:
             j = i + 1
             while j < len(buf) and buf[j] in _SENTENCE_END:
                 j += 1
-            return buf[:j].strip(), buf[j:]
+            head = buf[:j].strip()
+            if len(head) >= minlen:
+                return head, buf[j:]
+            # 首句太短 → 不在此处切，继续找下一个句末（让它和后面合并，累计够长再抢跑）
     return "", buf
 
 
@@ -283,8 +287,9 @@ class CallSession:
         if mem is None or prof is None or not mem.has_facts(prof.user_id, self.character_id):
             return None  # 没有可召回的记忆 → 不嵌入，省一次往返（recall 也只会返回空）
         try:
-            # 实时路径硬上限：嵌入慢/卡也不拖累对话，超时即退关键词召回。
-            return await asyncio.wait_for(self._embedder.embed_one(text), timeout=1.0)
+            # 实时路径硬上限：嵌入慢/卡也不拖累对话，超时即退关键词召回。0.6s 让「说完→AI接话」更跟手，
+            # 嵌入正常都 <0.6s（不影响召回质量），只有真卡时才快速降级关键词。
+            return await asyncio.wait_for(self._embedder.embed_one(text), timeout=0.6)
         except Exception as e:  # 超时/网络/鉴权：静默退关键词召回（asyncio.TimeoutError 也是 Exception）。
             log.warning("query 向量化跳过（超时/失败），退关键词召回：%r", e)
             return None
