@@ -137,6 +137,27 @@ class MemoryRepository(ABC):
         """该用户计费流水，新→旧。每条 {delta_seconds,reason,created_at}。前端「账单明细」数据源。"""
         return []
 
+    # ── 后台看板聚合（P4，全站只读）──
+    def admin_stats(self) -> dict:
+        """后台首页 KPI：{total_users, calls_today, total_minutes, month_revenue_cents}。"""
+        return {"total_users": 0, "calls_today": 0, "total_minutes": 0, "month_revenue_cents": 0}
+
+    def list_all_users(self, *, limit: int = 200) -> list[dict]:
+        """全站用户（后台「用户」）：{user_id,email,remaining_seconds,created_at,total_calls,total_seconds}。"""
+        return []
+
+    def list_all_calls(self, *, limit: int = 200) -> list[dict]:
+        """全站通话（后台「通话」）：{user_email,character_id,scenario,duration_seconds,ended_reason,started_at}。"""
+        return []
+
+    def list_all_orders(self, *, limit: int = 200) -> list[dict]:
+        """全站订单（后台「订单」）：{order_id,user_email,plan,amount_cents,status,created_at}。"""
+        return []
+
+    def top_characters(self, *, limit: int = 5) -> list[dict]:
+        """按通话量排名的角色：{character_id, calls}。后台首页「热门角色」。"""
+        return []
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
@@ -153,6 +174,7 @@ class InMemoryRepository(MemoryRepository):
         self._sessions: dict[str, tuple[str, float]] = {}  # token → (user_id, expires_epoch)
         self._calls: list[dict] = []                       # 通话记录（含 user_id）
         self._ledger: list[dict] = []                      # 计费流水（含 user_id）
+        self._orders: list[dict] = []                      # 充值订单（P5 支付写入）
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
@@ -228,6 +250,7 @@ class InMemoryRepository(MemoryRepository):
         self._users[user_id] = {
             "user_id": user_id, "email": email, "display_name": display_name,
             "password_hash": password_hash, "remaining_seconds": max(0, int(gift_seconds)),
+            "created_at": _now_iso(),
         }
         if key:
             self._email_idx[key] = user_id
@@ -293,3 +316,48 @@ class InMemoryRepository(MemoryRepository):
     def list_ledger(self, user_id, *, limit=30) -> list[dict]:
         rows = [b for b in self._ledger if b["user_id"] == user_id]
         return [{k: b[k] for k in ("delta_seconds", "reason", "created_at")} for b in rows[::-1][:limit]]
+
+    # ── 后台看板聚合（内存）──
+    def admin_stats(self) -> dict:
+        today = _now_iso()[:10]
+        return {
+            "total_users": len(self._users),
+            "calls_today": sum(1 for c in self._calls if c["started_at"][:10] == today),
+            "total_minutes": sum(c["duration_seconds"] for c in self._calls) // 60,
+            "month_revenue_cents": sum(o.get("amount_cents", 0) for o in self._orders if o.get("status") == "paid"),
+        }
+
+    def list_all_users(self, *, limit=200) -> list[dict]:
+        out = []
+        for u in self._users.values():
+            mine = [c for c in self._calls if c["user_id"] == u["user_id"]]
+            out.append({
+                "user_id": u["user_id"], "email": u.get("email") or "",
+                "remaining_seconds": u["remaining_seconds"], "created_at": u.get("created_at", ""),
+                "total_calls": len(mine), "total_seconds": sum(c["duration_seconds"] for c in mine),
+            })
+        out.sort(key=lambda x: x["created_at"], reverse=True)
+        return out[:limit]
+
+    def list_all_calls(self, *, limit=200) -> list[dict]:
+        email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
+        rows = sorted(self._calls, key=lambda c: c["started_at"], reverse=True)[:limit]
+        return [{
+            "user_email": email.get(c["user_id"], ""), "character_id": c["character_id"],
+            "scenario": c["scenario"], "duration_seconds": c["duration_seconds"],
+            "ended_reason": c["ended_reason"], "started_at": c["started_at"],
+        } for c in rows]
+
+    def list_all_orders(self, *, limit=200) -> list[dict]:
+        email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
+        rows = sorted(self._orders, key=lambda o: o.get("created_at", ""), reverse=True)[:limit]
+        return [{
+            "order_id": o.get("order_id", ""), "user_email": email.get(o.get("user_id"), ""),
+            "plan": o.get("plan", ""), "amount_cents": o.get("amount_cents", 0),
+            "status": o.get("status", ""), "created_at": o.get("created_at", ""),
+        } for o in rows]
+
+    def top_characters(self, *, limit=5) -> list[dict]:
+        from collections import Counter
+        cnt = Counter(c["character_id"] for c in self._calls)
+        return [{"character_id": cid, "calls": n} for cid, n in cnt.most_common(limit)]

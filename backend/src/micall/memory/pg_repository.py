@@ -391,6 +391,84 @@ class PgRepository(MemoryRepository):
             log.warning("list_ledger 失败：%r", e)
             return []
 
+    # ── 后台看板聚合 ──
+    def admin_stats(self) -> dict:
+        out = {"total_users": 0, "calls_today": 0, "total_minutes": 0, "month_revenue_cents": 0}
+        try:
+            with self.pool.connection() as c:
+                out["total_users"] = (c.execute("SELECT count(*) FROM users").fetchone() or [0])[0]
+                out["calls_today"] = (c.execute(
+                    "SELECT count(*) FROM calls WHERE started_at::date = current_date").fetchone() or [0])[0]
+                out["total_minutes"] = (c.execute(
+                    "SELECT COALESCE(sum(duration_seconds),0)/60 FROM calls").fetchone() or [0])[0]
+                out["month_revenue_cents"] = (c.execute(
+                    "SELECT COALESCE(sum(amount_cents),0) FROM orders "
+                    "WHERE status='paid' AND created_at >= date_trunc('month', now())").fetchone() or [0])[0]
+        except Exception as e:
+            log.warning("admin_stats 失败：%r", e)
+        return out
+
+    def list_all_users(self, *, limit=200) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT u.user_id, u.email, u.remaining_seconds, u.created_at, "
+                    "  count(c.id) AS total_calls, COALESCE(sum(c.duration_seconds),0) AS total_seconds "
+                    "FROM users u LEFT JOIN calls c ON c.user_id = u.user_id "
+                    "GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT %s", (int(limit),),
+                ).fetchall()
+            return [{
+                "user_id": r[0], "email": r[1] or "", "remaining_seconds": r[2],
+                "created_at": r[3].isoformat() if r[3] else "", "total_calls": r[4], "total_seconds": r[5],
+            } for r in rows]
+        except Exception as e:
+            log.warning("list_all_users 失败：%r", e)
+            return []
+
+    def list_all_calls(self, *, limit=200) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT u.email, c.character_id, c.scenario, c.duration_seconds, c.ended_reason, c.started_at "
+                    "FROM calls c LEFT JOIN users u ON u.user_id = c.user_id "
+                    "ORDER BY c.started_at DESC LIMIT %s", (int(limit),),
+                ).fetchall()
+            return [{
+                "user_email": r[0] or "", "character_id": r[1], "scenario": r[2],
+                "duration_seconds": r[3], "ended_reason": r[4], "started_at": r[5].isoformat() if r[5] else "",
+            } for r in rows]
+        except Exception as e:
+            log.warning("list_all_calls 失败：%r", e)
+            return []
+
+    def list_all_orders(self, *, limit=200) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT o.order_id, u.email, o.plan, o.amount_cents, o.status, o.created_at "
+                    "FROM orders o LEFT JOIN users u ON u.user_id = o.user_id "
+                    "ORDER BY o.created_at DESC LIMIT %s", (int(limit),),
+                ).fetchall()
+            return [{
+                "order_id": r[0], "user_email": r[1] or "", "plan": r[2], "amount_cents": r[3],
+                "status": r[4], "created_at": r[5].isoformat() if r[5] else "",
+            } for r in rows]
+        except Exception as e:
+            log.warning("list_all_orders 失败：%r", e)
+            return []
+
+    def top_characters(self, *, limit=5) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT character_id, count(*) AS n FROM calls GROUP BY character_id ORDER BY n DESC LIMIT %s",
+                    (int(limit),),
+                ).fetchall()
+            return [{"character_id": r[0], "calls": r[1]} for r in rows]
+        except Exception as e:
+            log.warning("top_characters 失败：%r", e)
+            return []
+
     def close(self) -> None:
         try:
             self.pool.close()

@@ -25,6 +25,8 @@ from ..config import NodeConfig, _REPO_DEFAULT, _header_safe, load_config
 
 OVERRIDES_PATH = _REPO_DEFAULT.parent / "admin_overrides.json"
 
+_REPO = None  # run_admin_http 注入（与 WS/用户 API 同一仓储实例）；用于看板真实数据
+
 # admin 分区 → (后端节点, {admin 字段: 后端字段})
 SECTION_TO_NODE: dict[str, tuple[str, dict[str, str]]] = {
     "asr":    ("asr",       {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "lang": "language"}),
@@ -265,6 +267,24 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/characters":
             from .characters_admin import read_characters_for_admin
             return self._json(200, {"characters": read_characters_for_admin()})
+        # ── 看板真实数据（P4）：未注入仓储则返回空，前端退回演示数据 ──
+        if self._route() == "/admin/stats":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            return self._json(200, {"ok": True, "stats": _REPO.admin_stats(),
+                                    "top_characters": _REPO.top_characters(limit=5)})
+        if self._route() == "/admin/users":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "users": []})
+            return self._json(200, {"ok": True, "users": _REPO.list_all_users(limit=200)})
+        if self._route() == "/admin/calls":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "calls": []})
+            return self._json(200, {"ok": True, "calls": _REPO.list_all_calls(limit=200)})
+        if self._route() == "/admin/orders":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "orders": []})
+            return self._json(200, {"ok": True, "orders": _REPO.list_all_orders(limit=200)})
         self._json(404, {"error": "not found"})
 
     def do_PUT(self) -> None:
@@ -301,7 +321,9 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
-def run_admin_http(host: str = "127.0.0.1", port: int = 8788) -> ThreadingHTTPServer:
+def run_admin_http(host: str = "127.0.0.1", port: int = 8788, repo=None) -> ThreadingHTTPServer:
+    global _REPO
+    _REPO = repo  # 看板数据用；为 None 时数据路由返回空，前端退回演示
     httpd = ThreadingHTTPServer((host, port), _Handler)
     threading.Thread(target=httpd.serve_forever, name="micall-admin-http", daemon=True).start()
     return httpd

@@ -283,7 +283,7 @@ async def serve_forever(config: Config) -> None:
     try:
         from .adminapi import run_admin_http
 
-        run_admin_http(admin_host, admin_port)
+        run_admin_http(admin_host, admin_port, repo=repo)   # repo 供看板真实数据（/admin/stats|users|calls|orders）
         print(f"[micall] 后台配置 API http://{admin_host}:{admin_port}/admin/api-config")
     except Exception as e:  # 配置 API 起不来不影响通话主链路
         log.warning("后台配置 API 启动失败：%r", e)

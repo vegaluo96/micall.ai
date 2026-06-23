@@ -82,6 +82,30 @@ class AuthFlowTest(unittest.TestCase):
         other = auth.register(self.repo, "x@y.com", "secret1")[1]["user"]["user_id"]
         self.assertEqual(self.repo.list_calls(other), [])
 
+    def test_admin_aggregates(self):
+        u1 = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
+        u2 = auth.register(self.repo, "c@d.com", "secret1")[1]["user"]["user_id"]
+        self.repo.add_call(u1, "c0", "heart", 600, "ended")    # 10 分钟
+        self.repo.add_call(u1, "c0", "chat", 300, "ended")     # c0 ×2
+        self.repo.add_call(u2, "c2", "chat", 120, "ended")
+
+        stats = self.repo.admin_stats()
+        self.assertEqual(stats["total_users"], 2)
+        self.assertEqual(stats["calls_today"], 3)
+        self.assertEqual(stats["total_minutes"], 17)           # (600+300+120)//60
+        self.assertEqual(stats["month_revenue_cents"], 0)      # 无订单
+
+        users = self.repo.list_all_users()
+        self.assertEqual(len(users), 2)
+        self.assertTrue(all("email" in u and "total_calls" in u for u in users))
+
+        calls = self.repo.list_all_calls()
+        self.assertEqual(len(calls), 3)
+        self.assertIn(calls[0]["user_email"], ("a@b.com", "c@d.com"))   # 带上了邮箱
+
+        top = self.repo.top_characters()
+        self.assertEqual(top[0], {"character_id": "c0", "calls": 2})    # c0 通话最多
+
 
 if __name__ == "__main__":
     unittest.main()
