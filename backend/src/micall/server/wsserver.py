@@ -140,10 +140,20 @@ class SignalingServer:
         self._schedule_understanding(session, user_id)
 
     def _schedule_understanding(self, session: "CallSession", user_id: str = _ANON) -> None:
-        """通话结束 → 后台跑离线理解（写事实层 + 修正画像 + 生成下次策略）。fire-and-forget。"""
+        """通话结束 → 后台跑离线理解（写事实层 + 修正画像 + 生成下次策略）。fire-and-forget。
+        两类通话不跑，省较贵的慢脑(Qwen-Long)+向量化、也不往画像写噪声：
+          ① 游客(_ANON)：没有持久画像，跑了只会污染共享匿名记忆；
+          ② 过短/无实质（误触秒挂、就一两句寒暄）：没信息量可提取。"""
         if not session or not session.history:
             return
+        if user_id == _ANON:
+            return
         history = list(session.history)
+        has_user = any(m.get("role") == "user" for m in history)
+        has_ai = any(m.get("role") == "assistant" for m in history)
+        if not (has_user and has_ai) or sum(len(str(m.get("content", ""))) for m in history) < 24:
+            log.info("通话过短/无实质内容，跳过离线理解（省慢脑成本）")
+            return
         char = session.character_id
         # 当前配置新建：慢脑（apiyi/Qwen-Long，未配则 stub）+ 向量化（Embedding，未配则 None 退关键词）。
         engine = UnderstandingEngine(
