@@ -607,6 +607,8 @@ export class MiCallLogic {
   }
   resetIdle() {
     this.clearTimers();
+    // 取消「拨号中」也要通知服务端结束，否则后端会话/计费成孤儿（一直挂着）。
+    if (this.callActive()) { try { this.send({ type: "end_call" }); } catch { /* noop */ } }
     this.stopMic();
     this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, rating: 0, feedback: [], note: "" });
   }
@@ -670,7 +672,7 @@ export class MiCallLogic {
       sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
       // 看门狗：4.5s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 回退 WS。服务端已去掉境内连不通的
       // STUN（开场不再卡 ~5s），正常 1~2s 即连上；连不上的快速退回 WS，把"一上来很慢"的尾巴也压短。
-      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 4500);
+      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 2500);
     } catch {
       this.rtcFallback();   // 建不起来 → 回退 WS
     }
@@ -697,6 +699,10 @@ export class MiCallLogic {
 
   /** Map server control events → state (docs/03 §4). */
   private onServerEvent(ev: ServerEvent) {
+    // 挂断/空闲后丢弃迟到的「通话中」事件：否则它们会把已结束的通话改回 listening/speaking、刷新计时，
+    // 造成「挂断后界面残留 / 通话像复活了 / 计时乱跳」。connected/ended/失败/时长耗尽等终止类不在此列。
+    const inCall = ["state", "subtitle", "billing", "emotion", "interrupted", "low_minutes"].indexOf(ev.type) >= 0;
+    if (inCall && !this.callActive()) return;
     switch (ev.type) {
       case "connected":
         this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
@@ -706,7 +712,7 @@ export class MiCallLogic {
         break;
       case "rtc_answer":
         if (this.pc && (ev as { sdp?: string }).sdp) {
-          void this.pc.setRemoteDescription({ type: "answer", sdp: (ev as { sdp: string }).sdp }).catch(() => { /* noop */ });
+          void this.pc.setRemoteDescription({ type: "answer", sdp: (ev as { sdp: string }).sdp }).catch(() => this.rtcFallback());  // 设远端失败 → 立刻回退 WS，不干等看门狗
         }
         break;
       case "rtc_unavailable":
@@ -758,11 +764,12 @@ export class MiCallLogic {
         this.setState({ remaining: 0, outOfMins: true, phase: "idle", subtitle: "", lines: [] });
         break;
       case "call_failed":
+        this.clearTimers();
         this.stopMic();
         this.setState({ phase: "idle", callFailed: true });
         break;
       case "ended":
-        if (this.state.phase !== "ended") { this.stopMic(); this.setState({ phase: "ended", textMode: false }); }
+        if (this.state.phase !== "ended") { this.clearTimers(); this.stopMic(); this.setState({ phase: "ended", textMode: false }); }
         break;
     }
   }
