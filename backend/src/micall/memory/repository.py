@@ -128,6 +128,14 @@ class MemoryRepository(ABC):
         """改余额并记流水（负=消费 call、正=充值 recharge/赠送）。返回改后余额（钳到 ≥0）。"""
         return 0
 
+    # ── 游客试用配额（按 IP 防刷）──
+    def guest_trial_remaining(self, ip: str, trial_seconds: int) -> int:
+        """该 IP 还剩多少试用秒（trial_seconds - 已用，钳到 ≥0）。刷新不重置。"""
+        return trial_seconds
+
+    def consume_guest_trial(self, ip: str, seconds: int) -> None:
+        """该 IP 试用消耗累加 seconds。"""
+
     # ── 通话记录 / 账单（P3）──
     def add_call(self, user_id: str, character_id: str, scenario: str,
                  duration_seconds: int, ended_reason: str) -> None:
@@ -253,6 +261,7 @@ class InMemoryRepository(MemoryRepository):
         self._sessions: dict[str, tuple[str, float]] = {}  # token → (user_id, expires_epoch)
         self._calls: list[dict] = []                       # 通话记录（含 user_id）
         self._ledger: list[dict] = []                      # 计费流水（含 user_id）
+        self._guest_trials: dict[str, int] = {}            # ip → 已用试用秒
         self._orders: list[dict] = []                      # 充值订单（保留：支付接入时写入）
         self._redeem: dict[str, dict] = {}                 # code → 兑换码
         self._tickets: list[dict] = []                     # 工单（含 user_id）
@@ -392,6 +401,12 @@ class InMemoryRepository(MemoryRepository):
             "reason": reason, "created_at": _now_iso(),
         })
         return u["remaining_seconds"]
+
+    def guest_trial_remaining(self, ip, trial_seconds) -> int:
+        return max(0, int(trial_seconds) - self._guest_trials.get(ip or "", 0))
+
+    def consume_guest_trial(self, ip, seconds) -> None:
+        self._guest_trials[ip or ""] = self._guest_trials.get(ip or "", 0) + max(0, int(seconds))
 
     def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason) -> None:
         self._calls.append({

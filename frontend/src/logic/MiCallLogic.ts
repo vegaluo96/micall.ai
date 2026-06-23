@@ -162,8 +162,11 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     try {
       const u = await authApi.me();
-      if (u) this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds });
+      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds }); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
+    // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
+    const g = await authApi.getGuestTrial();
+    if (g != null) this.setState({ remaining: g });
   }
 
   /** 登录态变化后丢弃旧信令连接，下一通电话用新 token（或匿名）重连。仅在空闲时重置。 */

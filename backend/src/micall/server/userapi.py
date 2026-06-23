@@ -21,6 +21,7 @@ from . import auth as _auth
 
 log = logging.getLogger("micall.userapi")
 _REPO = None  # run_user_http 注入；与 SignalingServer.repo 同一实例
+GUEST_TRIAL_SECONDS = 60   # 与 wsserver._GUEST_TRIAL_SECONDS 保持一致（游客试用 1 分钟，按 IP 计）
 
 
 def _bearer(headers) -> str:
@@ -66,6 +67,16 @@ class _Handler(BaseHTTPRequestHandler):
         """从 Bearer token 解析登录 user_id；未登录返回 None。"""
         return _REPO.user_for_token(_bearer(self.headers))
 
+    def _ip(self) -> str:
+        """客户端真实 IP（nginx 转发的 X-Forwarded-For / X-Real-IP，回退对端地址）。"""
+        xff = self.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",")[0].strip()
+        xri = self.headers.get("X-Real-IP")
+        if xri:
+            return xri.strip()
+        return self.client_address[0] if self.client_address else "unknown"
+
     def do_GET(self) -> None:
         route = self._route()
         if route == "/api/characters":      # 公开：用户端角色卡列表（含运营新建、剔除已删除）
@@ -74,6 +85,8 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True, "characters": public_characters()})
             except Exception as e:
                 return self._json(200, {"ok": False, "characters": [], "error": str(e)[:200]})
+        if route == "/api/guest-trial":      # 公开：本 IP 剩余试用秒（刷新不重置）
+            return self._json(200, {"ok": True, "remaining_seconds": _REPO.guest_trial_remaining(self._ip(), GUEST_TRIAL_SECONDS)})
         if route == "/api/auth/me":
             return self._json(*_auth.me(_REPO, _bearer(self.headers)))
         if route == "/api/calls":

@@ -138,6 +138,14 @@ CREATE TABLE IF NOT EXISTS invite_uses (
 );
 CREATE INDEX IF NOT EXISTS invite_uses_inviter_idx ON invite_uses (inviter_id);
 
+-- ───────────────────────── 游客试用配额（按 IP 防刷）─────────────────────────
+-- 未登录游客的 1 分钟试用按客户端 IP 累计，刷新/重连不再白送时长（防薅）。登录用户走 users 余额。
+CREATE TABLE IF NOT EXISTS guest_trials (
+    ip           TEXT PRIMARY KEY,
+    used_seconds INTEGER NOT NULL DEFAULT 0,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ───────────────────────── 用量/成本埋点 ─────────────────────────
 -- 每通电话结束按各节点实际用量（token/字符/秒）× 可配单价记一行，供后台成本看板真实聚合。
 CREATE TABLE IF NOT EXISTS usage_log (

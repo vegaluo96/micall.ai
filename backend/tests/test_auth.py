@@ -43,6 +43,15 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(auth.login(self.repo, "a@b.com", "nope")[0], 401)
         self.assertEqual(auth.login(self.repo, "ghost@b.com", "secret1")[0], 401)
 
+    def test_guest_trial_per_ip(self):
+        ip = "203.0.113.7"
+        self.assertEqual(self.repo.guest_trial_remaining(ip, 60), 60)   # 新 IP 满额
+        self.repo.consume_guest_trial(ip, 60)                            # 用满 1 分钟
+        self.assertEqual(self.repo.guest_trial_remaining(ip, 60), 0)     # 刷新不再给
+        self.repo.consume_guest_trial(ip, 30)
+        self.assertEqual(self.repo.guest_trial_remaining(ip, 60), 0)     # 钳到 0
+        self.assertEqual(self.repo.guest_trial_remaining("198.51.100.9", 60), 60)  # 别的 IP 独立
+
     def test_change_password(self):
         token = auth.register(self.repo, "a@b.com", "secret1")[1]["token"]
         self.assertEqual(auth.change_password(self.repo, token, "short")[0], 400)   # 太短

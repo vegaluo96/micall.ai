@@ -75,6 +75,18 @@ export async function getCharacters(): Promise<any[] | null> {
   }
 }
 
+/** 本 IP 剩余游客试用秒（刷新不重置）。失败 → null。 */
+export async function getGuestTrial(): Promise<number | null> {
+  try {
+    const r = await fetch(BASE + "/api/guest-trial");
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.ok ? (j.remaining_seconds as number) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 我的邀请概况：{code, invited, reward_seconds}。未登录/失败 → null。 */
 export async function getInvite(): Promise<{ code: string; invited: number; reward_seconds: number } | null> {
   const j = await getJSON("/api/invite");

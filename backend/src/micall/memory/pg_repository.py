@@ -356,6 +356,28 @@ class PgRepository(MemoryRepository):
             return 0
 
     # ── 通话记录 / 账单 ──
+    def guest_trial_remaining(self, ip, trial_seconds) -> int:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute("SELECT used_seconds FROM guest_trials WHERE ip=%s", (ip,)).fetchone()
+            used = int(r[0]) if r else 0
+            return max(0, int(trial_seconds) - used)
+        except Exception as e:
+            log.warning("guest_trial_remaining 失败：%r", e)
+            return int(trial_seconds)   # 故障时不误伤正常游客
+
+    def consume_guest_trial(self, ip, seconds) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute(
+                    "INSERT INTO guest_trials (ip, used_seconds) VALUES (%s,%s) "
+                    "ON CONFLICT (ip) DO UPDATE SET used_seconds = guest_trials.used_seconds + EXCLUDED.used_seconds, "
+                    "updated_at = now()",
+                    (ip, max(0, int(seconds))),
+                )
+        except Exception as e:
+            log.warning("consume_guest_trial 失败：%r", e)
+
     def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason) -> None:
         try:
             with self.pool.connection() as c:
