@@ -31,6 +31,17 @@ def _chat_endpoint(ep: str) -> str:
     return ep
 
 
+_SHARED_CLIENT: "httpx.AsyncClient | None" = None
+
+
+def _shared_client() -> "httpx.AsyncClient":
+    """进程级共享 HTTP 连接池：跨轮/跨通话复用 keep-alive，省掉每轮一次 TCP+TLS 握手 → TTFT 更快。"""
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
+        _SHARED_CLIENT = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+    return _SHARED_CLIENT
+
+
 class ApiyiLLM(LLMProvider):
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -56,20 +67,19 @@ class ApiyiLLM(LLMProvider):
             "Content-Type": "application/json",
         }
         # OpenAI 兼容 SSE：逐行 data: {json}，token 在 choices[0].delta.content。
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
-            async with client.stream(
-                "POST", self._endpoint, headers=headers, json=payload
-            ) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line or not line.startswith("data:"):
-                        continue
-                    data = line[5:].strip()
-                    if data == "[DONE]":
-                        break
-                    try:
-                        delta = json.loads(data)["choices"][0]["delta"].get("content")
-                    except (KeyError, IndexError, ValueError):
-                        continue
-                    if delta:
-                        yield delta
+        async with _shared_client().stream(
+            "POST", self._endpoint, headers=headers, json=payload
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    delta = json.loads(data)["choices"][0]["delta"].get("content")
+                except (KeyError, IndexError, ValueError):
+                    continue
+                if delta:
+                    yield delta

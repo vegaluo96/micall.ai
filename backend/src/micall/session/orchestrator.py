@@ -74,6 +74,18 @@ def _split_sentences(s: str) -> list[str]:
     return out
 
 
+def _take_first_sentence(buf: str) -> tuple[str, str]:
+    """从已生成文本切出第一个完整句子（到句末标点，含连续标点），返回 (句子, 剩余)；无完整句 → ("", buf)。
+    用于「首句抢跑」：第一句一成形就立刻合成发声，把首字延迟从「整段 LLM 生成」降到「首句 LLM 生成」。"""
+    for i, ch in enumerate(buf):
+        if ch in _SENTENCE_END:
+            j = i + 1
+            while j < len(buf) and buf[j] in _SENTENCE_END:
+                j += 1
+            return buf[:j].strip(), buf[j:]
+    return "", buf
+
+
 class CallSession:
     def __init__(
         self,
@@ -296,25 +308,39 @@ class CallSession:
         spoke: list[str] = []   # 实际播出的句子（ack 边界 → 进上下文，§1.5）
         buf = ""
 
-        # 整段回复先流式生成完，再「一次」合成下发 —— 修复用户实测「说话时音色像换了个人」：
-        #   ① 旧版「首句抢跑 + 尾段」是两次独立 TTS 生成，同一 voice_id 在句界仍会渲染出差异 →
-        #      像换了个人。改成整段一次生成，全程同一次渲染、同一个人。
-        #   ② 不再把每轮跳变的情绪标签喂给 TTS（见 _speak）——情绪在 happy/中性/sad 间跳，MiniMax 会把
-        #      同一音色渲染成不同的人。情绪只发前端/编排（UI 线索），绝不动音色。
-        # DeepSeek-flash 很快，一两句的整段生成只比首句抢跑多约 0.3s，换来全程同一个人，值。
-        async for token in self.llm.stream(messages, max_tokens=self._reply_max_tokens):
-            if self._interrupt.is_set():
-                break
-            buf += stripper.feed(token)
+        # 首句抢跑流式合成：LLM 边流式生成，第一句一成形就立刻发声（首字延迟 = 首句 LLM + TTS 首块，
+        # 而非「整段 LLM 全部生成完」），其余攒到生成结束再「一次」合成。全程同一 voice_id、emotion 固定
+        # 为 ""（情绪不喂 TTS，见 _speak），所以只有「首句 → 其余」一个接缝且几乎听不出 —— 既快又不
+        # 「像换个人」。当初为修「像换人」改成整段串行，但根因（情绪乱跳）已单独修掉，串行不再必要。
+        started = False
 
-        reply = (buf + stripper.flush()).strip()
-        if reply and not self._interrupt.is_set():
+        async def _open_speaking() -> None:
+            nonlocal started
+            if started:
+                return
             self._ai_said = ""  # 进入发声：以本轮 AI 文本作为新的回声基准（此前保留上一轮防拖尾回声）
             self.emotion_tag = stripper.tag
             self.sm.to(Phase.SPEAKING)
             await self._emit(ServerEvent.state(Phase.SPEAKING.value))
             await self._emit(ServerEvent.emotion(stripper.tag))  # 仅供前端/编排（不喂 TTS，见 _speak）
-            await self._speak(reply, spoke)
+            started = True
+
+        spoke_first = False
+        async for token in self.llm.stream(messages, max_tokens=self._reply_max_tokens):
+            if self._interrupt.is_set():
+                break
+            buf += stripper.feed(token)
+            if not spoke_first:
+                first, rest = _take_first_sentence(buf)
+                if first:
+                    await _open_speaking()
+                    await self._speak(first, spoke)   # 第一句立刻发声（抢跑）
+                    buf, spoke_first = rest, True
+
+        tail = (buf + stripper.flush()).strip()
+        if tail and not self._interrupt.is_set():
+            await _open_speaking()
+            await self._speak(tail, spoke)            # 其余一次合成（抢跑过则是尾段，否则是整段）
 
         # 实际播出的话进上下文；被打断则标注，让下轮能自然接住（§1.5 难点4）。
         if spoke:

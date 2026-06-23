@@ -35,6 +35,17 @@ def _minimax_emotion(tag: str) -> str:
     return _EMOTION_ALIAS.get(t, "")
 
 
+_SHARED_CLIENT: "httpx.AsyncClient | None" = None
+
+
+def _shared_client() -> "httpx.AsyncClient":
+    """进程级共享 HTTP 连接池：跨通话/跨句复用 keep-alive，省掉「每句一次 TCP+TLS 握手」→ 首块更快。"""
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
+        _SHARED_CLIENT = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+    return _SHARED_CLIENT
+
+
 class MiniMaxTTS(TTSProvider):
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -65,44 +76,43 @@ class MiniMaxTTS(TTSProvider):
             "Authorization": f"Bearer {self.node.api_key}",
             "Content-Type": "application/json",
         }
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
-            async with client.stream(
-                "POST", self.node.endpoint, headers=headers, json=body
-            ) as resp:
-                if resp.status_code >= 400:
-                    detail = (await resp.aread()).decode("utf-8", "ignore")[:400]
-                    raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
-                got = False
-                last_resp = None
-                tail: list[str] = []
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    # 兼容非 SSE 的错误响应：data: 开头取负载，否则整行当 JSON 试。
-                    payload = line[5:] if line.startswith("data:") else line
-                    try:
-                        evt = json.loads(payload)
-                    except ValueError:
-                        tail.append(line[:200])
-                        continue
-                    data = evt.get("data") or {}
-                    chunk = data.get("audio", "")
-                    # status==2 / 带 extra_info 是末尾汇总事件：会把整段音频再发一遍 →
-                    # 已有增量块就跳过，否则音频翻倍（合成的语音会重复念一遍）。
-                    is_summary = data.get("status") == 2 or "extra_info" in evt
-                    if chunk and not (is_summary and got):
-                        got = True
-                        yield bytes.fromhex(chunk)
-                    br = evt.get("base_resp")
-                    if br:
-                        last_resp = br
-                        code = br.get("status_code")
-                        if code not in (0, None) and not got:
-                            # voice id 不存在 / 余额 / 鉴权 / token not match group 等：报错带出原因。
-                            raise RuntimeError(f"MiniMax base_resp · {br}")
-                if not got:
-                    # 没出过音频也别静默：把能拿到的原因抛出来（国内/国际 GroupId-key 不配对最常见）。
-                    reason = last_resp or " ".join(tail)[:400] or (
-                        "无音频且无错误体——检查 endpoint 是否国内 t2a_v2、GroupId 是否拼在 query、"
-                        "国内域名要配国内账号的 key")
-                    raise RuntimeError(f"MiniMax 未返回音频 · {reason}")
+        async with _shared_client().stream(
+            "POST", self.node.endpoint, headers=headers, json=body
+        ) as resp:
+            if resp.status_code >= 400:
+                detail = (await resp.aread()).decode("utf-8", "ignore")[:400]
+                raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
+            got = False
+            last_resp = None
+            tail: list[str] = []
+            async for line in resp.aiter_lines():
+                if not line:
+                    continue
+                # 兼容非 SSE 的错误响应：data: 开头取负载，否则整行当 JSON 试。
+                payload = line[5:] if line.startswith("data:") else line
+                try:
+                    evt = json.loads(payload)
+                except ValueError:
+                    tail.append(line[:200])
+                    continue
+                data = evt.get("data") or {}
+                chunk = data.get("audio", "")
+                # status==2 / 带 extra_info 是末尾汇总事件：会把整段音频再发一遍 →
+                # 已有增量块就跳过，否则音频翻倍（合成的语音会重复念一遍）。
+                is_summary = data.get("status") == 2 or "extra_info" in evt
+                if chunk and not (is_summary and got):
+                    got = True
+                    yield bytes.fromhex(chunk)
+                br = evt.get("base_resp")
+                if br:
+                    last_resp = br
+                    code = br.get("status_code")
+                    if code not in (0, None) and not got:
+                        # voice id 不存在 / 余额 / 鉴权 / token not match group 等：报错带出原因。
+                        raise RuntimeError(f"MiniMax base_resp · {br}")
+            if not got:
+                # 没出过音频也别静默：把能拿到的原因抛出来（国内/国际 GroupId-key 不配对最常见）。
+                reason = last_resp or " ".join(tail)[:400] or (
+                    "无音频且无错误体——检查 endpoint 是否国内 t2a_v2、GroupId 是否拼在 query、"
+                    "国内域名要配国内账号的 key")
+                raise RuntimeError(f"MiniMax 未返回音频 · {reason}")
