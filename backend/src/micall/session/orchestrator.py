@@ -150,6 +150,13 @@ class CallSession:
         # 下行播放延迟补偿：全双工(RTC)经 coturn 中继 + jitter buffer，AI 这句实际播得比合成时刻晚。
         # 把它加进 _audio_until，让「播放中」回声窗盖住外放回授时段 → 治「听到自己 / 屏幕冒出没说的话」。
         self._play_pad = float(turn.get("echo_play_pad_ms", 400)) / 1000.0
+        # 灵敏度门槛（治「一点声音就反应/打断」）。文本越长越像真说话，短碎片多是噪声/呼吸/回授。可在 turn 配置调：
+        #   bargein_min_chars —— AI 外放时，partial 达到这么多字才算真打断（挡回授短碎片，越大越不易被打断）。
+        #   partial_min_chars —— AI 不在播时，partial 回显/预停播的下限（越大越不会"一点声音就在屏上冒字/抢拍"）。
+        #   turn_min_chars    —— final 触发新一轮的下限（保留「好的/是啊」等真短回复，故默认 2，不宜再高）。
+        self._bargein_min_chars = int(turn.get("bargein_min_chars", 4))
+        self._partial_min_chars = int(turn.get("partial_min_chars", 3))
+        self._turn_min_chars = int(turn.get("turn_min_chars", 2))
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
@@ -235,16 +242,16 @@ class CallSession:
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
                     continue  # 纯语气词「嗯/啊/哦…」（多为回声/呼吸误识）：不打断、不触发轮次、不上字幕
-                # 外放期间的回授门槛：AI 正在播放（扬声器全双工）时，麦克风会把 AI 自己的声音录回来，
-                # 经 AEC/ASR 变形成短碎片（如「林管。」），文本去重/子串都挡不住。真打断通常是完整一句，
-                # 故 AI 外放时把「触发打断 / 新一轮」的最短长度抬高，挡掉短碎片回授导致的「自言自语」。
+                # 灵敏度门槛：AI 外放(扬声器全双工)时，麦克风会录回 AI 自己的声音，经 AEC/ASR 变成短碎片
+                # （如「林管。」）；AI 不在播时，环境噪声/呼吸也常被误识成一两个字。短文本多是噪声，长文本才像真说话。
+                # 故 partial（回显/预停播）按是否外放分别用较高门槛；final（真触发一轮）保留较低门槛以容纳「好的」等短回复。
                 ai_playing = time.monotonic() <= self._audio_until
-                min_len = 4 if ai_playing else 2
+                partial_min = self._bargein_min_chars if ai_playing else self._partial_min_chars
                 if not is_final:
                     # 用户开口（实质中间结果）→ 打断：停后端生成 + 让前端停播。
                     # 后端可能已把整句音频发完、状态回 listening 但前端还在播缓冲，故即便不在 speaking
                     # 也发 interrupted 去 flush，否则"打断无效"。
-                    if len(_norm(t)) >= min_len:
+                    if len(_norm(t)) >= partial_min:
                         if not flushed:
                             flushed = True
                             if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
@@ -257,9 +264,11 @@ class CallSession:
                 now = time.monotonic()
                 nt = _norm(t)   # 归一化（去标点/空白）做去重键：「你好」「你好。」「你 好」视为同句，挡住变体重复
                 recent = {k: ts for k, ts in recent.items() if now - ts < 10.0}  # 只看近 10 秒
+                # final 门槛：外放时沿用较高的 bargein 门槛（挡回授碎片触发的假轮次）；不在播时用 turn 门槛（容纳短回复）。
+                final_min = self._bargein_min_chars if ai_playing else self._turn_min_chars
                 # 最终结果门控：太短（噪声/静音误识别/外放回授碎片）或 10 秒内重复出现的同句（回声/幻听/重判）
                 # → 丢弃，否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
-                if len(nt) < min_len or nt in recent:
+                if len(nt) < final_min or nt in recent:
                     continue
                 recent[nt] = now
                 log.info("⟵ 用户说完：%r", t)
