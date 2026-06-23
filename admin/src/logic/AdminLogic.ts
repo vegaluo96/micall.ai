@@ -12,7 +12,7 @@
 import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
-         loadRedeemCodes, genRedeemCodes, usingBackend } from "./configService";
+         loadRedeemCodes, createRedeemCode, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -54,7 +54,7 @@ export class AdminLogic {
   state: State = {
     section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
-    redeemCount: "10", redeemMinutes: "60", generatedCodes: [],
+    redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     apiCfg: {
       // 这些只是「无后端」时的兜底默认；接了后端会被真实配置覆盖。值与 backend/config/default.json 对齐，
       // 避免再出现 DeepSeek-V4-Flash 这类虚名误导。key 留空（不放假占位），由运营填、后端打码回显。
@@ -244,18 +244,19 @@ export class AdminLogic {
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
   }
 
-  /** 生成兑换码：调后端、显示新码、刷新列表。 */
+  /** 创建自定义兑换码：调后端、显示新码、刷新列表。 */
   private async genRedeem() {
-    const count = Math.max(1, Math.min(500, parseInt(this.state.redeemCount, 10) || 1));
+    const code = (this.state.redeemCode || "").trim();
+    const uses = Math.max(1, parseInt(this.state.redeemUses, 10) || 1);
     const minutes = Math.max(1, parseInt(this.state.redeemMinutes, 10) || 60);
-    if (!usingBackend()) { this.toastMsg("需接入后端才能生成兑换码"); return; }
-    const codes = await genRedeemCodes(count, minutes);
-    if (!codes) { this.toastMsg("生成失败，请重试"); return; }
-    this.setState({ generatedCodes: codes });
+    if (!usingBackend()) { this.toastMsg("需接入后端才能创建兑换码"); return; }
+    const res = await createRedeemCode(code, minutes, uses);
+    if (!res.ok) { this.toastMsg(res.error || "创建失败"); return; }
+    this.setState({ generatedCode: res.code || code, redeemCode: "" });
     const list = await loadRedeemCodes();
     if (list) this.redeemCodes = list;
     this.setState({});
-    this.toastMsg(`已生成 ${codes.length} 个兑换码`);
+    this.toastMsg(`已创建兑换码 ${res.code || code}`);
   }
 
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
@@ -753,16 +754,17 @@ export class AdminLogic {
       notifs: this.notifs, notifOpen: s.notifOpen, notifUnread: !s.notifRead,
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),
       userFilters, usersView, charsView, sceneTabs, scenesView, callsView, ticketsView, ordersView, plans,
-      redeemCount: s.redeemCount, onRedeemCount: (e: any) => this.setState({ redeemCount: e.target.value }),
+      redeemCode: s.redeemCode, onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
+      redeemUses: s.redeemUses, onRedeemUses: (e: any) => this.setState({ redeemUses: e.target.value }),
       redeemMinutes: s.redeemMinutes, onRedeemMinutes: (e: any) => this.setState({ redeemMinutes: e.target.value }),
       genRedeem: () => this.genRedeem(),
-      hasGenerated: (s.generatedCodes || []).length > 0,
-      generatedCodes: s.generatedCodes || [],
+      hasGenerated: !!s.generatedCode,
+      generatedCode: s.generatedCode || "",
       redeemCodesView: this.redeemCodes.map((r: any) => {
-        const used = !!r.used_at;
+        const done = (r.used_count || 0) >= (r.max_uses || 1);
         return { code: r.code, mins: Math.round((r.seconds || 0) / 60) + " 分钟",
-          status: used ? "已使用" : "未使用", stColor: used ? "#878B95" : "#1FA971",
-          stBg: used ? "#F0F0F3" : "rgba(31,169,113,.1)", usedBy: r.used_by_email || "—" };
+          uses: (r.used_count || 0) + " / " + (r.max_uses || 1),
+          stColor: done ? "#878B95" : "#1FA971", stBg: done ? "#F0F0F3" : "rgba(31,169,113,.1)" };
       }),
       detailOpen: !!d, closeDetail: () => this.setState({ detail: null }), detailTitle,
       dUser, dChar, dCall, dTicket, dCharExpr,

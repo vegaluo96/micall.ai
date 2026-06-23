@@ -330,14 +330,16 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/api-config/test":
             b = self._body()
             return self._json(200, test_section(b.get("section", ""), b.get("config", {}) or {}))
-        if route == "/admin/redeem-codes":      # 批量生成兑换码
+        if route == "/admin/redeem-codes":      # 自定义码 + 份数 + 时长
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})
             b = self._body()
-            count = max(1, min(500, int(b.get("count", 1) or 1)))      # 单次上限 500
+            import secrets
+            code = (b.get("code") or "").strip().upper() or ("MC-" + secrets.token_hex(3).upper())
             minutes = max(1, int(b.get("minutes", 60) or 60))
-            codes = _REPO.create_redeem_codes(count, minutes * 60)
-            return self._json(200, {"ok": True, "codes": codes})
+            max_uses = max(1, min(100000, int(b.get("max_uses", 1) or 1)))
+            ok, msg = _REPO.create_redeem_code(code, minutes * 60, max_uses)
+            return self._json(200, {"ok": ok, "code": code if ok else "", "error": None if ok else msg})
         if route == "/admin/tickets/reply":     # 回复工单
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

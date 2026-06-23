@@ -152,15 +152,26 @@ CREATE INDEX IF NOT EXISTS usage_log_created_idx ON usage_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS usage_log_node_idx ON usage_log (node);
 
 -- ───────────────────────── 兑换码（充值）─────────────────────────
--- 后台批量生成、用户在 App 弹窗输入核销 → 余额入账 + 记 billing_ledger(reason=redeem)。单次有效。
+-- 后台自定义码 + 份数(max_uses) + 时长，用户在 App 弹窗输入核销 → 余额入账 + 记 billing_ledger(redeem)。
+-- 一个码可被 max_uses 个不同用户各用一次（redeem_uses 去重防同一人重复 / 并发超发）。
 CREATE TABLE IF NOT EXISTS redeem_codes (
     code        TEXT PRIMARY KEY,
     seconds     INTEGER NOT NULL,
-    used_by     TEXT REFERENCES users(user_id),
+    used_by     TEXT REFERENCES users(user_id),   -- 旧字段（单次模型遗留，保留兼容）
     used_at     TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 多份/自定义码升级（幂等，老表重启即补列）：
+ALTER TABLE redeem_codes ADD COLUMN IF NOT EXISTS max_uses   INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE redeem_codes ADD COLUMN IF NOT EXISTS used_count INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS redeem_codes_created_idx ON redeem_codes (created_at DESC);
+CREATE TABLE IF NOT EXISTS redeem_uses (
+    id         BIGSERIAL PRIMARY KEY,
+    code       TEXT NOT NULL REFERENCES redeem_codes(code),
+    user_id    TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (code, user_id)
+);
 
 -- facts.embedding 的维度必须等于所配 Embedding 模型的输出维度（后台「测试连接」会显示维度）；
 -- text-embedding-v4 / v3 默认 1024。换了模型/维度需 ALTER 该列并重建索引（旧向量作废）。

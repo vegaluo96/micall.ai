@@ -157,20 +157,20 @@ export const loadTickets = () => getList("/admin/tickets", "tickets");
 export const loadInvites = () => getList("/admin/invites", "invites");
 export const loadRedeemCodes = () => getList("/admin/redeem-codes", "codes");
 
-/** 批量生成兑换码，返回码数组（无后端返回 null）。 */
-export async function genRedeemCodes(count: number, minutes: number): Promise<string[] | null> {
+/** 创建自定义兑换码（code 留空则后端随机生成），返回 {ok, code, error}。 */
+export async function createRedeemCode(code: string, minutes: number, maxUses: number): Promise<{ ok: boolean; code?: string; error?: string }> {
   const b = base();
-  if (!b) return null;
+  if (!b) return { ok: false, error: "需接入后端" };
   try {
     const r = await fetch(`${b}/admin/redeem-codes`, {
       method: "POST", headers: authHeaders(true), credentials: "include",
-      body: JSON.stringify({ count, minutes }),
+      body: JSON.stringify({ code, minutes, max_uses: maxUses }),
     });
-    if (r.ok) { const d = await r.json(); if (d && d.ok) return d.codes || []; }
+    if (r.ok) return (await r.json()) as { ok: boolean; code?: string; error?: string };
   } catch {
     /* noop */
   }
-  return null;
+  return { ok: false, error: "请求失败" };
 }
 
 /** 回复工单（后台）。返回是否成功。 */

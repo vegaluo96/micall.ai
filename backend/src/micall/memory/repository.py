@@ -174,17 +174,17 @@ class MemoryRepository(ABC):
         """后台成本看板：{today_micros,month_micros,by_node:{node:micros},per_hour_micros,per_100min_micros}。"""
         return {"today_micros": 0, "month_micros": 0, "by_node": {}, "per_hour_micros": 0, "per_100min_micros": 0}
 
-    # ── 兑换码（P5：后台生成、用户核销充值）──
-    def create_redeem_codes(self, count: int, seconds: int) -> list[str]:
-        """批量生成兑换码（每个值 seconds），返回码列表。后台「兑换码」用。"""
-        return []
+    # ── 兑换码（P5：后台自定义码+份数，用户核销充值）──
+    def create_redeem_code(self, code: str, seconds: int, max_uses: int = 1) -> tuple[bool, str]:
+        """新建自定义兑换码（值 seconds、可用 max_uses 份）。码已存在返回 (False, 提示)。"""
+        return False, "暂不支持"
 
     def redeem_code(self, user_id: str, code: str) -> tuple[bool, int, str]:
-        """用户核销兑换码：未用过则入账 seconds + 记 redeem 流水。返回 (是否成功, 改后余额, 提示)。"""
+        """用户核销：码有效且未用完、本人未用过 → 入账 seconds + 记 redeem 流水。返回 (成功, 改后余额, 提示)。"""
         return False, 0, "暂不支持"
 
     def list_redeem_codes(self, *, limit: int = 200) -> list[dict]:
-        """兑换码列表（后台）：{code,seconds,used_by_email,used_at,created_at}。"""
+        """兑换码列表（后台）：{code,seconds,used_count,max_uses,created_at}。"""
         return []
 
     # ── 工单（用户反馈 / 客服）──
@@ -480,31 +480,33 @@ class InMemoryRepository(MemoryRepository):
         return {"today": today_series, "7d": d7, "30d": d30}
 
     # ── 兑换码（内存）──
-    def create_redeem_codes(self, count, seconds) -> list[str]:
-        import secrets
-        codes = []
-        for _ in range(max(1, int(count))):
-            code = "MC-" + "-".join(secrets.token_hex(2).upper() for _ in range(3))
-            self._redeem[code] = {"code": code, "seconds": int(seconds), "used_by": None,
-                                  "used_at": None, "created_at": _now_iso()}
-            codes.append(code)
-        return codes
+    def create_redeem_code(self, code, seconds, max_uses=1) -> tuple[bool, str]:
+        code = (code or "").strip().upper()
+        if not code:
+            return False, "兑换码不能为空"
+        if code in self._redeem:
+            return False, "兑换码已存在"
+        self._redeem[code] = {"code": code, "seconds": int(seconds), "max_uses": max(1, int(max_uses)),
+                              "used_count": 0, "users": set(), "created_at": _now_iso()}
+        return True, "ok"
 
     def redeem_code(self, user_id, code) -> tuple[bool, int, str]:
         rec = self._redeem.get((code or "").strip().upper())
         if not rec:
             return False, self.remaining_seconds(user_id), "兑换码无效"
-        if rec["used_by"]:
-            return False, self.remaining_seconds(user_id), "兑换码已被使用"
-        rec["used_by"], rec["used_at"] = user_id, _now_iso()
+        if user_id in rec["users"]:
+            return False, self.remaining_seconds(user_id), "你已使用过该兑换码"
+        if rec["used_count"] >= rec["max_uses"]:
+            return False, self.remaining_seconds(user_id), "兑换码已用完"
+        rec["users"].add(user_id)
+        rec["used_count"] += 1
         bal = self.add_seconds(user_id, rec["seconds"], "redeem")
         return True, bal, f"成功充值 {rec['seconds'] // 60} 分钟"
 
     def list_redeem_codes(self, *, limit=200) -> list[dict]:
-        email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
         rows = sorted(self._redeem.values(), key=lambda r: r["created_at"], reverse=True)[:limit]
-        return [{"code": r["code"], "seconds": r["seconds"], "used_by_email": email.get(r["used_by"], ""),
-                 "used_at": r["used_at"] or "", "created_at": r["created_at"]} for r in rows]
+        return [{"code": r["code"], "seconds": r["seconds"], "used_count": r["used_count"],
+                 "max_uses": r["max_uses"], "created_at": r["created_at"]} for r in rows]
 
     # ── 工单（内存）──
     def add_ticket(self, user_id, type, message) -> int:

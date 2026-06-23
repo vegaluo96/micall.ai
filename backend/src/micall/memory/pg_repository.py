@@ -540,41 +540,43 @@ class PgRepository(MemoryRepository):
         return out
 
     # ── 兑换码 ──
-    def create_redeem_codes(self, count, seconds) -> list[str]:
-        import secrets
-        codes = []
+    def create_redeem_code(self, code, seconds, max_uses=1) -> tuple[bool, str]:
+        code = (code or "").strip().upper()
+        if not code:
+            return False, "兑换码不能为空"
         try:
             with self.pool.connection() as c:
-                for _ in range(max(1, int(count))):
-                    code = "MC-" + "-".join(secrets.token_hex(2).upper() for _ in range(3))
-                    c.execute("INSERT INTO redeem_codes (code, seconds) VALUES (%s,%s)", (code, int(seconds)))
-                    codes.append(code)
+                c.execute("INSERT INTO redeem_codes (code, seconds, max_uses) VALUES (%s,%s,%s)",
+                          (code, int(seconds), max(1, int(max_uses))))
+            return True, "ok"
+        except psycopg.errors.UniqueViolation:
+            return False, "兑换码已存在"
         except Exception as e:
-            log.warning("create_redeem_codes 失败：%r", e)
-        return codes
+            log.warning("create_redeem_code 失败：%r", e)
+            return False, "创建失败"
 
     def redeem_code(self, user_id, code) -> tuple[bool, int, str]:
         code = (code or "").strip().upper()
         try:
             with self.pool.connection() as c, c.transaction():
-                # 原子占用：仅当未被使用时把 used_by 置为本人（防并发重复核销）。
-                r = c.execute(
-                    "UPDATE redeem_codes SET used_by=%s, used_at=now() "
-                    "WHERE code=%s AND used_by IS NULL RETURNING seconds",
-                    (user_id, code),
+                row = c.execute(
+                    "SELECT seconds, max_uses, used_count FROM redeem_codes WHERE code=%s FOR UPDATE", (code,),
                 ).fetchone()
-                if r is None:
-                    exists = c.execute("SELECT 1 FROM redeem_codes WHERE code=%s", (code,)).fetchone()
-                    return False, self.remaining_seconds(user_id), "兑换码已被使用" if exists else "兑换码无效"
-                secs = int(r[0])
+                if row is None:
+                    return False, self.remaining_seconds(user_id), "兑换码无效"
+                secs, max_uses, used_count = int(row[0]), int(row[1]), int(row[2])
+                if c.execute("SELECT 1 FROM redeem_uses WHERE code=%s AND user_id=%s", (code, user_id)).fetchone():
+                    return False, self.remaining_seconds(user_id), "你已使用过该兑换码"
+                if used_count >= max_uses:
+                    return False, self.remaining_seconds(user_id), "兑换码已用完"
+                c.execute("INSERT INTO redeem_uses (code, user_id) VALUES (%s,%s)", (code, user_id))
+                c.execute("UPDATE redeem_codes SET used_count = used_count + 1 WHERE code=%s", (code,))
                 bal = c.execute(
                     "UPDATE users SET remaining_seconds = GREATEST(0, remaining_seconds + %s) "
                     "WHERE user_id=%s RETURNING remaining_seconds", (secs, user_id),
                 ).fetchone()
-                c.execute(
-                    "INSERT INTO billing_ledger (user_id, delta_seconds, reason) VALUES (%s,%s,'redeem')",
-                    (user_id, secs),
-                )
+                c.execute("INSERT INTO billing_ledger (user_id, delta_seconds, reason) VALUES (%s,%s,'redeem')",
+                          (user_id, secs))
             return True, int(bal[0]) if bal else 0, f"成功充值 {secs // 60} 分钟"
         except Exception as e:
             log.warning("redeem_code 失败：%r", e)
@@ -584,12 +586,10 @@ class PgRepository(MemoryRepository):
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
-                    "SELECT r.code, r.seconds, u.email, r.used_at, r.created_at "
-                    "FROM redeem_codes r LEFT JOIN users u ON u.user_id = r.used_by "
-                    "ORDER BY r.created_at DESC LIMIT %s", (int(limit),),
+                    "SELECT code, seconds, used_count, max_uses, created_at "
+                    "FROM redeem_codes ORDER BY created_at DESC LIMIT %s", (int(limit),),
                 ).fetchall()
-            return [{"code": r[0], "seconds": r[1], "used_by_email": r[2] or "",
-                     "used_at": r[3].isoformat() if r[3] else "",
+            return [{"code": r[0], "seconds": r[1], "used_count": r[2], "max_uses": r[3],
                      "created_at": r[4].isoformat() if r[4] else ""} for r in rows]
         except Exception as e:
             log.warning("list_redeem_codes 失败：%r", e)

@@ -108,27 +108,35 @@ class AuthFlowTest(unittest.TestCase):
 
     def test_redeem_codes(self):
         uid = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
-        codes = self.repo.create_redeem_codes(2, 600)                   # 2 个 ×10 分钟
-        self.assertEqual(len(codes), 2)
-
-        ok, bal, _ = self.repo.redeem_code(uid, codes[0])
+        uid2 = auth.register(self.repo, "b@b.com", "secret1")[1]["user"]["user_id"]
+        # 自定义码 WELCOME，值 10 分钟，可用 2 份
+        ok, _ = self.repo.create_redeem_code("WELCOME", 600, 2)
         self.assertTrue(ok)
-        self.assertEqual(bal, 3600 + 600)                              # 注册 60 + 兑换 10 分钟
+        self.assertFalse(self.repo.create_redeem_code("welcome", 600, 1)[0])   # 同码（大小写归一）不可重复创建
 
-        ok2, bal2, msg2 = self.repo.redeem_code(uid, codes[0])         # 不能重复用
-        self.assertFalse(ok2)
-        self.assertEqual(bal2, 4200)
-        self.assertIn("已被使用", msg2)
+        ok1, bal1, _ = self.repo.redeem_code(uid, "welcome")           # 大小写不敏感
+        self.assertTrue(ok1)
+        self.assertEqual(bal1, 3600 + 600)
 
-        ok3, _, msg3 = self.repo.redeem_code(uid, "MC-BOGUS")          # 无效码
+        ok_dup, _, msg_dup = self.repo.redeem_code(uid, "WELCOME")     # 同一人不能再用
+        self.assertFalse(ok_dup)
+        self.assertIn("已使用过", msg_dup)
+
+        ok2, bal2, _ = self.repo.redeem_code(uid2, "WELCOME")          # 第二个人用第 2 份
+        self.assertTrue(ok2)
+        self.assertEqual(bal2, 3600 + 600)
+
+        self.repo.create_user("u_z", "z@z.com", "h")
+        ok3, _, msg3 = self.repo.redeem_code("u_z", "WELCOME")         # 第三个人 → 份数用完
         self.assertFalse(ok3)
-        self.assertIn("无效", msg3)
+        self.assertIn("用完", msg3)
 
-        bills = [b["reason"] for b in self.repo.list_ledger(uid)]
-        self.assertIn("redeem", bills)                                 # 兑换记一条流水
+        self.assertFalse(self.repo.redeem_code(uid, "NOPE")[0])        # 无效码
+
         listed = self.repo.list_redeem_codes()
-        self.assertEqual(len(listed), 2)
-        self.assertEqual(listed[0]["used_by_email"] or listed[1]["used_by_email"], "a@b.com")
+        self.assertEqual(listed[0]["code"], "WELCOME")
+        self.assertEqual(listed[0]["used_count"], 2)
+        self.assertEqual(listed[0]["max_uses"], 2)
 
     def test_tickets(self):
         uid = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
