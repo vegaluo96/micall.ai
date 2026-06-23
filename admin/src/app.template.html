@@ -276,7 +276,7 @@
         <div style="animation:adRise .3s ease;">
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
             <div style="display:grid;grid-template-columns:1.1fr 1.3fr 1fr .9fr .9fr 1.1fr 30px;gap:12px;padding:13px 20px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:600;color:#9A9DA7;">
-              <span>角色</span><span>用户</span><span>场景</span><span>时长</span><span>评分</span><span>时间</span><span></span>
+              <span>角色</span><span>用户</span><span>场景</span><span>时长</span><span>结束方式</span><span>时间</span><span></span>
             </div>
             <sc-for list="{{ callsView }}" as="c" hint-placeholder-count="8">
               <div onClick="{{ c.open }}" style="display:grid;grid-template-columns:1.1fr 1.3fr 1fr .9fr .9fr 1.1fr 30px;gap:12px;padding:13px 20px;border-bottom:1px solid #F4F4F6;align-items:center;cursor:pointer;" style-hover="background:#F8F8FB">
@@ -284,7 +284,7 @@
                 <span style="font-size:13px;color:#5A5E6B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.user }}</span>
                 <span style="font-size:12.5px;color:#6E5CFF;background:rgba(110,92,255,.08);border-radius:7px;padding:3px 9px;justify-self:start;">{{ c.scene }}</span>
                 <span style="font-size:13px;font-variant-numeric:tabular-nums;color:#5A5E6B;">{{ c.dur }}</span>
-                <span style="font-size:13px;color:#FFB020;letter-spacing:1px;">{{ c.stars }}</span>
+                <span style="font-size:12.5px;color:#5A5E6B;">{{ c.ended }}</span>
                 <span style="font-size:12.5px;color:#9A9DA7;">{{ c.time }}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </div>
@@ -950,23 +950,17 @@
         <div style="display:flex;align-items:center;gap:13px;padding-bottom:18px;border-bottom:1px solid #F0F0F3;">
           <div style="width:46px;height:46px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ dCall.hueFilter }};"></div>
           <div style="flex:1;"><div style="font-size:16px;font-weight:600;">{{ dCall.char }}</div><div style="font-size:12.5px;color:#9A9DA7;">用户 {{ dCall.user }}</div></div>
-          <div style="text-align:right;"><div style="font-size:13px;color:#FFB020;letter-spacing:1px;">{{ dCall.stars }}</div><div style="font-size:12.5px;color:#A8ABB5;margin-top:2px;">{{ dCall.dur }} · {{ dCall.time }}</div></div>
+          <div style="text-align:right;"><div style="font-size:12.5px;color:#A8ABB5;">{{ dCall.dur }} · {{ dCall.time }}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:14px;">
           <span style="font-size:12.5px;color:#878B95;">场景</span>
           <span style="font-size:12.5px;font-weight:500;color:#6E5CFF;background:rgba(110,92,255,.08);border-radius:7px;padding:3px 10px;">{{ dCall.scene }}</span>
         </div>
-        <sc-if value="{{ dCall.feedback }}" hint-placeholder-val="{{ false }}">
-          <div style="margin-top:14px;background:rgba(110,92,255,.07);border-radius:11px;padding:12px 15px;"><div style="font-size:12px;color:#6E5CFF;font-weight:600;margin-bottom:4px;">用户反馈</div><div style="font-size:13px;color:#5A5E6B;line-height:1.6;">{{ dCall.feedback }}</div></div>
-        </sc-if>
-        <div style="font-size:13px;font-weight:600;color:#878B95;margin:20px 0 12px;">对话内容</div>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <sc-for list="{{ dCall.lines }}" as="m" hint-placeholder-count="6">
-            <div style="display:flex;justify-content:{{ m.justify }};">
-              <div style="max-width:78%;font-size:13.5px;line-height:1.6;padding:10px 14px;border-radius:{{ m.radius }};background:{{ m.bg }};color:{{ m.color }};text-wrap:pretty;">{{ m.text }}</div>
-            </div>
-          </sc-for>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+          <span style="font-size:12.5px;color:#878B95;">结束方式</span>
+          <span style="font-size:12.5px;font-weight:500;color:#5A5E6B;background:#F2F2F5;border-radius:7px;padding:3px 10px;">{{ dCall.ended }}</span>
         </div>
+        <div style="margin-top:20px;background:#FAFAFB;border:1px solid #F0F0F3;border-radius:11px;padding:14px 16px;font-size:12.5px;color:#9A9DA7;line-height:1.7;">为保护用户隐私，通话的语音与文字内容不留存，后台仅记录通话时长、场景与结束方式等元数据。</div>
       </sc-if>
 
       <!-- ticket detail -->

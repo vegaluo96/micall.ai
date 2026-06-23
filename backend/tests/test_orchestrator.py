@@ -53,7 +53,7 @@ class TestEchoGuard(unittest.TestCase):
         import time
         s = self._sess()
         s._ai_said = "你好呀，今天过得怎么样"
-        s._audio_until = time.monotonic() - 1.0      # 音频已播完（进入拖尾窗）
+        s._audio_until = time.monotonic() - 0.3      # 音频刚播完（仍在拖尾窗内）
         self.assertTrue(s._looks_like_echo("你好呀"))  # 原话子串 → 高置信回声
         self.assertTrue(s._looks_like_echo("今天过得怎么样"))
 

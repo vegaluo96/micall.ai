@@ -2,6 +2,12 @@
 //   • MicCapture：麦克风 MediaStream → 16kHz PCM16 帧（上行喂后端 ASR）。
 //   • AudioPlayer：后端下行的 PCM16 @ 24kHz 音频块 → Web Audio 播放（H5/iOS 稳，无需 MSE）。
 // 采样率与后端约定一致：上行 16k（ASR session），下行 24k（config tts.sample_rate）。
+//
+// 公放回声的成熟解法（豆包/Siri/各家语音助手在缺硬件 AEC 时的通用做法）= **半双工**：
+// AI 的声音正在外放时，麦克风干脆不上行——AI 自然「听不见自己」，从源头杜绝回声被 ASR
+// 当成用户说话（自己断/凭空冒话/重复「你好」）。浏览器 echoCancellation 只在桌面/安卓 Chrome
+// 可靠，移动端外放（尤其 iOS Safari）的 AEC 只有走 WebRTC 通信模式才生效——纯 WebSocket+WebAudio
+// 拿不到，故用「按真实播放状态门控麦克风」这条确定性方案兜底（见 AudioPlayer.isPlaying）。
 
 const MIC_RATE = 16000;
 const TTS_RATE = 24000;
@@ -30,46 +36,18 @@ function downsampleToInt16(input: Float32Array, inRate: number, outRate: number)
   return out.buffer;
 }
 
-// 上行 VAD 门控阈值（对归一化 RMS，[0,1]）。带迟滞：开门高、关门低，避免临界抖动。
-// 省钱核心：ASR 按音频秒数计费。门控只在「AI 正在说话」那段生效（压回声/静音、只放明显插话），
-// 用户自己的回合永远全量上行——绝不切碎你说的话（否则识别一顿一顿、对话断断续续）。
-const VAD_OPEN = 0.02;    // AI 说话期：高于此才判为「用户插话(barge-in)」→ 放行；低于此当回声/静音压掉
-const VAD_CLOSE = 0.012;  // 插话期间低于此才开始计静音
-const VAD_HANGOVER_MS = 900;   // 静音后继续上行的尾音时长：留够让服务端 server_vad 收尾断句
-const VAD_PREROLL_MS = 250;    // 开门前回补的预卷，避免吃掉插话的句首
-
-function rms(buf: Float32Array): number {
-  let s = 0;
-  for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
-  return Math.sqrt(s / Math.max(1, buf.length));
-}
-
 /** 麦克风 → 16kHz PCM16 帧。用 ScriptProcessor（广泛支持、含 iOS；无需独立 worklet 文件）。
- *  门控只在 AI 说话期生效（省 ASR + 抑回声）；用户回合全量上行，不切碎说话。 */
+ *  纯采集，不做内部门控：是否上行由上层按真实播放状态决定（半双工，见 MiCallLogic.startMicUplink）。
+ *  这样「AI 在外放→不上行」是一条确定性规则，而不是靠 RMS 阈值猜回声（外放回声常比真人还响，猜不准）。 */
 export class MicCapture {
   private ctx: AudioContext | null = null;
   private src: MediaStreamAudioSourceNode | null = null;
   private node: ScriptProcessorNode | null = null;
-  private aiSpeaking = false;        // 由上层按通话状态切：AI 说话期才启用门控
-  // VAD 状态
-  private gateOpen = false;
-  private hangover = 0;             // 剩余尾音帧数
-  private preroll: ArrayBuffer[] = [];
-  private prerollMax = 3;           // 预卷帧数（start() 里按帧时长换算）
-  private hangoverFrames = 11;      // 尾音帧数（start() 里按帧时长换算）
 
   constructor(
     private stream: MediaStream,
     private onFrame: (pcm: ArrayBuffer) => void,
-    private vad = true,
   ) {}
-
-  /** 上层在 AI 开始/停止说话时调用：仅 AI 说话期启用门控（省 ASR、抑回声、只放插话）。
-   *  回到用户回合立即清门控状态并恢复全量上行——保证用户说话不被切。 */
-  setAiSpeaking(on: boolean): void {
-    this.aiSpeaking = on;
-    if (!on) { this.gateOpen = false; this.hangover = 0; this.preroll = []; }
-  }
 
   start(): void {
     if (this.ctx) return;
@@ -78,40 +56,14 @@ export class MicCapture {
     const FRAME = 4096;
     this.node = this.ctx.createScriptProcessor(FRAME, 1, 1);
     const inRate = this.ctx.sampleRate;
-    const frameMs = (FRAME / inRate) * 1000;             // 每帧时长（约 85ms @48k）
-    this.hangoverFrames = Math.ceil(VAD_HANGOVER_MS / frameMs);
-    this.prerollMax = Math.max(1, Math.round(VAD_PREROLL_MS / frameMs));
     this.node.onaudioprocess = (e: AudioProcessingEvent) => {
       const input = e.inputBuffer.getChannelData(0);
       const pcm = downsampleToInt16(input, inRate, MIC_RATE);
-      if (!pcm.byteLength) return;
-      // 用户回合（AI 没在说）→ 永远全量上行，绝不切；只有 AI 说话期才门控。
-      if (!this.vad || !this.aiSpeaking) { this.onFrame(pcm); return; }
-      this.gate(rms(input), pcm);
+      if (pcm.byteLength) this.onFrame(pcm);
     };
     this.src.connect(this.node);
     this.node.connect(this.ctx.destination); // 触发 onaudioprocess；不写 output → 静默，无回授
     if (this.ctx.state === "suspended") void this.ctx.resume();
-  }
-
-  /** AI 说话期的门控状态机：默认压住（回声/静音不上行）；越过开门阈值=用户插话，放行并补预卷；
-   *  插话转静音后再送够尾音帧让服务端断句，然后闭门继续压。 */
-  private gate(level: number, pcm: ArrayBuffer): void {
-    if (this.gateOpen) {
-      this.onFrame(pcm);
-      if (level > VAD_CLOSE) this.hangover = this.hangoverFrames; // 还在说 → 续命
-      else if (--this.hangover <= 0) this.gateOpen = false;       // 尾音耗尽 → 闭门
-      return;
-    }
-    // 闭门期：缓存预卷，只有越过开门阈值才开门并回补句首
-    this.preroll.push(pcm);
-    if (this.preroll.length > this.prerollMax) this.preroll.shift();
-    if (level > VAD_OPEN) {
-      this.gateOpen = true;
-      this.hangover = this.hangoverFrames;
-      for (const f of this.preroll) this.onFrame(f);
-      this.preroll = [];
-    }
   }
 
   stop(): void {
@@ -120,7 +72,6 @@ export class MicCapture {
     try { this.src?.disconnect(); } catch { /* noop */ }
     try { void this.ctx?.close(); } catch { /* noop */ }
     this.node = this.src = this.ctx = null;
-    this.gateOpen = false; this.hangover = 0; this.preroll = [];
   }
 }
 
@@ -162,6 +113,14 @@ export class AudioPlayer {
     } catch (e) {
       console.warn("[micall] 播放音频块失败", e);
     }
+  }
+
+  /** AI 音频此刻是否正在外放（含一小段衰减拖尾）。半双工据此判断要不要暂停麦克风上行：
+   *  playhead = 已排队音频播放到的终点；currentTime 还没追上 playhead+tail 就当作「还在响」。
+   *  flush 后 playhead 归 0 → false；自然播完后 currentTime 越过终点 → false。 */
+  isPlaying(tailMs = 250): boolean {
+    if (!this.ctx || this.playhead <= 0) return false;
+    return this.ctx.currentTime < this.playhead + tailMs / 1000;
   }
 
   /** 打断/挂断：停掉所有排队中的音频。 */

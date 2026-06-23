@@ -264,15 +264,19 @@ export class AdminLogic {
       this.users = users.map((u: any, i: number) => ({
         id: u.user_id, name: nameOf(u.email), email: u.email || "",
         initial: (nameOf(u.email)[0] || "U").toUpperCase(), grad: GRADS[i % GRADS.length],
-        plan: "免费用户", minsRaw: `${Math.round((u.total_seconds || 0) / 60)} 分钟`,
+        // 剩余时长 = 账户余额 remaining_seconds（不是已通话时长 total_seconds——那是「累计已用」，两码事）。
+        plan: "免费用户", minsRaw: `${Math.round((u.remaining_seconds || 0) / 60)} 分钟`,
+        usedRaw: `${Math.round((u.total_seconds || 0) / 60)} 分钟`,
         spent: "$0.00", joined: (u.created_at || "").slice(0, 10), recharges: [],
       }));
     }
     if (calls) {
+      const REASON: Record<string, string> = { ended: "正常结束", out_of_minutes: "时长用尽", error: "异常中断" };
       this.calls = calls.map((c: any, i: number) => ({
         id: "rk" + i, char: charName(c.character_id), user: c.user_email || "—",
-        scene: c.scenario || "随便聊聊", dur: fmtDur(c.duration_seconds), rating: 0,
-        time: fmtTime(c.started_at), feedback: "", lines: [],
+        scene: c.scenario || "随便聊聊", dur: fmtDur(c.duration_seconds),
+        ended: REASON[c.ended_reason] || (c.ended_reason || "正常结束"),
+        time: fmtTime(c.started_at),
       }));
     }
     if (orders) {
@@ -458,7 +462,6 @@ export class AdminLogic {
   renderVals(): Vals {
     const s = this.state;
     const planStyle = (p: string) => p === "无限会员" ? { c: "#E0954F", b: "rgba(224,149,79,.12)" } : (p === "畅聊会员" ? { c: "#6E5CFF", b: "rgba(110,92,255,.1)" } : (p === "轻享会员" ? { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } : (p === "已封禁" ? { c: "#E0594F", b: "rgba(224,89,79,.1)" } : { c: "#878B95", b: "#F0F0F3" })));
-    const stars = (n: number) => "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
     const hf = (name: string) => this.hueOf[name] || "none";
 
     const nav = [
@@ -671,7 +674,7 @@ export class AdminLogic {
         reject: () => { this.setState((p) => ({ sceneStatus: { ...p.sceneStatus, [x.id]: "已拒绝" } })); this.toastMsg("已拒绝「" + x.name + "」"); } };
     });
 
-    const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => ({ char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, stars: stars(c.rating), time: c.time, open: () => this.open("call", c.id) }));
+    const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => ({ char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time, open: () => this.open("call", c.id) }));
 
     const tStyle = (st: string) => st === "已回复" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" };
     const ticketsView = this.tickets.filter((t) => !q || (t.type + t.user + t.msg).toLowerCase().includes(q)).map((t) => {
@@ -702,10 +705,8 @@ export class AdminLogic {
       dCharExpr = this.expressions.map((e) => { const ok = d.id + "_" + e.key; const off = !!s.exprOff[ok]; return { name: e.name, emoji: e.emoji, key: e.key, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggle: () => { this.setState((p) => ({ exprOff: { ...p.exprOff, [ok]: !p.exprOff[ok] } })); }, preview: () => this.toastMsg("预览「" + e.name + "」表情…") }; });
     } else if (d && d.type === "call") {
       const c = this.calls.find((x) => x.id === d.id);
-      dCall = { char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, stars: stars(c.rating), time: c.time, feedback: c.feedback,
-        lines: c.lines.map((m: any) => m.who === "ai"
-          ? { text: m.t, justify: "flex-start", radius: "4px 14px 14px 14px", bg: "#F2F2F5", color: "#2A2A2E" }
-          : { text: m.t, justify: "flex-end", radius: "14px 4px 14px 14px", bg: "#6E5CFF", color: "#fff" }) };
+      // 只展示后端真实留存的字段（角色/用户/场景/时长/结束方式/时间）。通话文字内容出于隐私不落库 → 不伪造回放。
+      dCall = { char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time };
       detailTitle = "通话详情";
     } else if (d && d.type === "ticket") {
       const t = this.tickets.find((x) => x.id === d.id);

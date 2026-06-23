@@ -447,6 +447,7 @@ class PgRepository(MemoryRepository):
                     "SELECT u.user_id, u.email, u.remaining_seconds, u.created_at, "
                     "  count(c.id) AS total_calls, COALESCE(sum(c.duration_seconds),0) AS total_seconds "
                     "FROM users u LEFT JOIN calls c ON c.user_id = u.user_id "
+                    "WHERE u.email IS NOT NULL AND u.email <> '' "   # 只看真实注册用户：游客/无邮箱测试行不进后台
                     "GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT %s", (int(limit),),
                 ).fetchall()
             return [{

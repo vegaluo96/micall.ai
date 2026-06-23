@@ -127,16 +127,14 @@ class CallSession:
         self._ai_said = ""                  # 本轮 AI 已说出的文本（用于回声判定）
         self._audio_until = 0.0             # AI 下行音频估计播放到的时刻（monotonic 秒）
         self._muted = False
-        # 回声/打断门槛（config.turn，每通重载即生效，不必改代码/重启）：
-        #   echo_tail_ms     —— AI 音频播完后仍按「可能回声」对待的拖尾窗（要盖住 ASR 自身识别延迟，
-        #                       否则 AI 自己的话拖几秒被当成用户新说的一轮 → 凭空冒话/重复「你好」）。
-        #   echo_overlap     —— 音频播放中，识别文本与 AI 已说内容的字符重叠达此比例即判回声。
-        #   barge_in_min_chars —— AI 说话期间，要打断/触发新一轮所需的最短实质字数（短碎片多为漏检回声，
-        #                       抬高门槛避免「自己断」；AI 不在说话时仍按 2 字灵敏响应）。
+        # 回声防护是个分层方案：**前端半双工**才是主力——AI 音频外放时前端根本不上行麦克风，
+        # 公放回声从源头进不来（Web 端无 WebRTC AEC 时的成熟做法，见 frontend/logic/audio.ts）。
+        # 这里只留一层轻量服务端兜底（config.turn，每通重载即生效）：
+        #   echo_tail_ms  —— AI 音频播完后仍按「可能回声」对待的拖尾窗（盖住前端半双工放开的瞬间 + ASR 延迟）。
+        #   echo_overlap  —— 音频播放中，识别文本与 AI 已说内容的字符重叠达此比例即判回声。
         turn = config.turn or {}
-        self._echo_tail = float(turn.get("echo_tail_ms", 2500)) / 1000.0
+        self._echo_tail = float(turn.get("echo_tail_ms", 800)) / 1000.0
         self._echo_overlap = float(turn.get("echo_overlap", 0.7))
-        self._barge_min_chars = max(2, int(turn.get("barge_in_min_chars", 3)))
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
 
@@ -205,20 +203,14 @@ class CallSession:
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
                 if self._looks_like_echo(t):
-                    continue  # AI 自己的声音回灌麦克风，忽略（不打断、不触发新一轮）
+                    continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
                     continue  # 纯语气词「嗯/啊/哦…」（多为回声/呼吸误识）：不打断、不触发轮次、不上字幕
-                # AI 正在说话、或音频刚发完还在前端缓冲播放（拖尾窗内）：此刻 ASR 多半是回声/环境音，
-                # 要么被 _looks_like_echo 拦掉，要么只言片语 → 抬高打断/触发门槛，避免「自己断 / 凭空冒话」。
-                # AI 没在说话时维持 2 字灵敏，正常对话不受影响。
-                ai_speaking = (self.sm.phase in (Phase.THINKING, Phase.SPEAKING)
-                               or time.monotonic() < self._audio_until + self._echo_tail)
-                need = self._barge_min_chars if ai_speaking else 2
                 if not is_final:
                     # 用户开口（实质中间结果）→ 打断：停后端生成 + 让前端停播。
                     # 后端可能已把整句音频发完、状态回 listening 但前端还在播缓冲，故即便不在 speaking
-                    # 也发 interrupted 去 flush，否则"打断无效"。门槛不够的短碎片不打断、不上字幕（防回声露馅）。
-                    if len(_norm(t)) >= need:
+                    # 也发 interrupted 去 flush，否则"打断无效"。
+                    if len(_norm(t)) >= 2:
                         if not flushed:
                             flushed = True
                             if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
@@ -230,9 +222,9 @@ class CallSession:
                 flushed = False  # 这句说完，下一句重新允许打断
                 now = time.monotonic()
                 recent = {k: ts for k, ts in recent.items() if now - ts < 10.0}  # 只看近 10 秒
-                # 最终结果门控：太短/AI 说话期间的只言片语（噪声·漏检回声）、或 10 秒内重复出现的同句
-                # （回声·幻听）→ 丢弃，否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：要的是真说完）。
-                if len(_norm(t)) < need or t in recent:
+                # 最终结果门控：太短（噪声/静音误识别）或 10 秒内重复出现的同句（回声/幻听）→ 丢弃，
+                # 否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
+                if len(_norm(t)) < 2 or t in recent:
                     continue
                 recent[t] = now
                 log.info("⟵ 用户说完：%r", t)

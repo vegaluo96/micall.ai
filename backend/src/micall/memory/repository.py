@@ -438,6 +438,8 @@ class InMemoryRepository(MemoryRepository):
     def list_all_users(self, *, limit=200) -> list[dict]:
         out = []
         for u in self._users.values():
+            if not (u.get("email") or "").strip():
+                continue  # 只看真实注册用户：游客/无邮箱测试行不进后台
             mine = [c for c in self._calls if c["user_id"] == u["user_id"]]
             out.append({
                 "user_id": u["user_id"], "email": u.get("email") or "",

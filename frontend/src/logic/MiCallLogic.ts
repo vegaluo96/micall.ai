@@ -381,7 +381,9 @@ export class MiCallLogic {
     if (this.micCapture || !this.micStream) return;
     const sig = this.ensureSignaling();
     this.micCapture = new MicCapture(this.micStream, (pcm) => {
-      if (!this.state.mute) sig.sendAudio(pcm); // 静音时不上行（本地也已禁用音轨）
+      // 半双工：AI 音频正在外放时不上行——从源头杜绝公放回声被 ASR 当成用户说话（自己断/凭空冒话/重复「你好」）。
+      // AI 一停（含 ~250ms 衰减拖尾）立刻恢复全量上行；回合短，体验仍顺。静音时也不上行（本地已禁音轨）。
+      if (!this.state.mute && !this.player.isPlaying()) sig.sendAudio(pcm);
     });
     try { this.micCapture.start(); } catch { /* 不支持音频采集时静默降级 */ }
   }
@@ -487,14 +489,13 @@ export class MiCallLogic {
         this.startMicUplink(); // 接通即开始上行麦克风音频
         break;
       case "state":
-        // 仅 AI 说话期启用上行门控（省 ASR、抑回声）；其余回合全量上行不切用户说话。
-        this.micCapture?.setAiSpeaking(ev.phase === "speaking");
+        // 麦克风上行门控不再看 phase，而是看「AI 音频是否在外放」（半双工，见 startMicUplink）——
+        // 更确定：服务端状态回 listening 了，但前端可能还在播缓冲音频，那段也要继续静麦防回声。
         this.setState({ phase: ev.phase });
         break;
       case "interrupted":
         // speaking → listening hard jump (skip thinking), keep transcript.
-        this.micCapture?.setAiSpeaking(false); // 回到用户回合：恢复全量上行
-        this.player.flush(); // barge-in：用户开口 → 立刻停掉 AI 正在播的音频
+        this.player.flush(); // barge-in：用户开口 → 立刻停掉 AI 正在播的音频（flush 后麦克风自动恢复上行）
         this.setState({ phase: "listening", subtitle: "" });
         break;
       case "subtitle":
@@ -617,7 +618,9 @@ export class MiCallLogic {
       favOp: this.state.favorites.includes(i) ? 1 : 0,
       _i: i,
       pick: () => this.selectChar(i),
-    })).filter((o) => charTab === "fav" ? this.state.favorites.includes(o._i) : (charTab === "hot" ? ((o._i * 31 + 7) % 100) < 52 : (o._i < 5 || o._i % 4 === 1)))
+    // 推荐/热门都展示全部真角色（只有 5 个出厂角色，按模运算藏掉任何一个都是 bug：后台 5 个、用户端却 4 个）；
+    // 仅「收藏」按收藏夹过滤。
+    })).filter((o) => charTab === "fav" ? this.state.favorites.includes(o._i) : true)
       .filter((o) => { const q = (this.state.searchQ || "").trim(); return !q || o.name.includes(q) || o.desc.includes(q); });
     const charListEmpty = charList.length === 0;
     const charDots = this.chars.map((_, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 }));
