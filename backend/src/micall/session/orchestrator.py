@@ -151,10 +151,11 @@ class CallSession:
         # 把它加进 _audio_until，让「播放中」回声窗盖住外放回授时段 → 治「听到自己 / 屏幕冒出没说的话」。
         self._play_pad = float(turn.get("echo_play_pad_ms", 400)) / 1000.0
         # 灵敏度门槛（治「一点声音就反应/打断」）。文本越长越像真说话，短碎片多是噪声/呼吸/回授。可在 turn 配置调：
-        #   bargein_min_chars —— AI 外放时，partial 达到这么多字才算真打断（挡回授短碎片，越大越不易被打断）。
+        #   bargein_min_chars —— AI 外放时，partial 达到这么多字才算真打断。3 让「别说了/等一下」这类短插话也能
+        #     打断（治「打不断」），又仍挡掉 1–2 字的回授碎片；外放回声严重可调高，戴耳机可调到 2 更跟手。
         #   partial_min_chars —— AI 不在播时，partial 回显/预停播的下限（越大越不会"一点声音就在屏上冒字/抢拍"）。
         #   turn_min_chars    —— final 触发新一轮的下限（保留「好的/是啊」等真短回复，故默认 2，不宜再高）。
-        self._bargein_min_chars = int(turn.get("bargein_min_chars", 4))
+        self._bargein_min_chars = int(turn.get("bargein_min_chars", 3))
         self._partial_min_chars = int(turn.get("partial_min_chars", 2))
         self._turn_min_chars = int(turn.get("turn_min_chars", 2))
         # 字幕跟读：回复按句一句一句发声，句间按上一句播放时长节流，让高亮字幕随语音推进（而非一齐闪到末句）。

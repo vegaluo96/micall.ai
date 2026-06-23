@@ -181,12 +181,13 @@ export class MiCallLogic {
     try {
       seen = localStorage.getItem("micall_seen_guide") === "1";
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
-      // 通话模式：默认半双工（稳、无回声无杂音）。可用 URL 一键切换并记住（手机无需控制台）：
-      //   ?duplex=half（默认）  ?duplex=full（实验：麦克风全程开可插话，但无服务端 WebRTC 时部分机型会回声）
+      // 通话模式：默认全双工（麦克风全程开 → 随时能打断，体验最好）。靠浏览器 AEC + 后端回声护栏压回声；
+      // 外放机型若仍回声，?duplex=half 一键退回半双工（稳、无回声，但 AI 说话时不能打断）。戴耳机最干净。
+      //   ?duplex=full（默认）  ?duplex=half（兜底：AI 外放时静麦，杜绝回声但不可打断）
       const qs = new URLSearchParams(location.search);
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
-      this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工
+      this.halfDuplex = localStorage.getItem("micall_duplex") === "half";  // 缺省即全双工（能打断）
       // WebRTC 全双工（真打断 + 外放硬件 AEC）：配了自建 coturn（VITE_ICE_SERVERS 非空）就默认开——
       // 此时 ICE 走境内可达的 STUN/TURN，建连快且稳。没配 coturn 时默认仍走「即时接通」的 WS（稳，
       // 境内弱网不卡），仅 ?rtc=1 试。?rtc=0 可随时强制退回 WS；连不通也会自动回退，不会坏掉通话。
@@ -563,6 +564,15 @@ export class MiCallLogic {
     this.micCapture?.stop();
     this.micCapture = null;
   }
+  /** 首通一次性提示：全双工下戴耳机打断最灵、无回声（外放靠 AEC，难免有残余）。只提示一次。 */
+  private maybeEarphoneTip() {
+    if (this.halfDuplex) return;   // 半双工本就不支持打断，不提示
+    try {
+      if (localStorage.getItem("micall_earphone_tip") === "1") return;
+      localStorage.setItem("micall_earphone_tip", "1");
+    } catch { return; }
+    this.toast("🎧 戴耳机体验最佳：随时打断、无回声", 4200);
+  }
   private send(msg: ClientMessage) { this.ensureSignaling().send(msg); }
 
   private usingMockSignaling(): boolean {
@@ -741,6 +751,7 @@ export class MiCallLogic {
         if (this.rtcEnabled) void this.startRtc();   // 实验：WebRTC 媒体面（真全双工）
         else this.startMicUplink();                  // 默认：WS 上行麦克风音频
         this.armAutoHangup();                        // 接通即开始静默计时
+        this.maybeEarphoneTip();                     // 首通一次性提示：戴耳机打断更灵、无回声
         break;
       case "rtc_answer":
         if (this.pc && (ev as { sdp?: string }).sdp) {
