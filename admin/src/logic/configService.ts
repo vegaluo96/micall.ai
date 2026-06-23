@@ -153,6 +153,7 @@ export const loadUsers = () => getList("/admin/users", "users");
 export const loadCalls = () => getList("/admin/calls", "calls");
 export const loadOrders = () => getList("/admin/orders", "orders");
 export const loadTickets = () => getList("/admin/tickets", "tickets");
+export const loadInvites = () => getList("/admin/invites", "invites");
 
 /** 回复工单（后台）。返回是否成功。 */
 export async function replyTicket(id: any, reply: string): Promise<boolean> {

@@ -293,6 +293,10 @@ class _Handler(BaseHTTPRequestHandler):
             if _REPO is None:
                 return self._json(200, {"ok": False, "tickets": []})
             return self._json(200, {"ok": True, "tickets": _REPO.list_all_tickets(limit=200)})
+        if self._route() == "/admin/invites":
+            if _REPO is None:
+                return self._json(200, {"ok": False, "invites": []})
+            return self._json(200, {"ok": True, "invites": _REPO.list_all_invites(limit=200)})
         self._json(404, {"error": "not found"})
 
     def do_PUT(self) -> None:

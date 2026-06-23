@@ -171,6 +171,11 @@ export class MiCallLogic {
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
+    try {  // 邀请链接 ?invite=CODE：记下来，注册时带上 → 双方各得 60 分钟
+      const code = new URLSearchParams(location.search).get("invite");
+      if (code) { this.pendingInvite = code.trim(); localStorage.setItem("micall_invite", this.pendingInvite); }
+      else { this.pendingInvite = localStorage.getItem("micall_invite") || ""; }
+    } catch { /* noop */ }
     this.restoreSession();   // 用存的 token 恢复登录态 + 真实余额（接了后端才生效）
   }
 
@@ -195,6 +200,20 @@ export class MiCallLogic {
   private realHistory: any[] | null = null;   // null = 用演示 this.history
   private realBills: any[] | null = null;     // null = 用演示 this.bills
   private realTickets: any[] | null = null;   // null = 用演示 state.tickets
+  private realInvite: { code: string; invited: number; reward_seconds: number } | null = null;
+  private pendingInvite = "";                 // 注册时携带的邀请码（来自 ?invite= 链接）
+
+  private async loadInvite() {
+    if (!authApi.authConfigured() || !this.state.loggedIn) { this.realInvite = null; return; }
+    const inv = await authApi.getInvite();
+    if (inv) { this.realInvite = inv; this.notify(); }
+  }
+  private copyInviteLink() {
+    const code = this.realInvite ? this.realInvite.code : "MICALL-7K2F";
+    const link = `${location.origin}/?invite=${encodeURIComponent(code)}`;
+    try { navigator.clipboard?.writeText(link); } catch { /* noop */ }
+    this.toast("邀请链接已复制，发给好友即可");
+  }
 
   private async loadTickets() {
     if (!authApi.authConfigured() || !this.state.loggedIn) { this.realTickets = null; return; }
@@ -984,13 +1003,14 @@ export class MiCallLogic {
         }
         // 真实后端：打 /api/auth/*，存 token，余额以服务端为准。
         this.setState({ toast: reg ? "注册中…" : "登录中…" });
-        const res = reg ? await authApi.register(email, pw) : await authApi.login(email, pw);
+        const res = reg ? await authApi.register(email, pw, this.pendingInvite) : await authApi.login(email, pw);
         if (!res.ok || !res.token) {
           this.setState({ toast: res.error || "操作失败，请重试" });
           this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
           return;
         }
         authApi.setToken(res.token);
+        if (reg) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
         this.resetSignaling();   // 让下一通电话带上新 token 重连
         this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
         this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
@@ -998,7 +1018,7 @@ export class MiCallLogic {
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
       pendingVoiceDel: this.state.pendingVoiceDel,
       pendingVoiceName: this.state.pendingVoiceDel ? this.state.pendingVoiceDel.key : "",
       cancelVoiceDel: () => this.setState({ pendingVoiceDel: null }),
@@ -1057,11 +1077,14 @@ export class MiCallLogic {
         iconColor: b.type === "sub" ? "#6E5CFF" : (b.type === "invite" ? "#FF4F7B" : "#2E7BFF"),
         iconPath: b.type === "sub" ? "M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M18 12a2 2 0 0 0 0 4h4v-4z" : (b.type === "invite" ? "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6" : "M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24 11.36 11.36 0 0 0 3.57.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2z"),
       })),
-      inviteFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }),
+      inviteFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }); this.loadInvite(); },
       inviteOpen: this.state.inviteOpen,
       inviteClose: () => this.setState({ inviteOpen: false }),
-      inviteCount: this.invites.filter((i) => i.status === "已注册").length,
-      inviteList: this.invites.map((iv) => ({
+      inviteCode: this.realInvite ? this.realInvite.code : "MICALL-7K2F",
+      copyInvite: () => this.copyInviteLink(),
+      shareInvite: () => this.copyInviteLink(),
+      inviteCount: this.realInvite ? this.realInvite.invited : this.invites.filter((i) => i.status === "已注册").length,
+      inviteList: (this.realInvite ? [] : this.invites).map((iv) => ({
         name: iv.name, initial: iv.name[0], date: iv.date, status: iv.status, reward: iv.reward,
         done: iv.status === "已注册",
         rewardColor: iv.status === "已注册" ? "#33A06B" : "var(--faint)",

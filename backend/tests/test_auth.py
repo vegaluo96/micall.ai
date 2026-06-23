@@ -149,6 +149,32 @@ class AuthFlowTest(unittest.TestCase):
         self.assertIn("降噪", mine2[0]["reply"])
         self.assertFalse(self.repo.reply_ticket(999999, "x"))          # 不存在
 
+    def test_invites(self):
+        inviter = auth.register(self.repo, "boss@b.com", "secret1")[1]["user"]["user_id"]
+        code = self.repo.get_invite_code(inviter)
+        self.assertTrue(code.startswith("MI"))
+        self.assertEqual(self.repo.get_invite_code(inviter), code)     # 稳定，不重复生成
+
+        # 被邀请人带码注册 → 双方各 +60 分钟
+        code2, body = auth.register(self.repo, "new@b.com", "secret1", code)
+        self.assertEqual(code2, 200)
+        invitee = body["user"]["user_id"]
+        self.assertEqual(self.repo.remaining_seconds(inviter), 3600 + 3600)   # 注册 + 邀请奖励
+        self.assertEqual(self.repo.remaining_seconds(invitee), 3600 + 3600)
+
+        st = self.repo.invite_stats(inviter)
+        self.assertEqual(st["invited"], 1)
+        self.assertEqual(st["reward_seconds"], 3600)
+
+        # 同一被邀请人不能再被邀请；不能用自己的码
+        self.assertFalse(self.repo.apply_invite(invitee, code, 3600)[0])
+        self.assertFalse(self.repo.apply_invite(inviter, code, 3600)[0])
+        self.assertFalse(self.repo.apply_invite("u_x", "MIBOGUS", 3600)[0])
+
+        recs = self.repo.list_all_invites()
+        self.assertEqual(recs[0]["inviter_email"], "boss@b.com")
+        self.assertEqual(recs[0]["invitee_email"], "new@b.com")
+
 
 if __name__ == "__main__":
     unittest.main()

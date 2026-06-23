@@ -607,10 +607,10 @@
             <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;margin-top:4px;">邀请好友</div>
             <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">每邀请一位好友,双方各得 <span style="color:#6E5CFF;font-weight:600;">60 分钟</span> 通话时长</div>
             <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;padding:13px 16px;border-radius:15px;background:var(--ctrl);box-sizing:border-box;">
-              <span style="flex:1;font-size:16px;font-weight:600;color:var(--fg);letter-spacing:2px;">MICALL-7K2F</span>
-              <div onClick="{{ inviteClose }}" style="font-size:13px;font-weight:600;color:#6E5CFF;cursor:pointer;" style-active="transform:scale(.95)">复制</div>
+              <span style="flex:1;font-size:16px;font-weight:600;color:var(--fg);letter-spacing:2px;">{{ inviteCode }}</span>
+              <div onClick="{{ copyInvite }}" style="font-size:13px;font-weight:600;color:#6E5CFF;cursor:pointer;" style-active="transform:scale(.95)">复制</div>
             </div>
-            <div onClick="{{ inviteClose }}" style="width:100%;box-sizing:border-box;text-align:center;margin-top:6px;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">分享给好友</div>
+            <div onClick="{{ shareInvite }}" style="width:100%;box-sizing:border-box;text-align:center;margin-top:6px;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">分享给好友</div>
             <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
               <span style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;">邀请记录</span>
               <span style="font-size:12.5px;color:var(--dim);">已成功 {{ inviteCount }} 位</span>

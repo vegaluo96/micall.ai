@@ -11,7 +11,7 @@
 
 import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
-         loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, replyTicket, usingBackend } from "./configService";
+         loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -241,8 +241,8 @@ export class AdminLogic {
 
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
   private async loadRealData() {
-    const [dash, users, calls, orders, tickets] = await Promise.all([
-      loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(),
+    const [dash, users, calls, orders, tickets, invites] = await Promise.all([
+      loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(), loadInvites(),
     ]);
     if (dash) { this.realStats = dash.stats; this.realTopChars = dash.top_characters || []; }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
@@ -281,7 +281,23 @@ export class AdminLogic {
         date: fmtTime(t.created_at), status: t.status === "replied" ? "已回复" : "待处理", reply: t.reply || "",
       }));
     }
-    if (dash || users || calls || orders || tickets) this.setState({});
+    if (invites) {
+      this.inviteRecords = invites.map((r: any) => ({
+        inviter: r.inviter_email || "—", invitee: r.invitee_email || "—", status: "已注册",
+        reward: "+" + Math.round((r.reward_seconds || 0) / 60) + " 分钟", date: fmtTime(r.created_at),
+      }));
+      const agg: Record<string, { name: string; invited: number; mins: number }> = {};
+      for (const r of invites as any[]) {
+        const k = r.inviter_email || "—";
+        (agg[k] = agg[k] || { name: k, invited: 0, mins: 0 });
+        agg[k].invited++; agg[k].mins += Math.round((r.reward_seconds || 0) / 60);
+      }
+      this.inviters = Object.values(agg).sort((a, b) => b.invited - a.invited).map((v, i) => ({
+        name: v.name, initial: (v.name[0] || "U").toUpperCase(), grad: GRADS[i % GRADS.length],
+        invited: v.invited, success: v.invited, pending: 0, mins: String(v.mins),
+      }));
+    }
+    if (dash || users || calls || orders || tickets || invites) this.setState({});
   }
 
   _splitList(s: string): string[] {

@@ -43,8 +43,14 @@ async function postJSON(path: string, body: unknown): Promise<AuthResult> {
   }
 }
 
-export function register(email: string, password: string): Promise<AuthResult> {
-  return postJSON("/api/auth/register", { email, password });
+export function register(email: string, password: string, inviteCode = ""): Promise<AuthResult> {
+  return postJSON("/api/auth/register", { email, password, invite_code: inviteCode });
+}
+
+/** 我的邀请概况：{code, invited, reward_seconds}。未登录/失败 → null。 */
+export async function getInvite(): Promise<{ code: string; invited: number; reward_seconds: number } | null> {
+  const j = await getJSON("/api/invite");
+  return j && j.ok ? j.invite : null;
 }
 export function login(email: string, password: string): Promise<AuthResult> {
   return postJSON("/api/auth/login", { email, password });

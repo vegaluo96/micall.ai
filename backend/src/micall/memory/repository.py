@@ -188,6 +188,23 @@ class MemoryRepository(ABC):
         """后台回复工单（status→replied）。"""
         return False
 
+    # ── 邀请（拉新奖励）──
+    def get_invite_code(self, user_id: str) -> str:
+        """取（无则建）用户的唯一邀请码。"""
+        return ""
+
+    def apply_invite(self, invitee_id: str, code: str, reward_seconds: int) -> tuple[bool, str]:
+        """被邀请人注册带码 → 双方各得 reward_seconds（记 invite_reward）。返回 (是否成功, 提示)。"""
+        return False, ""
+
+    def invite_stats(self, user_id: str) -> dict:
+        """用户邀请概况：{code, invited, reward_seconds}。"""
+        return {"code": "", "invited": 0, "reward_seconds": 0}
+
+    def list_all_invites(self, *, limit: int = 200) -> list[dict]:
+        """全站邀请记录（后台）：{inviter_email,invitee_email,reward_seconds,created_at}。"""
+        return []
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
@@ -208,6 +225,9 @@ class InMemoryRepository(MemoryRepository):
         self._redeem: dict[str, dict] = {}                 # code → 兑换码
         self._tickets: list[dict] = []                     # 工单（含 user_id）
         self._tid = 0                                      # 工单自增 id
+        self._invite_by_user: dict[str, str] = {}          # user_id → 邀请码
+        self._invite_owner: dict[str, str] = {}            # 邀请码 → user_id
+        self._invite_uses: list[dict] = []                 # 邀请使用记录
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
@@ -446,3 +466,38 @@ class InMemoryRepository(MemoryRepository):
                 t["reply"], t["status"] = reply, "replied"
                 return True
         return False
+
+    # ── 邀请（内存）──
+    def get_invite_code(self, user_id) -> str:
+        code = self._invite_by_user.get(user_id)
+        if not code:
+            import secrets
+            code = "MI" + secrets.token_hex(3).upper()
+            self._invite_by_user[user_id] = code
+            self._invite_owner[code] = user_id
+        return code
+
+    def apply_invite(self, invitee_id, code, reward_seconds) -> tuple[bool, str]:
+        owner = self._invite_owner.get((code or "").strip().upper())
+        if not owner:
+            return False, "邀请码无效"
+        if owner == invitee_id:
+            return False, "不能用自己的邀请码"
+        if any(u["invitee_id"] == invitee_id for u in self._invite_uses):
+            return False, "已使用过邀请码"
+        self._invite_uses.append({"code": code, "inviter_id": owner, "invitee_id": invitee_id,
+                                  "reward_seconds": reward_seconds, "created_at": _now_iso()})
+        self.add_seconds(owner, reward_seconds, "invite_reward")
+        self.add_seconds(invitee_id, reward_seconds, "invite_reward")
+        return True, f"邀请成功，双方各得 {reward_seconds // 60} 分钟"
+
+    def invite_stats(self, user_id) -> dict:
+        uses = [u for u in self._invite_uses if u["inviter_id"] == user_id]
+        return {"code": self.get_invite_code(user_id), "invited": len(uses),
+                "reward_seconds": sum(u["reward_seconds"] for u in uses)}
+
+    def list_all_invites(self, *, limit=200) -> list[dict]:
+        email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
+        rows = sorted(self._invite_uses, key=lambda u: u["created_at"], reverse=True)[:limit]
+        return [{"inviter_email": email.get(u["inviter_id"], ""), "invitee_email": email.get(u["invitee_id"], ""),
+                 "reward_seconds": u["reward_seconds"], "created_at": u["created_at"]} for u in rows]

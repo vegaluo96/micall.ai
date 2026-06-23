@@ -85,13 +85,18 @@ class _Handler(BaseHTTPRequestHandler):
             if not uid:
                 return self._json(401, {"ok": False, "error": "未登录"})
             return self._json(200, {"ok": True, "tickets": _REPO.list_user_tickets(uid, limit=30)})
+        if route == "/api/invite":
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            return self._json(200, {"ok": True, "invite": _REPO.invite_stats(uid)})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
         route = self._route()
         if route == "/api/auth/register":
             b = self._body()
-            return self._json(*_auth.register(_REPO, b.get("email"), b.get("password")))
+            return self._json(*_auth.register(_REPO, b.get("email"), b.get("password"), b.get("invite_code") or ""))
         if route == "/api/auth/login":
             b = self._body()
             return self._json(*_auth.login(_REPO, b.get("email"), b.get("password")))

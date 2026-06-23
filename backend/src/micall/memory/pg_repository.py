@@ -577,6 +577,74 @@ class PgRepository(MemoryRepository):
             log.warning("reply_ticket 失败：%r", e)
             return False
 
+    # ── 邀请 ──
+    def get_invite_code(self, user_id) -> str:
+        import secrets
+        try:
+            with self.pool.connection() as c:
+                r = c.execute("SELECT code FROM invites WHERE inviter_id=%s", (user_id,)).fetchone()
+                if r:
+                    return r[0]
+                code = "MI" + secrets.token_hex(3).upper()
+                c.execute("INSERT INTO invites (code, inviter_id) VALUES (%s,%s)", (code, user_id))
+                return code
+        except Exception as e:
+            log.warning("get_invite_code 失败：%r", e)
+            return ""
+
+    def apply_invite(self, invitee_id, code, reward_seconds) -> tuple[bool, str]:
+        code = (code or "").strip().upper()
+        try:
+            with self.pool.connection() as c, c.transaction():
+                owner = c.execute("SELECT inviter_id FROM invites WHERE code=%s", (code,)).fetchone()
+                if not owner:
+                    return False, "邀请码无效"
+                owner = owner[0]
+                if owner == invitee_id:
+                    return False, "不能用自己的邀请码"
+                if c.execute("SELECT 1 FROM invite_uses WHERE invitee_id=%s", (invitee_id,)).fetchone():
+                    return False, "已使用过邀请码"
+                c.execute(
+                    "INSERT INTO invite_uses (code, inviter_id, invitee_id, reward_seconds) VALUES (%s,%s,%s,%s)",
+                    (code, owner, invitee_id, reward_seconds),
+                )
+                for uid in (owner, invitee_id):
+                    c.execute("UPDATE users SET remaining_seconds = remaining_seconds + %s WHERE user_id=%s",
+                              (reward_seconds, uid))
+                    c.execute("INSERT INTO billing_ledger (user_id, delta_seconds, reason) "
+                              "VALUES (%s,%s,'invite_reward')", (uid, reward_seconds))
+            return True, f"邀请成功，双方各得 {reward_seconds // 60} 分钟"
+        except Exception as e:
+            log.warning("apply_invite 失败：%r", e)
+            return False, "邀请处理失败"
+
+    def invite_stats(self, user_id) -> dict:
+        code = self.get_invite_code(user_id)
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "SELECT count(*), COALESCE(sum(reward_seconds),0) FROM invite_uses WHERE inviter_id=%s",
+                    (user_id,),
+                ).fetchone()
+            return {"code": code, "invited": int(r[0]) if r else 0, "reward_seconds": int(r[1]) if r else 0}
+        except Exception:
+            return {"code": code, "invited": 0, "reward_seconds": 0}
+
+    def list_all_invites(self, *, limit=200) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT ui.email, ue.email, iu.reward_seconds, iu.created_at FROM invite_uses iu "
+                    "LEFT JOIN users ui ON ui.user_id = iu.inviter_id "
+                    "LEFT JOIN users ue ON ue.user_id = iu.invitee_id "
+                    "ORDER BY iu.created_at DESC LIMIT %s", (int(limit),),
+                ).fetchall()
+            return [{"inviter_email": r[0] or "", "invitee_email": r[1] or "",
+                     "reward_seconds": r[2], "created_at": r[3].isoformat() if r[3] else ""} for r in rows]
+        except Exception as e:
+            log.warning("list_all_invites 失败：%r", e)
+            return []
+
     def close(self) -> None:
         try:
             self.pool.close()

@@ -12,6 +12,7 @@ import re
 import secrets
 
 REGISTER_GIFT_SECONDS = 3600          # 注册赠送 60 分钟（对齐前端「已送 60 分钟」文案）
+INVITE_REWARD_SECONDS = 3600          # 邀请成功双方各得 60 分钟（对齐后台「双方各得 60 分钟」）
 SESSION_TTL_SECONDS = 30 * 24 * 3600  # token 有效期 30 天
 _PBKDF2_ITERS = 200_000
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -50,7 +51,7 @@ def _issue(repo, user_id: str) -> str:
     return token
 
 
-def register(repo, email: str, password: str) -> tuple[int, dict]:
+def register(repo, email: str, password: str, invite_code: str = "") -> tuple[int, dict]:
     email = (email or "").strip()
     password = password or ""
     if not _EMAIL_RE.match(email):
@@ -60,6 +61,11 @@ def register(repo, email: str, password: str) -> tuple[int, dict]:
     user_id = "u_" + secrets.token_hex(8)
     if not repo.create_user(user_id, email, hash_password(password), gift_seconds=REGISTER_GIFT_SECONDS):
         return 409, {"ok": False, "error": "该邮箱已注册"}
+    if (invite_code or "").strip():       # 带邀请码注册：双方各得奖励（失败不影响注册）
+        try:
+            repo.apply_invite(user_id, invite_code.strip(), INVITE_REWARD_SECONDS)
+        except Exception:
+            pass
     user = repo.get_user(user_id) or {"user_id": user_id, "email": email, "remaining_seconds": REGISTER_GIFT_SECONDS}
     return 200, {"ok": True, "token": _issue(repo, user_id), "user": _public(user)}
 
