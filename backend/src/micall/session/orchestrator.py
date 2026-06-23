@@ -219,11 +219,16 @@ class CallSession:
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
                     continue  # 纯语气词「嗯/啊/哦…」（多为回声/呼吸误识）：不打断、不触发轮次、不上字幕
+                # 外放期间的回授门槛：AI 正在播放（扬声器全双工）时，麦克风会把 AI 自己的声音录回来，
+                # 经 AEC/ASR 变形成短碎片（如「林管。」），文本去重/子串都挡不住。真打断通常是完整一句，
+                # 故 AI 外放时把「触发打断 / 新一轮」的最短长度抬高，挡掉短碎片回授导致的「自言自语」。
+                ai_playing = time.monotonic() <= self._audio_until
+                min_len = 4 if ai_playing else 2
                 if not is_final:
                     # 用户开口（实质中间结果）→ 打断：停后端生成 + 让前端停播。
                     # 后端可能已把整句音频发完、状态回 listening 但前端还在播缓冲，故即便不在 speaking
                     # 也发 interrupted 去 flush，否则"打断无效"。
-                    if len(_norm(t)) >= 2:
+                    if len(_norm(t)) >= min_len:
                         if not flushed:
                             flushed = True
                             if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
@@ -236,9 +241,9 @@ class CallSession:
                 now = time.monotonic()
                 nt = _norm(t)   # 归一化（去标点/空白）做去重键：「你好」「你好。」「你 好」视为同句，挡住变体重复
                 recent = {k: ts for k, ts in recent.items() if now - ts < 10.0}  # 只看近 10 秒
-                # 最终结果门控：太短（噪声/静音误识别）或 10 秒内重复出现的同句（回声/幻听/重判）→ 丢弃，
-                # 否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
-                if len(nt) < 2 or nt in recent:
+                # 最终结果门控：太短（噪声/静音误识别/外放回授碎片）或 10 秒内重复出现的同句（回声/幻听/重判）
+                # → 丢弃，否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
+                if len(nt) < min_len or nt in recent:
                     continue
                 recent[nt] = now
                 log.info("⟵ 用户说完：%r", t)
