@@ -72,11 +72,11 @@ export class AdminLogic {
     this.props = props || {};
     const uG = { a: "linear-gradient(140deg,#A78BFF,#6E5CFF)", b: "linear-gradient(140deg,#FF8FC8,#FF4FA0)", c: "linear-gradient(140deg,#5BE0A0,#1FA971)", d: "linear-gradient(140deg,#6FC8FF,#2E7BFF)", e: "linear-gradient(140deg,#FFB36B,#F5821F)" };
     this.chars = [
-      { id: "c1", cid: "lin_wan", speaking_style: "", voiceId: "", name: "林晚", desc: "温柔的深夜倾听者", hue: 0, gender: "女", age: 18, height: 156, weight: 44, birthday: "2006年1月1日", nationality: "中国", race: "东亚人", traits: ["温柔", "耐心", "共情"], tags: ["治愈系", "深夜", "倾听", "温柔"], slogan: "今天也辛苦了，想聊点什么都可以。", likes: "安静的深夜、认真听你说话、下雨天、一杯热可可", dislikes: "被敷衍、嘈杂的人群、冷场", bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不轻易打断，只是稳稳地陪着你。", calls: "24.1k", customVoices: 312, favs: "9,840", status: "上线" },
-      { id: "c2", cid: "jiang_ye", speaking_style: "", voiceId: "", name: "江野", desc: "理性可靠的陪伴", hue: 135, gender: "男", age: 21, height: 161, weight: 47, birthday: "2005年2月8日", nationality: "日本", race: "欧裔", traits: ["理性", "冷静", "务实"], tags: ["理性", "高冷", "成熟", "陪伴"], slogan: "有什么想不通的，说来听听。", likes: "清晰的逻辑、长跑、黑咖啡、安静", dislikes: "拖延、含糊其辞、无意义的争论", bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚，再陪你走下一步。", calls: "15.3k", customVoices: 156, favs: "6,210", status: "上线" },
-      { id: "c3", cid: "xia_ming", speaking_style: "", voiceId: "", name: "夏鸣", desc: "元气满满的朋友", hue: 60, gender: "女", age: 24, height: 166, weight: 50, birthday: "2004年3月15日", nationality: "美国", race: "混血", traits: ["元气", "幽默", "直率"], tags: ["元气", "俏皮", "邻家", "温柔"], slogan: "嘿！今天有什么好玩的事？", likes: "阳光、音乐、冷笑话、奶茶", dislikes: "冷场、emo、被无视", bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", calls: "18.7k", customVoices: 204, favs: "7,530", status: "上线" },
-      { id: "c4", cid: "gu_ci", speaking_style: "", voiceId: "", name: "顾辞", desc: "沉静睿智的对话者", hue: 225, gender: "男", age: 27, height: 171, weight: 53, birthday: "2003年4月22日", nationality: "英国", race: "东亚人", traits: ["沉静", "睿智", "文艺"], tags: ["文艺", "知性", "沉静", "学长"], slogan: "夜深了，来聊聊书，或者别的？", likes: "旧书、爵士乐、独处、一壶红茶", dislikes: "喧闹、肤浅、敷衍", bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书，安静又有回味。", calls: "11.9k", customVoices: 98, favs: "5,180", status: "上线" },
-      { id: "c5", cid: "su_yao", speaking_style: "", voiceId: "", name: "苏窈", desc: "俏皮灵动的伙伴", hue: 300, gender: "女", age: 30, height: 176, weight: 56, birthday: "2002年5月2日", nationality: "法国", race: "东亚人", traits: ["俏皮", "灵动", "好奇"], tags: ["俏皮", "灵动", "古灵精怪", "御姐"], slogan: "猜猜我今天又想到了什么？", likes: "新鲜事、恶作剧、甜点、惊喜", dislikes: "无聊、套路、被说教", bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", calls: "9.2k", customVoices: 87, favs: "4,360", status: "上线" },
+      { id: "c1", cid: "lin_wan", speaking_style: "", voiceId: "", name: "林晚", desc: "温柔的深夜倾听者", hue: 0, gender: "女", age: 18, height: 156, weight: 44, birthday: "2006年1月1日", nationality: "中国", race: "东亚人", traits: ["温柔", "耐心", "共情"], tags: ["治愈系", "深夜", "倾听", "温柔"], slogan: "今天也辛苦了，想聊点什么都可以。", likes: "安静的深夜、认真听你说话、下雨天、一杯热可可", dislikes: "被敷衍、嘈杂的人群、冷场", bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不轻易打断，只是稳稳地陪着你。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c2", cid: "jiang_ye", speaking_style: "", voiceId: "", name: "江野", desc: "理性可靠的陪伴", hue: 135, gender: "男", age: 21, height: 161, weight: 47, birthday: "2005年2月8日", nationality: "日本", race: "欧裔", traits: ["理性", "冷静", "务实"], tags: ["理性", "高冷", "成熟", "陪伴"], slogan: "有什么想不通的，说来听听。", likes: "清晰的逻辑、长跑、黑咖啡、安静", dislikes: "拖延、含糊其辞、无意义的争论", bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚，再陪你走下一步。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c3", cid: "xia_ming", speaking_style: "", voiceId: "", name: "夏鸣", desc: "元气满满的朋友", hue: 60, gender: "女", age: 24, height: 166, weight: 50, birthday: "2004年3月15日", nationality: "美国", race: "混血", traits: ["元气", "幽默", "直率"], tags: ["元气", "俏皮", "邻家", "温柔"], slogan: "嘿！今天有什么好玩的事？", likes: "阳光、音乐、冷笑话、奶茶", dislikes: "冷场、emo、被无视", bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c4", cid: "gu_ci", speaking_style: "", voiceId: "", name: "顾辞", desc: "沉静睿智的对话者", hue: 225, gender: "男", age: 27, height: 171, weight: 53, birthday: "2003年4月22日", nationality: "英国", race: "东亚人", traits: ["沉静", "睿智", "文艺"], tags: ["文艺", "知性", "沉静", "学长"], slogan: "夜深了，来聊聊书，或者别的？", likes: "旧书、爵士乐、独处、一壶红茶", dislikes: "喧闹、肤浅、敷衍", bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书，安静又有回味。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c5", cid: "su_yao", speaking_style: "", voiceId: "", name: "苏窈", desc: "俏皮灵动的伙伴", hue: 300, gender: "女", age: 30, height: 176, weight: 56, birthday: "2002年5月2日", nationality: "法国", race: "东亚人", traits: ["俏皮", "灵动", "好奇"], tags: ["俏皮", "灵动", "古灵精怪", "御姐"], slogan: "猜猜我今天又想到了什么？", likes: "新鲜事、恶作剧、甜点、惊喜", dislikes: "无聊、套路、被说教", bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
     ];
     this.hueOf = {};
     this.chars.forEach((c) => (this.hueOf[c.name] = "hue-rotate(" + c.hue + "deg)"));
@@ -94,43 +94,10 @@ export class AdminLogic {
       { id: "s11", name: "深夜哲学辩论", type: "custom", byUser: "Marcus Lee", desc: "", prompt: "现在请和我进行一场关于自由意志的哲学辩论，你持反方立场，用犀利但尊重的方式反驳我的观点。", uses: "待审核", status: "待审核" },
       { id: "s12", name: "扮演我的猫", type: "custom", byUser: "刘梦琪", desc: "", prompt: "请扮演我养的橘猫「团子」，用慵懒傲娇的语气和我说话，偶尔卖个萌，但其实很黏人。", uses: "待审核", status: "待审核" },
     ];
-    this.users = [
-      { id: "u1", name: "陈思远", email: "siyuan.c@gmail.com", initial: "陈", grad: uG.a, plan: "畅聊会员", minsRaw: "1488 分钟", spent: "$83.91", joined: "2025-11-02", recharges: [{ plan: "畅聊会员 · 年付", amount: "$83.92", date: "2026-01-18" }, { plan: "畅聊会员 · 月付", amount: "$9.99", date: "2025-11-02" }] },
-      { id: "u2", name: "林晓彤", email: "xiaotong@163.com", initial: "林", grad: uG.b, plan: "免费", minsRaw: "12 分钟", spent: "$0", joined: "2026-03-14", recharges: [] },
-      { id: "u3", name: "Marcus Lee", email: "marcus.lee@outlook.com", initial: "M", grad: uG.d, plan: "无限会员", minsRaw: "不限时", spent: "$167.92", joined: "2025-09-21", recharges: [{ plan: "无限会员 · 年付", amount: "$167.92", date: "2025-09-21" }] },
-      { id: "u4", name: "王雨桐", email: "yutong.w@qq.com", initial: "王", grad: uG.c, plan: "轻享会员", minsRaw: "240 分钟", spent: "$14.97", joined: "2026-02-08", recharges: [{ plan: "轻享会员 · 季付", amount: "$11.98", date: "2026-02-10" }, { plan: "轻享会员 · 月付", amount: "$4.99", date: "2026-05-10" }] },
-      { id: "u5", name: "赵梓涵", email: "zihan.zhao@gmail.com", initial: "赵", grad: uG.e, plan: "已封禁", minsRaw: "0 分钟", spent: "$9.99", joined: "2025-12-30", recharges: [{ plan: "畅聊会员 · 月付", amount: "$9.99", date: "2025-12-30" }] },
-      { id: "u6", name: "Sora Tanaka", email: "sora.t@gmail.com", initial: "S", grad: uG.a, plan: "畅聊会员", minsRaw: "1024 分钟", spent: "$29.97", joined: "2026-01-05", recharges: [{ plan: "畅聊会员 · 月付", amount: "$9.99", date: "2026-01-05" }, { plan: "畅聊会员 · 月付", amount: "$9.99", date: "2026-02-05" }, { plan: "畅聊会员 · 月付", amount: "$9.99", date: "2026-03-05" }] },
-      { id: "u7", name: "刘梦琪", email: "mengqi.liu@163.com", initial: "刘", grad: uG.b, plan: "免费", minsRaw: "8 分钟", spent: "$0", joined: "2026-04-11", recharges: [] },
-      { id: "u8", name: "周岚", email: "lan.zhou@foxmail.com", initial: "周", grad: uG.d, plan: "无限会员", minsRaw: "不限时", spent: "$239.88", joined: "2025-08-17", recharges: [{ plan: "无限会员 · 月付", amount: "$19.99", date: "2026-05-17" }, { plan: "无限会员 · 月付", amount: "$19.99", date: "2026-06-17" }] },
-    ];
-    this.calls = [
-      { id: "k1", char: "林晚", user: "陈思远", scene: "心情树洞", dur: "12:08", rating: 5, time: "今天 23:14", feedback: "很温暖", lines: [{ who: "ai", t: "今天看起来有点累，愿意和我说说吗?" }, { who: "user", t: "嗯…工作压力好大，感觉撑不住了。" }, { who: "ai", t: "辛苦你了，能撑到现在已经很不容易。是哪一部分让你觉得最累?" }, { who: "user", t: "项目一直改，怎么做都达不到要求。" }, { who: "ai", t: "那种反复推翻的无力感，真的很消耗人。这不代表你不够好，只是要求一直在变。" }, { who: "user", t: "听你这么说，好像没那么糟了。" }] },
-      { id: "k2", char: "夏鸣", user: "林晓彤", scene: "随便聊聊", dur: "04:21", rating: 4, time: "今天 12:30", feedback: "聊得开心", lines: [{ who: "user", t: "今天有点无聊。" }, { who: "ai", t: "那可不行!来，你今天遇到的最好笑的一件事是什么?" }, { who: "user", t: "上班路上看见一只猫追自己尾巴转圈。" }, { who: "ai", t: "哈哈哈那画面太治愈了!它是不是转到自己都晕了?" }] },
-      { id: "k3", char: "顾辞", user: "Marcus Lee", scene: "成语接龙", dur: "08:47", rating: 5, time: "昨天 21:35", feedback: "", lines: [{ who: "ai", t: "我先来——「水到渠成」。" }, { who: "user", t: "成竹在胸。" }, { who: "ai", t: "胸有成竹的另一种说法，接得妙。那我接「胸」字…「胸怀大志」。" }, { who: "user", t: "志在四方!" }] },
-      { id: "k4", char: "苏窈", user: "王雨桐", scene: "随便聊聊", dur: "03:12", rating: 3, time: "昨天 13:08", feedback: "答非所问", lines: [{ who: "user", t: "帮我想个周末去哪玩。" }, { who: "ai", t: "周末当然要出去浪啦!你喜欢热闹还是安静?" }, { who: "user", t: "安静一点的。" }, { who: "ai", t: "那去郊外的湖边走走怎么样，带本书，超惬意~" }] },
-      { id: "k5", char: "林晚", user: "Sora Tanaka", scene: "心情树洞", dur: "18:40", rating: 5, time: "昨天 00:22", feedback: "", lines: [{ who: "ai", t: "这么晚还没睡，在想什么呢?" }, { who: "user", t: "有点想家。" }, { who: "ai", t: "想家是因为那里有让你安心的人和回忆。要不要和我说说家里最让你怀念的画面?" }] },
-      { id: "k6", char: "江野", user: "刘梦琪", scene: "模拟面试", dur: "15:03", rating: 4, time: "周一 20:15", feedback: "反应慢", lines: [{ who: "ai", t: "先做个简单的自我介绍吧。" }, { who: "user", t: "我是应届生，应聘产品岗。" }, { who: "ai", t: "好。说一个你主导过、最有成就感的项目，重点讲你的决策。" }, { who: "user", t: "我做过一个校园社团管理的小程序…" }] },
-      { id: "k7", char: "顾辞", user: "周岚", scene: "随便聊聊", dur: "09:18", rating: 5, time: "周日 22:02", feedback: "", lines: [{ who: "user", t: "最近总是失眠。" }, { who: "ai", t: "睡前是不是想得太多?试着把脑子里的事写下来，交给明天。" }] },
-      { id: "k8", char: "苏窈", user: "赵梓涵", scene: "英语陪练", dur: "11:27", rating: 2, time: "周日 15:40", feedback: "反应慢", lines: [{ who: "ai", t: "Let's start! How was your day?" }, { who: "user", t: "It was…busy。" }, { who: "ai", t: "Busy in a good way or a tiring way? Try to tell me one thing you did." }] },
-    ];
-    this.tickets = [
-      { id: "t1", type: "功能异常", user: "林晓彤", msg: "通话时偶尔会有电流杂音，尤其是晚上信号不好的时候，影响体验。", date: "2026-06-19", status: "待处理", reply: "" },
-      { id: "t2", type: "建议反馈", user: "Marcus Lee", msg: "希望能增加更多男性角色，以及英文原声的音色选项。", date: "2026-06-18", status: "待处理", reply: "" },
-      { id: "t3", type: "账号/支付", user: "王雨桐", msg: "充值了轻享会员季付但时长没有到账，订单号 MC20260210。", date: "2026-06-15", status: "已回复", reply: "已为你补发季度时长并核实订单，感谢反馈，额外补偿你 30 分钟。" },
-      { id: "t4", type: "建议反馈", user: "陈思远", msg: "自定义场景能不能支持保存多个常用 prompt，方便一次通话里切换。", date: "2026-06-12", status: "已回复", reply: "好建议!多场景快捷切换已在开发中，预计下个版本上线。" },
-      { id: "t5", type: "其他", user: "周岚", msg: "想了解无限会员年付有没有更优惠的活动。", date: "2026-06-10", status: "待处理", reply: "" },
-    ];
-    this.orders = [
-      { id: "MC20260618A", user: "陈思远", plan: "畅聊会员 · 月付", amount: "$9.99", status: "已支付" },
-      { id: "MC20260618B", user: "周岚", plan: "无限会员 · 月付", amount: "$19.99", status: "已支付" },
-      { id: "MC20260617C", user: "Sora Tanaka", plan: "畅聊会员 · 月付", amount: "$9.99", status: "已支付" },
-      { id: "MC20260617D", user: "王雨桐", plan: "轻享会员 · 季付", amount: "$11.98", status: "退款中" },
-      { id: "MC20260616E", user: "Marcus Lee", plan: "无限会员 · 年付", amount: "$167.92", status: "已支付" },
-      { id: "MC20260615F", user: "刘梦琪", plan: "轻享会员 · 月付", amount: "$4.99", status: "失败" },
-      { id: "MC20260614G", user: "赵梓涵", plan: "畅聊会员 · 月付", amount: "$9.99", status: "已支付" },
-      { id: "MC20260613H", user: "陈思远", plan: "畅聊会员 · 年付", amount: "$83.92", status: "已支付" },
-    ];
+    this.users = [];
+    this.calls = [];
+    this.tickets = [];
+    this.orders = [];
     this.plans = [
       { name: "轻享会员", price: "$4.99", mins: "每月 300 分钟", subs: "2,180", popular: false, tile: "linear-gradient(145deg,#7AA8FF,#5B7CF0)", icon: "M12 3l2.2 5.2L20 9.4l-4 3.9 1 5.7L12 16.3 7 19l1-5.7-4-3.9 5.8-1.2L12 3z" },
       { name: "畅聊会员", price: "$9.99", mins: "每月 1500 分钟", subs: "4,910", popular: true, tile: "linear-gradient(145deg,#B79CFF,#9277F5)", icon: "M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" },
@@ -168,36 +135,12 @@ export class AdminLogic {
       { key: "memory", name: "LLM · 长记忆脑（通话后）", chain: "慢链路", desc: "通话后总结、提取长期记忆、生成开场白 · 默认 qwen-max（经 apiyi，可在「模型」改 qwen-plus 等；离线不要求快）", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20", req: "准 · 稳 · 长上下文（不要求快）", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型（如 qwen-max / qwen-plus）" }, { k: "maxContext", label: "最大上下文" }] },
       { key: "embed", name: "Embedding · 记忆检索", chain: "慢链路", desc: "向量化记忆并快速检索相关片段 · 存储 Postgres + pgvector", icon: "M21 5c0 1.66-4 3-9 3S3 6.66 3 5s4-3 9-3 9 1.34 9 3zM3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3", req: "快检索 · 高召回", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "vectorDB", label: "向量数据库" }, { k: "topK", label: "检索 Top-K" }] },
     ];
-    this.inviters = [
-      { name: "周岚", initial: "周", grad: "linear-gradient(140deg,#6FC8FF,#2E7BFF)", invited: 48, success: 41, pending: 3, mins: "2,460" },
-      { name: "陈思远", initial: "陈", grad: "linear-gradient(140deg,#A78BFF,#6E5CFF)", invited: 36, success: 33, pending: 2, mins: "1,980" },
-      { name: "Marcus Lee", initial: "M", grad: "linear-gradient(140deg,#6FC8FF,#2E7BFF)", invited: 29, success: 24, pending: 5, mins: "1,440" },
-      { name: "Sora Tanaka", initial: "S", grad: "linear-gradient(140deg,#A78BFF,#6E5CFF)", invited: 21, success: 19, pending: 1, mins: "1,140" },
-      { name: "王雨桐", initial: "王", grad: "linear-gradient(140deg,#5BE0A0,#1FA971)", invited: 14, success: 12, pending: 2, mins: "720" },
-      { name: "林晓彤", initial: "林", grad: "linear-gradient(140deg,#FF8FC8,#FF4FA0)", invited: 9, success: 7, pending: 1, mins: "420" },
-    ];
-    this.inviteRecords = [
-      { inviter: "周岚", invitee: "小柚", status: "已注册", reward: "+60 分钟", date: "2026-06-15" },
-      { inviter: "陈思远", invitee: "阿哲", status: "已注册", reward: "+60 分钟", date: "2026-06-12" },
-      { inviter: "周岚", invitee: "Momo", status: "待激活", reward: "待到账", date: "2026-06-08" },
-      { inviter: "Marcus Lee", invitee: "林夕", status: "已注册", reward: "+60 分钟", date: "2026-05-14" },
-      { inviter: "陈思远", invitee: "阿楠", status: "已注册", reward: "+60 分钟", date: "2026-05-09" },
-      { inviter: "Sora Tanaka", invitee: "Yuki", status: "待激活", reward: "待到账", date: "2026-05-03" },
-    ];
-    this.admins = [
-      { id: "a1", name: "张运营", email: "admin@micall.ai", role: "超级管理员", last: "2 分钟前", initial: "张", grad: "linear-gradient(140deg,#5B7CF0,#8E7BFF)" },
-      { id: "a2", name: "王内容", email: "content@micall.ai", role: "运营", last: "1 小时前", initial: "王", grad: "linear-gradient(140deg,#A78BFF,#6E5CFF)" },
-      { id: "a3", name: "李客服", email: "support@micall.ai", role: "客服", last: "昨天 18:30", initial: "李", grad: "linear-gradient(140deg,#5BE0A0,#1FA971)" },
-      { id: "a4", name: "陈数据", email: "data@micall.ai", role: "只读", last: "3 天前", initial: "陈", grad: "linear-gradient(140deg,#FFB36B,#F5821F)" },
-    ];
+    this.inviters = [];
+    this.inviteRecords = [];
+    this.admins = [];
     this.permModules = ["用户", "角色", "场景", "通话", "工单", "订单", "邀请", "配置"];
     this.roleMatrix = { "超级管理员": [1, 1, 1, 1, 1, 1, 1, 1], "运营": [1, 1, 1, 1, 1, 0, 1, 0], "客服": [1, 0, 0, 1, 1, 1, 0, 0], "只读（仅查看）": [1, 1, 1, 1, 1, 1, 1, 0] };
-    this.notifs = [
-      { title: "3 条新工单待处理", time: "5 分钟前", dot: "#E0594F" },
-      { title: "1 笔退款申请待审核（王雨桐 · $11.98）", time: "22 分钟前", dot: "#E0954F" },
-      { title: "LLM 接口平均延迟升高至 1.2s", time: "1 小时前", dot: "#E0954F" },
-      { title: "今日新增注册用户 +218", time: "今天 09:00", dot: "#1FA971" },
-    ];
+    this.notifs = [];
   }
 
   // ── React host bridge (mirrors DCLogic.setState semantics) ────────────────
@@ -505,24 +448,19 @@ export class AdminLogic {
     const memNode = node(st === 5, st >= 6, s.testMs.mem);
     const testVideoState = s.testReply ? (this.genReply().indexOf("哈哈") >= 0 ? "speaking_happy" : "speaking_soft") : "";
     const mkKpi = (label: string, value: string, delta: string, dc: string, db: string, note: string) => ({ label, value, delta, deltaColor: dc, deltaBg: db, note });
-    const istat = this.realInviteStats;   // 真实邀请 KPI（接后端则用真实数，否则演示）
-    const inviteKpis = istat ? [
+    const istat = this.realInviteStats || { total_invites: 0, reward_minutes: 0 };   // 全真实，无演示回退
+    const inviteKpis = [
       mkKpi("累计邀请", (istat.total_invites || 0).toLocaleString(), "实时", "#1FA971", "rgba(31,169,113,.1)", "成功注册数"),
       mkKpi("成功注册", (istat.total_invites || 0).toLocaleString(), "", "#6E5CFF", "rgba(110,92,255,.1)", "带码注册"),
       mkKpi("待激活", "0", "", "#878B95", "#F0F0F3", "无待激活态"),
       mkKpi("已发放奖励", (istat.reward_minutes || 0).toLocaleString(), "分钟", "#878B95", "#F0F0F3", "双方各得 " + s.inviteReward + " 分钟"),
-    ] : [
-      mkKpi("累计邀请", "3,847", "+15.2%", "#1FA971", "rgba(31,169,113,.1)", "较上月"),
-      mkKpi("成功注册", "2,910", "75.6%", "#6E5CFF", "rgba(110,92,255,.1)", "转化率"),
-      mkKpi("待激活", "412", "实时", "#878B95", "#F0F0F3", "尚未完成注册"),
-      mkKpi("已发放奖励", "174,600", "分钟", "#878B95", "#F0F0F3", "双方各得 " + s.inviteReward + " 分钟"),
     ];
     const invStatus = (st2: string) => st2 === "已注册" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" };
     const invitersView = this.inviters.map((v, i) => ({ rank: i + 1, name: v.name, initial: v.initial, grad: v.grad, invited: v.invited, success: v.success, pending: v.pending, mins: v.mins }));
     const inviteRecordsView = this.inviteRecords.map((r) => { const ist = invStatus(r.status); return { inviter: r.inviter, invitee: r.invitee, status: r.status, stColor: ist.c, stBg: ist.b, reward: r.reward, rewardColor: r.reward.indexOf("+") === 0 ? "#1FA971" : "#A8ABB5", date: r.date }; });
     const roleStyle = (r: string) => (r.indexOf("超级") === 0 ? { c: "#6E5CFF", b: "rgba(110,92,255,.1)" } : r === "运营" ? { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } : r === "客服" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#878B95", b: "#F0F0F3" });
     // 真实后端：暂无团队成员管理表 → 只显示当前登录运营，不展示演示花名册。
-    const adminRoster = this.realStats ? this.admins.slice(0, 1).map((a) => ({ ...a, name: "运营管理员", email: "admin@micall.ai", role: "超级管理员", last: "在线" })) : this.admins;
+    const adminRoster = [{ id: "self", name: "运营管理员", email: "admin@micall.ai", role: "超级管理员", last: "在线", initial: "运", grad: "linear-gradient(140deg,#A78BFF,#6E5CFF)" }];
     const adminsView = adminRoster.map((a) => { const off = !!s.adminOff[a.id]; const rs = roleStyle(a.role); return { name: a.name, email: a.email, initial: a.initial, grad: a.grad, role: a.role, roleColor: rs.c, roleBg: rs.b, last: a.last, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggleLabel: off ? "启用" : "停用", toggle: () => { this.setState((p) => ({ adminOff: { ...p.adminOff, [a.id]: !p.adminOff[a.id] } })); this.toastMsg(off ? "已启用 " + a.name : "已停用 " + a.name); } }; });
     const roleMatrixView = Object.keys(this.roleMatrix).map((role) => { const rs = roleStyle(role); return { role, roleColor: rs.c, roleBg: rs.b, cells: this.roleMatrix[role].map((v) => ({ mark: v === 1 ? "✓" : "—", color: v === 1 ? "#1FA971" : "#C9CBD2", bg: v === 1 ? "rgba(31,169,113,.08)" : "transparent" })) }; });
     const apiCards = this.apiSections.map((sec) => { const cfg = s.apiCfg[sec.key]; return {
@@ -538,53 +476,36 @@ export class AdminLogic {
     const stp = (st: string) => { const x = stC[st] || stC["正常"]; return { status: st, stColor: x.c, stBg: x.b }; };
     const linkFlow = [{ label: "用户语音", a: "#9AA0AC" }, { label: "Qwen3-ASR-Flash", a: "#2E7BFF" }, { label: "记忆检索", a: "#9AA0AC" }, { label: "deepseek-chat", a: "#6E5CFF" }, { label: "MiniMax TTS", a: "#E0594F" }, { label: "Seedance 表情", a: "#9277F5" }, { label: "用户听到", a: "#1FA971" }, { label: "Qwen-Long 记忆整理", a: "#1FA971" }];
     // 接了真实后端：成本类 KPI 用真实 usage_log 估算（$=micros/1e6）；首句响应/失败率暂无埋点 → 「—」。
-    const rc = this.realStats;
     const usd = (micros: number) => "$" + ((micros || 0) / 1e6).toFixed(2);
     const cost = this.realCost;
-    const healthKpis = rc ? [
+    const callsToday = (this.realStats || {}).calls_today || 0;
+    // 全真实：有用量埋点的显真实成本/今日通话；首句响应/失败率暂无埋点 → 「—」。无演示数字。
+    const healthKpis = [
       { label: "整体健康", value: "正常", sub: "服务运行中", vc: "#1FA971" },
       { label: "首句响应", value: "—", sub: "需埋点", vc: "#878B95" },
-      { label: "每小时成本", value: cost ? usd(cost.per_hour_micros) : "—", sub: "今日均摊", vc: "#16161A" },
-      { label: "每 100 分钟成本", value: cost ? usd(cost.per_100min_micros) : "—", sub: "时长摊薄", vc: "#16161A" },
+      { label: "每小时成本", value: usd((cost || {}).per_hour_micros), sub: "今日均摊", vc: "#16161A" },
+      { label: "每 100 分钟成本", value: usd((cost || {}).per_100min_micros), sub: "时长摊薄", vc: "#16161A" },
       { label: "今日失败率", value: "—", sub: "需埋点", vc: "#878B95" },
-      { label: "今日通话", value: (rc.calls_today || 0).toLocaleString(), sub: "次", vc: "#16161A" },
-    ] : [
-      { label: "整体健康", value: "正常", sub: "6 / 6 节点在线", vc: "#1FA971" },
-      { label: "首句响应", value: "1.4s", sub: "目标 < 1.8s", vc: "#16161A" },
-      { label: "每小时成本", value: "$38.6", sub: "近 1 小时", vc: "#16161A" },
-      { label: "每 100 分钟成本", value: "$12.4", sub: "时长摊薄", vc: "#16161A" },
-      { label: "今日失败率", value: "0.7%", sub: "目标 < 2%", vc: "#1FA971" },
-      { label: "今日通话", value: "3,219", sub: "分钟", vc: "#16161A" },
+      { label: "今日通话", value: callsToday.toLocaleString(), sub: "次", vc: "#16161A" },
     ];
     const byNode = (cost && cost.by_node) || {};   // 今日各节点成本（micros）
-    const nodeCost = (k: string) => (cost ? usd(byNode[k] || 0) : "—");
+    const nodeCost = (k: string) => usd(byNode[k] || 0);
     const nodeCards = [
-      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: rc ? "—" : "180ms", calls: rc ? "—" : "42.1k 次", cost: rc ? nodeCost("asr") : "$6.20" },
-      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: rc ? "—" : "620ms", calls: rc ? "—" : "38.7k 次", cost: rc ? nodeCost("llm_fast") : "$14.80" },
-      { name: "TTS · 语音合成", role: "说", model: "", ...stp(rc ? "正常" : "延迟高"), latency: rc ? "—" : "310ms", calls: rc ? "—" : "38.7k 次", cost: rc ? nodeCost("tts") : "$9.40" },
-      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: rc ? "—" : "预生成库", cost: rc ? "$0.00" : "$0" },
-      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: rc ? "—" : "2.1s", calls: rc ? "—" : "3.2k 次", cost: rc ? nodeCost("llm_slow") : "$4.90" },
+      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("asr") },
+      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("llm_fast") },
+      { name: "TTS · 语音合成", role: "说", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("tts") },
+      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: "—", cost: "$0.00" },
+      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("llm_slow") },
     ];
-    const costKpis = cost
-      ? [{ label: "今日总成本", value: usd(cost.today_micros) }, { label: "本月总成本", value: usd(cost.month_micros) }, { label: "每小时平均", value: usd(cost.per_hour_micros) }, { label: "每 100 分钟", value: usd(cost.per_100min_micros) }]
-      : rc
-      ? [{ label: "今日总成本", value: "—" }, { label: "本月总成本", value: "—" }, { label: "每小时平均", value: "—" }, { label: "每 100 分钟", value: "—" }]
-      : [{ label: "今日总成本", value: "$926" }, { label: "本月总成本", value: "$21,480" }, { label: "每小时平均", value: "$38.6" }, { label: "每 100 分钟", value: "$12.4" }];
+    const costKpis = [{ label: "今日总成本", value: usd((cost || {}).today_micros) }, { label: "本月总成本", value: usd((cost || {}).month_micros) }, { label: "每小时平均", value: usd((cost || {}).per_hour_micros) }, { label: "每 100 分钟", value: usd((cost || {}).per_100min_micros) }];
     const NODE_LABEL: Record<string, string> = { llm_fast: "LLM 快脑", tts: "TTS 语音合成", asr: "ASR 语音识别", llm_slow: "记忆整理", embedding: "记忆检索" };
     const NODE_C: Record<string, string> = { llm_fast: "#6E5CFF", tts: "#E0594F", asr: "#2E7BFF", llm_slow: "#1FA971", embedding: "#9277F5" };
-    const costByProvider = cost
-      ? (() => { const tot = Object.values(byNode).reduce((a: number, b: any) => a + (b || 0), 0) as number;
-          return Object.keys(byNode).filter((k) => byNode[k] > 0).sort((a, b) => byNode[b] - byNode[a]).map((k) => ({
-            name: NODE_LABEL[k] || k, value: usd(byNode[k]), pct: tot > 0 ? Math.round(byNode[k] / tot * 100) + "%" : "0%", c: NODE_C[k] || "#878B95" })); })()
-      : rc ? [] : [{ name: "LLM 快脑", value: "$352", pct: "38%", c: "#6E5CFF" }, { name: "TTS 语音合成", value: "$231", pct: "25%", c: "#E0594F" }, { name: "音色生成", value: "$120", pct: "13%", c: "#FF6FA5" }, { name: "ASR 语音识别", value: "$139", pct: "15%", c: "#2E7BFF" }, { name: "记忆整理", value: "$56", pct: "6%", c: "#1FA971" }, { name: "表情视频", value: "$28", pct: "3%", c: "#9277F5" }];
+    const cbpTot = Object.values(byNode).reduce((a: number, b: any) => a + (b || 0), 0) as number;
+    const costByProvider = Object.keys(byNode).filter((k) => byNode[k] > 0).sort((a, b) => byNode[b] - byNode[a]).map((k) => ({
+      name: NODE_LABEL[k] || k, value: usd(byNode[k]), pct: cbpTot > 0 ? Math.round(byNode[k] / cbpTot * 100) + "%" : "0%", c: NODE_C[k] || "#878B95" }));
     const memTypeC: Record<string, string> = { fact: "#2E7BFF", preference: "#6E5CFF", project: "#E0954F", relationship: "#FF6FA5", open_loop: "#1FA971" };
-    const memoryRecent = (rc ? [] : [   // 真实记忆涉及用户隐私，不在后台明文展示；演示模式保留示例
-      { content: "用户是应届生，正在准备产品经理面试", type: "project", imp: "高", conf: "0.92", source: "林晚 · 今天 23:14", written: true },
-      { content: "喜欢深夜安静地聊天，不喜欢被催", type: "preference", imp: "中", conf: "0.88", source: "林晚 · 昨天 00:22", written: true },
-      { content: "下周一有一场重要面试（open loop）", type: "open_loop", imp: "高", conf: "0.81", source: "江野 · 周一 20:15", written: true },
-      { content: "和 AI 的关系：信任、依赖深夜倾诉", type: "relationship", imp: "中", conf: "0.76", source: "林晚 · 多次", written: false },
-      { content: "母语中文，在学英语，备考六级", type: "fact", imp: "低", conf: "0.95", source: "苏窈 · 周日 15:40", written: true },
-    ]).map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
+    // 真实记忆涉及用户隐私，不在后台明文展示（始终空）。
+    const memoryRecent: any[] = ([] as any[]).map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
     const fallbackRows = [
       { kind: "ASR", primary: "阿里云", backups: "火山 ASR · ElevenLabs Scribe", cond: "连续失败 3 次 / 延迟 > 2s / 错误率 > 5%" },
       { kind: "LLM 快脑", primary: "deepseek-chat", backups: "Qwen Flash · 豆包", cond: "超时 / 连续失败 / 成本超阈值" },
@@ -610,27 +531,19 @@ export class AdminLogic {
       admins: ["权限管理", "管理员账号与角色权限"],
     };
 
-    const rs = this.realStats;
-    const kpis = (rs ? [
+    const rs = this.realStats || {};   // 全真实，无演示回退（未加载时显示 0）
+    const kpis = [
       { label: "总用户", value: (rs.total_users || 0).toLocaleString(), delta: "实时", up: true, note: "" },
       { label: "今日通话", value: (rs.calls_today || 0).toLocaleString(), delta: "实时", up: true, note: "" },
       { label: "总通话时长", value: (rs.total_minutes || 0).toLocaleString() + " 分钟", delta: "", up: true, note: "累计" },
       { label: "本月收入", value: "$" + ((rs.month_revenue_cents || 0) / 100).toFixed(2), delta: "", up: true, note: "已支付订单" },
-    ] : [
-      { label: "总用户", value: "12,847", delta: "+8.2%", up: true, note: "较上月" },
-      { label: "今日通话", value: "3,219", delta: "+12.4%", up: true, note: "较昨日" },
-      { label: "总通话时长", value: "8,640h", delta: "+6.1%", up: true, note: "本月累计" },
-      { label: "本月收入", value: "$48,920", delta: "+9.7%", up: true, note: "会员订阅" },
-    ]).map((k) => ({ ...k, deltaColor: k.up ? "#1FA971" : "#E0594F", deltaBg: k.up ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)" }));
+    ].map((k) => ({ ...k, deltaColor: k.up ? "#1FA971" : "#E0594F", deltaBg: k.up ? "rgba(31,169,113,.1)" : "rgba(224,89,79,.1)" }));
     const trendTitles: Record<string, string> = { today: "今日通话量（按小时）", "7d": "近 7 日通话量", "30d": "近 30 日通话量（按周）" };
-    const trendSets: Record<string, any> = this.realTrends ? {
-      today: { title: trendTitles.today, data: this.realTrends.today || [] },
-      "7d": { title: trendTitles["7d"], data: this.realTrends["7d"] || [] },
-      "30d": { title: trendTitles["30d"], data: this.realTrends["30d"] || [] },
-    } : {
-      today: { title: trendTitles.today, data: [{ day: "0时", v: 120 }, { day: "4时", v: 60 }, { day: "8时", v: 280 }, { day: "12时", v: 430 }, { day: "16时", v: 520 }, { day: "20时", v: 790 }, { day: "现在", v: 540 }] },
-      "7d": { title: trendTitles["7d"], data: [{ day: "周一", v: 2480 }, { day: "周二", v: 2710 }, { day: "周三", v: 2390 }, { day: "周四", v: 2950 }, { day: "周五", v: 3180 }, { day: "周六", v: 3620 }, { day: "周日", v: 3219 }] },
-      "30d": { title: trendTitles["30d"], data: [{ day: "第1周", v: 16800 }, { day: "第2周", v: 18200 }, { day: "第3周", v: 19500 }, { day: "第4周", v: 21300 }] },
+    const rt = this.realTrends || { today: [], "7d": [], "30d": [] };   // 全真实，无演示
+    const trendSets: Record<string, any> = {
+      today: { title: trendTitles.today, data: rt.today || [] },
+      "7d": { title: trendTitles["7d"], data: rt["7d"] || [] },
+      "30d": { title: trendTitles["30d"], data: rt["30d"] || [] },
     };
     const tset = trendSets[s.dateRange] || trendSets["7d"];
     const tmax = Math.max(1, ...tset.data.map((t: any) => t.v));
@@ -641,16 +554,10 @@ export class AdminLogic {
     const topChars = this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5)
       .map((c, i) => ({ rank: i + 1, name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", calls: this.realStats ? c.calls + " 次" : c.calls }));
     const SCENE_NAME: Record<string, string> = { heart: "心情树洞", chat: "随便聊聊", interview: "模拟面试", idiom: "成语接龙", english: "英语陪练", study: "陪我学习", sleep: "睡前故事", meditation: "解压冥想", coffee: "咖啡馆", story: "睡前故事" };
-    let topScenes: any[];
-    if (this.realSceneCalls) {   // 真实：从 calls.scenario 聚合
-      const ent = Object.entries(this.realSceneCalls as Record<string, number>).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
-      const smx = Math.max(1, ...ent.map(([, n]) => n));
-      topScenes = ent.map(([k, n]) => ({ name: SCENE_NAME[k] || k, uses: String(n), pct: Math.round(n / smx * 100) + "%" }));
-    } else {
-      const sceneUseRaw = this.scenes.filter((x) => x.type !== "custom");
-      const smax = Math.max(...sceneUseRaw.map((x) => parseFloat(x.uses)));
-      topScenes = sceneUseRaw.slice().sort((a, b) => parseFloat(b.uses) - parseFloat(a.uses)).slice(0, 5).map((x) => ({ name: x.name, uses: x.uses, pct: Math.round(parseFloat(x.uses) / smax * 100) + "%" }));
-    }
+    // 热门场景：从 calls.scenario 真实聚合（无数据则空，不再用演示数字）。
+    const scEnt = Object.entries((this.realSceneCalls || {}) as Record<string, number>).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const scMax = Math.max(1, ...scEnt.map(([, n]) => n));
+    const topScenes = scEnt.map(([k, n]) => ({ name: SCENE_NAME[k] || k, uses: String(n), pct: Math.round(n / scMax * 100) + "%" }));
     const recentCalls = this.calls.slice(0, 4).map((c) => ({ char: c.char, hueFilter: hf(c.char), scene: c.scene, dur: c.dur, open: () => this.open("call", c.id) }));
 
     const ufDefs: [string, string][] = [["all", "全部"], ["无限会员", "无限会员"], ["畅聊会员", "畅聊会员"], ["轻享会员", "轻享会员"], ["免费", "免费"], ["已封禁", "已封禁"]];
