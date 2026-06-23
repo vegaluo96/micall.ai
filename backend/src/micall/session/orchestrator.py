@@ -15,6 +15,7 @@ import asyncio
 import logging
 import re
 import time
+from contextlib import aclosing
 from typing import AsyncIterator, Awaitable, Callable
 
 _NON_WORD = re.compile(r"\W+", re.UNICODE)
@@ -325,17 +326,20 @@ class CallSession:
             await self._emit(ServerEvent.emotion(stripper.tag))  # 仅供前端/编排（不喂 TTS，见 _speak）
             started = True
 
+        # 被打断了就别再让 LLM 生成「这句的后续」——用户已给新输入、AI 接下来要说的话也变了，继续生成纯浪费
+        # token/钱。aclosing 在 break 时立刻 aclose() 掐断流式请求 → 服务端停生成、停计费（省成本，不影响流畅）。
         spoke_first = False
-        async for token in self.llm.stream(messages, max_tokens=self._reply_max_tokens):
-            if self._interrupt.is_set():
-                break
-            buf += stripper.feed(token)
-            if not spoke_first:
-                first, rest = _take_first_sentence(buf)
-                if first:
-                    await _open_speaking()
-                    await self._speak(first, spoke)   # 第一句立刻发声（抢跑）
-                    buf, spoke_first = rest, True
+        async with aclosing(self.llm.stream(messages, max_tokens=self._reply_max_tokens)) as llm_gen:
+            async for token in llm_gen:
+                if self._interrupt.is_set():
+                    break
+                buf += stripper.feed(token)
+                if not spoke_first:
+                    first, rest = _take_first_sentence(buf)
+                    if first:
+                        await _open_speaking()
+                        await self._speak(first, spoke)   # 第一句立刻发声（抢跑）
+                        buf, spoke_first = rest, True
 
         tail = (buf + stripper.flush()).strip()
         if tail and not self._interrupt.is_set():
@@ -368,14 +372,16 @@ class CallSession:
             await self._emit(ServerEvent.subtitle("ai", seg))
         self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
-        async for chunk in self.tts.synthesize(
+        # 打断时 aclosing 立刻 aclose() 掐断 TTS 合成请求 → 停止合成、停止计费剩余字符（被打断那句的后续没意义）。
+        async with aclosing(self.tts.synthesize(
             spoken, voice_id=self.voice_id, emotion=""   # 不喂动态情绪：保证整通同一个人（情绪跳变会"像换了个人"）
-        ):
-            if self._interrupt.is_set():
-                return  # 熔断：停下行 + 丢弃后续（清 tts_queue 的等价）
-            if self._audio_emit is not None and chunk:
-                await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
-                audio_bytes += len(chunk)
+        )) as tts_gen:
+            async for chunk in tts_gen:
+                if self._interrupt.is_set():
+                    return  # 熔断：停下行 + 掐断合成
+                if self._audio_emit is not None and chunk:
+                    await self._audio_emit(chunk)  # 真实下行：TTS 音频帧 → 前端播放
+                    audio_bytes += len(chunk)
         if self._audio_emit is not None:
             # 估计这句在前端播放到的时刻（24kHz 16bit 单声道）→ 用于回声判定的时间窗。
             dur = audio_bytes / (24000 * 2)
