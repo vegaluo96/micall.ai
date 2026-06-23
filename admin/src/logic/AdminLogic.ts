@@ -16,7 +16,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          createCharacter, deleteCharacter, generateCharacter,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
-         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview } from "./configService";
+         loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -47,6 +47,7 @@ export class AdminLogic {
   roleMatrix: Record<string, number[]>;
   notifs: any[];
   realStats: any = null;        // 接后端后的首页 KPI（null = 用演示数据）
+  realVoices: any[] | null = null;    // 接后端后的 MiniMax 系统音色库（null = 用演示）
   realTopChars: any[] | null = null;  // 接后端后的热门角色排名
   realTrends: any = null;       // 接后端后的通话量趋势（null = 用演示）
   realCost: any = null;         // 接后端后的成本汇总（null = 用演示）
@@ -193,6 +194,8 @@ export class AdminLogic {
     if (dc != null) { this.defaultCharId = dc; this.setState({}); }
     const ic = await loadInviteConfig();       // 当前邀请奖励（分钟）
     if (ic && ic.reward_minutes != null) this.setState({ inviteReward: String(ic.reward_minutes), inviteeReward: String(ic.reward_minutes) });
+    const vl = await loadVoices();             // MiniMax 系统（免费）音色库
+    if (vl && Array.isArray(vl.voices)) { this.realVoices = vl.voices; this.setState({}); }
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
   }
 
@@ -519,10 +522,26 @@ export class AdminLogic {
     const navConfigView = navCfg.map((n) => ({ label: n.label, icon: n.icon, go: () => this.go(n.key), bg: s.section === n.key ? "rgba(110,92,255,.1)" : "transparent", color: s.section === n.key ? "#6E5CFF" : "#4A4E5A", weight: s.section === n.key ? 600 : 500 }));
     const engStyle = (e: string) => (({ "火山引擎": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "MiniMax": { c: "#6E5CFF", b: "rgba(110,92,255,.1)" }, "Azure": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" }, "ElevenLabs": { c: "#1FA971", b: "rgba(31,169,113,.1)" } } as Record<string, any>)[e] || { c: "#878B95", b: "#F0F0F3" });
     const matchedBy: Record<string, number> = { v1: 230, v2: 96, v3: 142, v4: 61, v5: 58, v6: 120, v7: 78, v8: 0, v9: 72 };
-    const voicesView = this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("音色试听功能开发中") }; });
-    const voicePresetCount = this.voices.length;
+    const mmStyle = engStyle("MiniMax");
+    // 接了后端：真实 MiniMax 系统（免费）音色库，可真实试听；否则回退演示数据。
+    const previewVid = (vid: string) => async () => { if (!usingBackend()) { this.toastMsg("接入后端后可真实试听"); return; } this.toastMsg("正在合成试听…"); const ok = await playVoicePreview({ voiceId: vid }); this.toastMsg(ok ? "" : "试听失败：请确认 TTS 接口已配置"); };
+    const voicesView = this.realVoices
+      ? this.realVoices.map((v: any) => {
+          const used: string[] = v.used_by || [];
+          const inUse = used.length > 0;
+          const ch = this.chars.find((c: any) => used.includes(c.name));
+          return { matched: v.voice_id, name: v.name, engine: "MiniMax", engColor: mmStyle.c, engBg: mmStyle.b,
+            meta: v.gender + " · " + v.group, char: inUse ? used.join("、") : "—",
+            hueFilter: ch ? "hue-rotate(" + (ch.hue || 0) + "deg)" : "none", hasChar: inUse,
+            status: inUse ? "已启用" : "可用", stColor: inUse ? "#1FA971" : "#878B95",
+            stBg: inUse ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: previewVid(v.voice_id) };
+        })
+      : this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("音色试听功能开发中") }; });
+    const voicePresetCount = this.realVoices ? this.realVoices.length : this.voices.length;
     const voiceCloneCount = this.chars.reduce((a, c) => a + c.customVoices, 0).toLocaleString();
-    const voiceMatchTotal = Object.values(matchedBy).reduce((a, b) => a + b, 0).toLocaleString();
+    const voiceMatchTotal = this.realVoices
+      ? String(this.realVoices.filter((v: any) => (v.used_by || []).length > 0).length)
+      : Object.values(matchedBy).reduce((a, b) => a + b, 0).toLocaleString();
     const ttsEngine = s.apiCfg.tts.model;
     const charTabs = ([["role", "角色"], ["voice", "音色"], ["expr", "表情"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ charTab: k }), bg: s.charTab === k ? "#16161A" : "#fff", color: s.charTab === k ? "#fff" : "#5A5E6B", border: s.charTab === k ? "#16161A" : "#E6E7EB" }));
     const ioTabs = ([["export", "导出规则"], ["import", "导入规则"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ ioMode: k }), bg: s.ioMode === k ? "#16161A" : "#fff", color: s.ioMode === k ? "#fff" : "#5A5E6B", border: s.ioMode === k ? "#16161A" : "#E6E7EB" }));

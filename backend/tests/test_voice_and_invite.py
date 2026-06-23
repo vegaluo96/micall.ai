@@ -24,6 +24,27 @@ class TestVoicePreview(unittest.TestCase):
         self.assertEqual(wav[:4], b"RIFF")
 
 
+class TestVoiceLibrary(unittest.TestCase):
+    def test_library_nonempty_and_shaped(self):
+        from micall.server.voice_library import system_voice_library
+
+        lib = system_voice_library()
+        self.assertGreaterEqual(len(lib), 20)
+        for k in ("voice_id", "name", "gender", "group", "engine"):
+            self.assertIn(k, lib[0])
+        self.assertTrue(all(v["engine"] == "MiniMax" for v in lib))
+        ids = [v["voice_id"] for v in lib]
+        self.assertEqual(len(ids), len(set(ids)), "voice_id 应唯一")
+
+    def test_default_voice_is_in_library(self):
+        # 产品默认音色（global_defaults.default_voice）应是库里某个系统音色，保证开箱即用。
+        from micall.config import load_config
+        from micall.server.voice_library import voice_ids
+
+        dv = load_config().global_defaults.get("default_voice")
+        self.assertIn(dv, voice_ids())
+
+
 class TestInviteRewardChain(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp()) / "admin_overrides.json"

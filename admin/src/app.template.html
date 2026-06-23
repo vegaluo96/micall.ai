@@ -395,13 +395,13 @@
           <sc-if value="{{ isVoiceTab }}" hint-placeholder-val="{{ false }}">
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:18px;">
             <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03);"><div style="font-size:12.5px;color:#878B95;">预设音色</div><div style="font-size:24px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;">{{ voicePresetCount }}</div></div>
-            <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03);"><div style="font-size:12.5px;color:#878B95;">用户自定义匹配</div><div style="font-size:24px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;">{{ voiceMatchTotal }}</div></div>
+            <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03);"><div style="font-size:12.5px;color:#878B95;">已被角色使用</div><div style="font-size:24px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;">{{ voiceMatchTotal }}</div></div>
             <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03);"><div style="font-size:12.5px;color:#878B95;">默认 TTS 引擎</div><div style="font-size:18px;font-weight:700;margin-top:7px;">{{ ttsEngine }}</div></div>
           </div>
-          <div style="font-size:12.5px;color:#9A9DA7;background:rgba(110,92,255,.06);border:1px solid #E7E3FF;border-radius:10px;padding:10px 14px;margin-bottom:14px;">用户在前台「自定义音色」时，系统按其文字描述匹配到库中最接近的音色，不做真实克隆。下方「匹配次数」为各音色被匹配命中的次数。</div>
+          <div style="font-size:12.5px;color:#9A9DA7;background:rgba(110,92,255,.06);border:1px solid #E7E3FF;border-radius:10px;padding:10px 14px;margin-bottom:14px;">以下为 MiniMax 系统（免费）音色，可点右侧 ▶ 直接试听；把 voice_id 填进角色「默认音色」即可启用该音色。</div>
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
             <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr .9fr .8fr 64px;gap:12px;padding:13px 20px;background:#FAFAFB;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:600;color:#9A9DA7;">
-              <span>音色</span><span>引擎</span><span>性别 / 语言</span><span>关联角色</span><span>匹配次数</span><span>状态</span><span></span>
+              <span>音色</span><span>引擎</span><span>性别 / 分组</span><span>关联角色</span><span>voice_id</span><span>状态</span><span></span>
             </div>
             <sc-for list="{{ voicesView }}" as="v" hint-placeholder-count="9">
               <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr .9fr .8fr 64px;gap:12px;padding:13px 20px;border-bottom:1px solid #F4F4F6;align-items:center;">
@@ -412,7 +412,7 @@
                   <sc-if value="{{ v.hasChar }}" hint-placeholder-val="{{ false }}"><div style="width:22px;height:22px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ v.hueFilter }};"></div></sc-if>
                   <span style="font-size:13px;color:#5A5E6B;">{{ v.char }}</span>
                 </div>
-                <span style="font-size:13px;color:#5A5E6B;font-variant-numeric:tabular-nums;">{{ v.matched }}</span>
+                <span style="font-size:11.5px;color:#5A5E6B;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;user-select:all;cursor:text;">{{ v.matched }}</span>
                 <span><span style="font-size:12px;font-weight:600;color:{{ v.stColor }};background:{{ v.stBg }};border-radius:7px;padding:3px 9px;">{{ v.status }}</span></span>
                 <div onClick="{{ v.preview }}" style="width:32px;height:32px;border-radius:9px;background:#F2F3F5;display:flex;align-items:center;justify-content:center;cursor:pointer;justify-self:end;" style-active="transform:scale(.92)" style-hover="background:#EAEAF0"><svg width="15" height="15" viewBox="0 0 24 24" fill="#5A5E6B" stroke="none"><path d="M8 5v14l11-7z"/></svg></div>
               </div>

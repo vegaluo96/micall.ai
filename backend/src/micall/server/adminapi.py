@@ -350,6 +350,18 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/characters":
             from .characters_admin import read_characters_for_admin
             return self._json(200, {"characters": read_characters_for_admin()})
+        if self._route() == "/admin/voices":   # MiniMax 系统（免费）音色库 + 各音色当前被哪些角色使用
+            from .characters_admin import effective_specs
+            from .voice_library import system_voice_library
+            used: dict[str, list[str]] = {}
+            for cid, spec in effective_specs().items():
+                vid = ((spec.get("voice") or {}).get("voice_id") or "").strip()
+                if vid:
+                    used.setdefault(vid, []).append((spec.get("identity") or {}).get("name") or cid)
+            lib = system_voice_library()
+            for v in lib:
+                v["used_by"] = used.get(v["voice_id"], [])
+            return self._json(200, {"voices": lib, "engine": "MiniMax"})
         if self._route() == "/admin/cost-config":
             return self._json(200, read_cost_for_admin())
         if self._route() == "/admin/default-character":

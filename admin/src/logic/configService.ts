@@ -37,6 +37,17 @@ function authHeaders(json = false): Record<string, string> {
   return h;
 }
 
+/** MiniMax 系统（免费）音色库 + 各音色当前被哪些角色使用。无后端 → null（前端回退演示数据）。 */
+export async function loadVoices(): Promise<{ voices: any[]; engine: string } | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/voices`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) return (await r.json()) as { voices: any[]; engine: string };
+  } catch { /* noop */ }
+  return null;
+}
+
 /** 音色试听：拉后端用该角色/voice_id 真实 TTS 合成的 WAV 并播放（非占位提示）。
  *  成功返回 true；无后端或合成失败返回 false（调用方据此提示）。 */
 let _previewAudio: HTMLAudioElement | null = null;
