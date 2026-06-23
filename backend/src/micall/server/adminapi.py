@@ -194,6 +194,48 @@ def test_section(section: str, sec: dict) -> dict:
         return {"ok": False, "error": str(e)[:300]}
 
 
+# ── 计费单价（成本估算）读写：存 admin_overrides.json 的 cost 段，改完下一通即生效 ──
+def read_cost_for_admin() -> dict:
+    c = load_config().cost or {}
+    tok = c.get("usd_per_1k_tokens", {}) or {}
+    return {
+        "chars_per_token": c.get("chars_per_token", 2),
+        "llm_fast": tok.get("llm_fast", 0),
+        "llm_slow": tok.get("llm_slow", 0),
+        "embedding": tok.get("embedding", 0),
+        "tts": c.get("usd_per_1k_chars_tts", 0),
+        "asr": c.get("usd_per_minute_asr", 0),
+    }
+
+
+def write_cost_from_admin(payload: dict) -> None:
+    def num(v, d):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return d
+    existing: dict = {}
+    if OVERRIDES_PATH.exists():
+        try:
+            existing = json.loads(OVERRIDES_PATH.read_text("utf-8"))
+        except (ValueError, OSError):
+            existing = {}
+    p = payload or {}
+    existing["cost"] = {
+        "chars_per_token": num(p.get("chars_per_token"), 2) or 2,
+        "usd_per_1k_tokens": {
+            "llm_fast": num(p.get("llm_fast"), 0),
+            "llm_slow": num(p.get("llm_slow"), 0),
+            "embedding": num(p.get("embedding"), 0),
+        },
+        "usd_per_1k_chars_tts": num(p.get("tts"), 0),
+        "usd_per_minute_asr": num(p.get("asr"), 0),
+    }
+    tmp = OVERRIDES_PATH.with_name(OVERRIDES_PATH.name + ".tmp")
+    tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
+    tmp.replace(OVERRIDES_PATH)
+
+
 def login(payload: dict) -> tuple[int, dict]:
     """后台登录：校验账号密码，成功发 token（前端后续带 Authorization 访问配置 API）。
 
@@ -267,6 +309,8 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/characters":
             from .characters_admin import read_characters_for_admin
             return self._json(200, {"characters": read_characters_for_admin()})
+        if self._route() == "/admin/cost-config":
+            return self._json(200, read_cost_for_admin())
         # ── 看板真实数据（P4）：未注入仓储则返回空，前端退回演示数据 ──
         if self._route() == "/admin/stats":
             if _REPO is None:
@@ -320,6 +364,12 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True})
             except Exception as e:
                 return self._json(400, {"ok": False, "error": str(e)[:200]})
+        if self._route() == "/admin/cost-config":
+            try:
+                write_cost_from_admin(self._body())
+                return self._json(200, {"ok": True})
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:

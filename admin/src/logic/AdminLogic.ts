@@ -13,7 +13,8 @@ import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
-         createCharacter, deleteCharacter, generateCharacter, usingBackend } from "./configService";
+         createCharacter, deleteCharacter, generateCharacter,
+         loadCostConfig, saveCostConfig, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -58,6 +59,7 @@ export class AdminLogic {
     section: "dashboard", detail: null, query: "", userFilter: "all", sceneTab: "rec", charBio: "", charEdit: {}, replyDraft: "", toast: "", banned: {}, sceneStatus: {}, ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, adminOff: {}, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", exprOpen: null, exprOff: {}, charOff: {}, ioOpen: false, ioMode: "export",
     testVoice: "v1", testChar: "c1", testText: "今天工作压力好大，感觉有点撑不住。", testStage: 0, testRunning: false, testMs: {}, testReply: "", testAsr: "", apiStatus: {},
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
+    costCfg: { chars_per_token: "2", llm_fast: "0.002", llm_slow: "0.01", embedding: "0.0001", tts: "0.02", asr: "0.006" },
     apiCfg: {
       // 这些只是「无后端」时的兜底默认；接了后端会被真实配置覆盖。值与 backend/config/default.json 对齐，
       // 避免再出现 DeepSeek-V4-Flash 这类虚名误导。key 留空（不放假占位），由运营填、后端打码回显。
@@ -187,6 +189,14 @@ export class AdminLogic {
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
   }
 
+  setCost(k: string, v: string) { this.setState((p) => ({ costCfg: { ...(p as any).costCfg, [k]: v } })); }
+  /** 保存计费单价到后端（admin_overrides.cost），下一通通话即按新价估算。 */
+  async saveCost() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const ok = await saveCostConfig(this.state.costCfg);
+    this.toastMsg(ok ? "单价已保存，下一通通话按新价估算" : "保存失败");
+  }
+
   /** 导出角色为 JSON 文件（真实下载）。 */
   private exportChars() {
     try {
@@ -293,6 +303,8 @@ export class AdminLogic {
         invited: v.invited, success: v.invited, pending: 0, mins: String(v.mins),
       }));
     }
+    const cc = await loadCostConfig();
+    if (cc) this.setState({ costCfg: { chars_per_token: String(cc.chars_per_token), llm_fast: String(cc.llm_fast), llm_slow: String(cc.llm_slow), embedding: String(cc.embedding), tts: String(cc.tts), asr: String(cc.asr) } });
     if (dash || users || calls || orders || tickets || invites || codes) this.setState({});
   }
 
@@ -709,6 +721,13 @@ export class AdminLogic {
       nav: navView, navConfig: navConfigView,
       charTabs, isRoleTab: s.charTab === "role", isVoiceTab: s.charTab === "voice", isExprTab: s.charTab === "expr", isApi: s.section === "api", isCost: s.section === "cost",
       linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, fallbackRows, limitItems, warnItems, seedanceCoverage,
+      ccCpt: s.costCfg.chars_per_token, onCcCpt: (e: any) => this.setCost("chars_per_token", e.target.value),
+      ccLlmFast: s.costCfg.llm_fast, onCcLlmFast: (e: any) => this.setCost("llm_fast", e.target.value),
+      ccLlmSlow: s.costCfg.llm_slow, onCcLlmSlow: (e: any) => this.setCost("llm_slow", e.target.value),
+      ccEmbedding: s.costCfg.embedding, onCcEmbedding: (e: any) => this.setCost("embedding", e.target.value),
+      ccTts: s.costCfg.tts, onCcTts: (e: any) => this.setCost("tts", e.target.value),
+      ccAsr: s.costCfg.asr, onCcAsr: (e: any) => this.setCost("asr", e.target.value),
+      saveCost: () => this.saveCost(),
       freePaid: [
         { item: "通话额度", free: "每日 30 分钟", paid: "畅聊 1500 分钟/月 · 无限会员不限时" },
         { item: "单次通话最长", free: "15 分钟", paid: "60 分钟" },
