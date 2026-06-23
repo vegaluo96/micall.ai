@@ -508,7 +508,8 @@ export class MiCallLogic {
     if (!this.sig) {
       this.sig = createSignaling(
         (ev) => this.onServerEvent(ev),
-        (frame) => this.player.play(frame), // 下行 TTS PCM → 播放
+        // 下行 TTS PCM → 播放。RTC 已连通时 AI 音频走 <audio> 远端轨，这里丢弃 WS 音频，杜绝两路双播/回声。
+        (frame) => { if (this.pc && this.pc.connectionState === "connected") return; this.player.play(frame); },
       );
     }
     return this.sig;

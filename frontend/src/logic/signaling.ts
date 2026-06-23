@@ -58,6 +58,7 @@ export interface SignalingClient {
 class WebSocketSignalingClient implements SignalingClient {
   private ws: WebSocket;
   private queue: ClientMessage[] = [];
+  private everConnected = false;   // 接通后的 error 不再当「呼叫失败」（防网络瞬抖误掉线）
 
   constructor(url: string, private onEvent: ServerHandler, private onAudio?: AudioHandler) {
     this.ws = new WebSocket(url);
@@ -72,13 +73,16 @@ class WebSocketSignalingClient implements SignalingClient {
         return;
       }
       try {
-        this.onEvent(JSON.parse(e.data) as ServerEvent);
+        const sev = JSON.parse(e.data) as ServerEvent;
+        if (sev.type === "connected") this.everConnected = true;
+        this.onEvent(sev);
       } catch {
         /* ignore malformed frames */
       }
     });
     this.ws.addEventListener("error", () => {
-      this.onEvent({ type: "call_failed", reason: "network" });
+      // 只在「接通前」把 error 当呼叫失败；接通后的网络瞬抖不掉线，否则活的通话被弹失败框。
+      if (!this.everConnected) this.onEvent({ type: "call_failed", reason: "network" });
     });
   }
 
