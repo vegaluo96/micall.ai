@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import auth as _auth
@@ -22,6 +23,29 @@ from . import auth as _auth
 log = logging.getLogger("micall.userapi")
 _REPO = None  # run_user_http 注入；与 SignalingServer.repo 同一实例
 GUEST_TRIAL_SECONDS = 60   # 与 wsserver._GUEST_TRIAL_SECONDS 保持一致（游客试用 1 分钟，按 IP 计）
+
+# ── 按 IP 限流（防刷：批量注册薅免费时长、登录/兑换码爆破）。进程内滑动窗口，单机足够 ──
+_RATE: dict[tuple[str, str], list[float]] = {}
+_RATE_LOCK = threading.Lock()
+# 端点 → (窗口内最多次数, 窗口秒)
+_RATE_RULES = {
+    "register": (5, 3600),   # 同 IP 每小时最多 5 次注册（防批量薅 60 分钟）
+    "login":    (15, 300),   # 5 分钟内 15 次（防密码爆破）
+    "redeem":   (15, 300),   # 5 分钟内 15 次（防兑换码猜测）
+}
+
+
+def _rate_ok(ip: str, key: str) -> bool:
+    limit, window = _RATE_RULES[key]
+    now = time.time()
+    with _RATE_LOCK:
+        hits = [t for t in _RATE.get((ip, key), []) if now - t < window]
+        if len(hits) >= limit:
+            _RATE[(ip, key)] = hits
+            return False
+        hits.append(now)
+        _RATE[(ip, key)] = hits
+        return True
 
 
 def _bearer(headers) -> str:
@@ -111,12 +135,22 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "invite": _REPO.invite_stats(uid)})
         self._json(404, {"error": "not found"})
 
+    def _rate_block(self, key: str) -> bool:
+        if not _rate_ok(self._ip(), key):
+            self._json(429, {"ok": False, "error": "操作过于频繁，请稍后再试"})
+            return True
+        return False
+
     def do_POST(self) -> None:
         route = self._route()
         if route == "/api/auth/register":
+            if self._rate_block("register"):
+                return
             b = self._body()
             return self._json(*_auth.register(_REPO, b.get("email"), b.get("password"), b.get("invite_code") or ""))
         if route == "/api/auth/login":
+            if self._rate_block("login"):
+                return
             b = self._body()
             return self._json(*_auth.login(_REPO, b.get("email"), b.get("password")))
         if route == "/api/auth/logout":
@@ -127,6 +161,8 @@ class _Handler(BaseHTTPRequestHandler):
             uid = self._uid()
             if not uid:
                 return self._json(401, {"ok": False, "error": "请先登录"})
+            if self._rate_block("redeem"):
+                return
             code = (self._body().get("code") or "").strip()
             if not code:
                 return self._json(400, {"ok": False, "error": "请输入兑换码"})
