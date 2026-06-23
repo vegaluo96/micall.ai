@@ -353,6 +353,27 @@ class _Handler(BaseHTTPRequestHandler):
             b = self._body()
             ok = _REPO.reply_ticket(b.get("id"), (b.get("reply") or "").strip())
             return self._json(200, {"ok": ok})
+        if route == "/admin/characters/create":   # 新建自定义角色
+            try:
+                from .characters_admin import create_character
+                return self._json(200, {"ok": True, "id": create_character(self._body())})
+            except Exception as e:
+                return self._json(400, {"ok": False, "error": str(e)[:200]})
+        if route == "/admin/characters/delete":   # 删除角色
+            from .characters_admin import delete_character
+            ok = delete_character((self._body().get("id") or "").strip())
+            return self._json(200, {"ok": ok})
+        if route == "/admin/characters/generate":  # AI 一键生成角色
+            import asyncio
+
+            from ..providers import make_llm
+            from .characters_admin import generate_character
+            try:
+                llm = make_llm(load_config().node("llm_slow"))
+                fields = asyncio.run(generate_character((self._body().get("prompt") or "").strip(), llm))
+                return self._json(200, {"ok": True, "fields": fields})
+            except Exception as e:
+                return self._json(400, {"ok": False, "error": str(e)[:200]})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默（journalctl 不刷屏）

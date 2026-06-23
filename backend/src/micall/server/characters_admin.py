@@ -19,6 +19,8 @@ from ..config import _REPO_DEFAULT, _deep_merge
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
 CHAR_OVERRIDES_PATH = _REPO_DEFAULT.parent / "character_overrides.json"
+CUSTOM_CHARS_PATH = _REPO_DEFAULT.parent / "custom_characters.json"   # 运营新建的角色（全 spec）
+DELETED_CHARS_PATH = _REPO_DEFAULT.parent / "deleted_characters.json"  # 被隐藏/删除的角色 id
 
 _LIST_SEP = re.compile(r"[、,，;；\n]+")
 
@@ -55,11 +57,41 @@ def load_overrides() -> dict:
     return {}
 
 
+def _load_json_file(path: Path, default):
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            return default
+    return default
+
+
+def _save_json_file(path: Path, data) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
+def load_custom() -> dict:
+    d = _load_json_file(CUSTOM_CHARS_PATH, {})
+    return d if isinstance(d, dict) else {}
+
+
+def load_deleted() -> set:
+    d = _load_json_file(DELETED_CHARS_PATH, [])
+    return set(d) if isinstance(d, list) else set()
+
+
 def effective_specs() -> dict[str, dict]:
-    """出厂 spec 深合并运营 overrides → 生效中的角色定义（通话端与后台都用这个）。"""
+    """出厂 spec + 运营新建角色，深合并 overrides、剔除已删除 → 生效中的角色定义（通话端/后台/用户端都用）。"""
     overrides = load_overrides()
+    deleted = load_deleted()
+    base = dict(factory_specs())
+    base.update(load_custom())   # 运营新建的自定义角色
     out: dict[str, dict] = {}
-    for cid, spec in factory_specs().items():
+    for cid, spec in base.items():
+        if cid in deleted:
+            continue
         ov = overrides.get(cid)
         out[cid] = _deep_merge(spec, ov) if isinstance(ov, dict) else spec
     return out
@@ -123,3 +155,86 @@ def write_character_from_admin(payload: dict) -> None:
     tmp = CHAR_OVERRIDES_PATH.with_name(CHAR_OVERRIDES_PATH.name + ".tmp")
     tmp.write_text(json.dumps(ov, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(CHAR_OVERRIDES_PATH)
+
+
+# ── 新建自定义角色：扁平字段 → 全 spec，存 custom_characters.json ──
+def _spec_from_flat(cid: str, p: dict) -> dict:
+    def s(v) -> str:
+        return str(v or "").strip()
+    return {
+        "identity": {"character_id": cid, "name": s(p.get("name")) or "新角色",
+                     "tagline": s(p.get("tagline")), "gender": s(p.get("gender")), "age": s(p.get("age")),
+                     "version": "1"},
+        "persona": {"core_traits": _split(p.get("traits", "")), "speaking_style": s(p.get("speaking_style")),
+                    "background_story": s(p.get("background_story")),
+                    "values_and_boundaries": s(p.get("values")),
+                    "likes": _split(p.get("likes", "")), "dislikes": _split(p.get("dislikes", ""))},
+        "voice": {"voice_id": s(p.get("voice_id"))},
+        "runtime_overrides": {"realtime_prompt_extra": s(p.get("prompt_extra"))},
+    }
+
+
+def create_character(payload: dict) -> str:
+    """新建自定义角色，返回新 character_id。"""
+    import secrets
+    if not str((payload or {}).get("name", "")).strip():
+        raise ValueError("角色名不能为空")
+    cid = "custom_" + secrets.token_hex(4)
+    custom = load_custom()
+    custom[cid] = _spec_from_flat(cid, payload)
+    _save_json_file(CUSTOM_CHARS_PATH, custom)
+    return cid
+
+
+def delete_character(cid: str) -> bool:
+    """删除角色：自定义角色直接删除其 spec；出厂角色加入隐藏名单（不动只读资产）。"""
+    cid = str(cid or "").strip()
+    if not cid:
+        return False
+    custom = load_custom()
+    if cid in custom:
+        custom.pop(cid)
+        _save_json_file(CUSTOM_CHARS_PATH, custom)
+        return True
+    if cid in factory_specs():
+        deleted = load_deleted()
+        deleted.add(cid)
+        _save_json_file(DELETED_CHARS_PATH, sorted(deleted))
+        return True
+    return False
+
+
+async def generate_character(prompt: str, llm) -> dict:
+    """AI 一键生成：让 LLM 按描述产出角色字段（JSON）。返回扁平字段供运营预览/保存。"""
+    sys = (
+        "你是角色设定生成器。根据用户描述，生成一个适合语音陪伴 App 的虚拟角色。"
+        "只输出 JSON，字段：name(中文名2-3字)、tagline(一句话简介)、gender(男/女)、age(数字)、"
+        "traits(性格，3-4个，顿号分隔)、speaking_style(说话风格一句话)、background_story(背景故事2-3句)、"
+        "likes(喜欢，顿号分隔)、dislikes(不喜欢，顿号分隔)、values(价值观与边界一句话)。不要任何解释。"
+    )
+    buf = ""
+    async for tok in llm.stream([{"role": "system", "content": sys},
+                                 {"role": "user", "content": prompt or "生成一个温柔治愈的角色"}],
+                                max_tokens=800):
+        buf += tok
+    m = re.search(r"\{.*\}", buf, re.S)
+    if not m:
+        raise ValueError("生成失败，未返回有效内容")
+    data = json.loads(m.group())
+    return {k: data.get(k, "") for k in
+            ("name", "tagline", "gender", "age", "traits", "speaking_style", "background_story", "likes", "dislikes", "values")}
+
+
+# ── 用户端公开角色列表（GET /api/characters）──
+def public_characters() -> list[dict]:
+    """给用户端 App 的角色卡列表（剔除已删除，含运营新建）。hue 由前端按 id 配色。"""
+    out: list[dict] = []
+    for cid, s in effective_specs().items():
+        ident = s.get("identity", {}) or {}
+        persona = s.get("persona", {}) or {}
+        out.append({
+            "id": cid, "name": ident.get("name", ""), "desc": ident.get("tagline", ""),
+            "traits": persona.get("core_traits", []) or [],
+            "bio": persona.get("background_story", ""),
+        })
+    return out

@@ -68,6 +68,12 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         route = self._route()
+        if route == "/api/characters":      # 公开：用户端角色卡列表（含运营新建、剔除已删除）
+            try:
+                from .characters_admin import public_characters
+                return self._json(200, {"ok": True, "characters": public_characters()})
+            except Exception as e:
+                return self._json(200, {"ok": False, "characters": [], "error": str(e)[:200]})
         if route == "/api/auth/me":
             return self._json(*_auth.me(_REPO, _bearer(self.headers)))
         if route == "/api/calls":
