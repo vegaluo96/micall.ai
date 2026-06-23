@@ -12,6 +12,51 @@ nginx 模板见 `deploy/nginx/`。两个站点都需 HTTPS 才能用真麦克风
 
 ---
 
+## 例行更新（每次拉新代码后照这个走）
+
+后端只需拉代码 + 重启（无新依赖、无数据库迁移、nginx 不用动）；两个前端要重新构建部署。
+
+```bash
+# 1) 后端：拉代码 + 重启
+cd ~/micall.ai && git pull origin main
+sudo systemctl restart micall-backend
+systemctl status micall-backend            # running 即可
+
+# 2) 用户端 zsky.com
+cd ~/micall.ai/frontend && npm ci
+echo 'VITE_SIGNALING_URL=wss://zsky.com/realtime/signal' > .env.production
+npm run build && sudo cp -r dist/* /var/www/micall/
+
+# 3) 运营后台 admin.zsky.com
+cd ~/micall.ai/admin && npm ci
+echo 'VITE_API_BASE=https://admin.zsky.com' > .env.production
+npm run build && sudo cp -r dist/* /var/www/micall-admin/
+```
+
+> ⚠️ **两个 `.env.production` 都必须非空**。后台留空 → `usingBackend()` 为 false →
+> 音色库 / 试听 / 邀请奖励保存等全部退回假数据、不持久化（「邀请奖励改了仍显 60」的常见根因）；
+> 用户端留空 → 走内置 mock，不连真实后端。
+
+**验证**（部署后在服务器上跑）：
+
+```bash
+# 邀请奖励：应返回后台设的分钟数（公开接口，不再写死 60）
+curl -s https://zsky.com/api/invite-reward
+
+# 用户端音色试听：应是 200 + audio/wav
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "https://zsky.com/api/voice-preview?c=lin_wan"
+
+# 后台 MiniMax 系统音色库（带 Basic Auth）
+curl -s -u admin:<后台密码> https://admin.zsky.com/admin/voices | head -c 200
+```
+
+部署后手机务必**硬刷新 / 用无痕窗口**打开，否则继续跑旧 JS（旧的邀请 60、已移除的字体大小入口等）。
+音色试听出声需 `backend/config/micall.env` 已配 TTS（线上通话能用即已配）。
+
+新增端点（本次）：`/api/voice-preview`、`/api/invite-reward`（公开）、`/admin/voices`、`/admin/voice-preview`（后台）。
+
+---
+
 ## 用户端 zsky.com（更新部署）
 
 ```bash
