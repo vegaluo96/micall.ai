@@ -310,6 +310,9 @@ class SignalingServer:
                         await session.end()
                         self._on_call_end(user_id, session, client_ip)
                         session = None
+                    if rtc is not None:   # 挂断同时关掉 RTC 媒体面，否则僵尸 transport 泄漏到下一通：
+                        await rtc.close()  # 第二通的 rtc_offer 会落到已断的旧 transport → 异常断连 → 计时卡 00:00
+                        rtc = None
                 elif msg.type == "text_input":
                     if session and msg.text:
                         await session.on_user_text(msg.text)

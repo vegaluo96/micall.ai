@@ -642,7 +642,9 @@ export class MiCallLogic {
     this.rtcFellBack = false;
     const sig = this.ensureSignaling();
     try {
-      const pc = new RTCPeerConnection({ iceServers: this.iceServers() });
+      const ice = this.iceServers();
+      // 境内 NAT 下 host/srflx 基本连不通，先尝试它们只会白等几秒超时 → 配了 coturn 就直接 relay，开场更快更确定。
+      const pc = new RTCPeerConnection({ iceServers: ice, iceTransportPolicy: ice.length ? "relay" : "all" });
       this.pc = pc;
       this.micStream.getAudioTracks().forEach((t) => pc.addTrack(t, this.micStream!));  // 上行麦克风
       pc.ontrack = (e) => {                                                              // 下行 AI 语音 → <audio>
