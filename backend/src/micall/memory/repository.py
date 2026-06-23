@@ -16,6 +16,11 @@ from abc import ABC, abstractmethod
 from ..context.models import AutonomousState, UserProfile
 
 
+def _now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
     """余弦相似度；维度不一致/零向量 → 0。"""
     if not a or not b or len(a) != len(b):
@@ -119,6 +124,19 @@ class MemoryRepository(ABC):
         """改余额并记流水（负=消费 call、正=充值 recharge/赠送）。返回改后余额（钳到 ≥0）。"""
         return 0
 
+    # ── 通话记录 / 账单（P3）──
+    def add_call(self, user_id: str, character_id: str, scenario: str,
+                 duration_seconds: int, ended_reason: str) -> None:
+        """通话结束写一条记录（前端「通话历史」数据源）。"""
+
+    def list_calls(self, user_id: str, *, limit: int = 30) -> list[dict]:
+        """该用户最近通话，新→旧。每条 {character_id,scenario,duration_seconds,ended_reason,started_at}。"""
+        return []
+
+    def list_ledger(self, user_id: str, *, limit: int = 30) -> list[dict]:
+        """该用户计费流水，新→旧。每条 {delta_seconds,reason,created_at}。前端「账单明细」数据源。"""
+        return []
+
 
 class InMemoryRepository(MemoryRepository):
     """字典实现。配了 Embedding 节点则按余弦相似召回（recall_vec），否则字符重叠近似（recall）。
@@ -133,6 +151,8 @@ class InMemoryRepository(MemoryRepository):
         self._users: dict[str, dict] = {}                  # user_id → 账号
         self._email_idx: dict[str, str] = {}               # email(lower) → user_id
         self._sessions: dict[str, tuple[str, float]] = {}  # token → (user_id, expires_epoch)
+        self._calls: list[dict] = []                       # 通话记录（含 user_id）
+        self._ledger: list[dict] = []                      # 计费流水（含 user_id）
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
@@ -211,6 +231,11 @@ class InMemoryRepository(MemoryRepository):
         }
         if key:
             self._email_idx[key] = user_id
+        if gift_seconds:
+            self._ledger.append({
+                "user_id": user_id, "delta_seconds": int(gift_seconds),
+                "reason": "register_gift", "created_at": _now_iso(),
+            })
         return True
 
     def auth_user(self, email):
@@ -246,4 +271,25 @@ class InMemoryRepository(MemoryRepository):
         if not u:
             return 0
         u["remaining_seconds"] = max(0, int(u["remaining_seconds"]) + int(delta_seconds))
+        self._ledger.append({
+            "user_id": user_id, "delta_seconds": int(delta_seconds),
+            "reason": reason, "created_at": _now_iso(),
+        })
         return u["remaining_seconds"]
+
+    def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason) -> None:
+        self._calls.append({
+            "user_id": user_id, "character_id": character_id, "scenario": scenario or "",
+            "duration_seconds": int(duration_seconds), "ended_reason": ended_reason or "ended",
+            "started_at": _now_iso(),
+        })
+
+    def list_calls(self, user_id, *, limit=30) -> list[dict]:
+        rows = [c for c in self._calls if c["user_id"] == user_id]
+        rows.sort(key=lambda c: c["started_at"], reverse=True)
+        return [{k: c[k] for k in ("character_id", "scenario", "duration_seconds", "ended_reason", "started_at")}
+                for c in rows[:limit]]
+
+    def list_ledger(self, user_id, *, limit=30) -> list[dict]:
+        rows = [b for b in self._ledger if b["user_id"] == user_id]
+        return [{k: b[k] for k in ("delta_seconds", "reason", "created_at")} for b in rows[::-1][:limit]]

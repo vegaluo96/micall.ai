@@ -85,6 +85,26 @@ class SignalingServer:
             except Exception as e:
                 log.warning("扣费失败 user=%s：%r", user_id, e)
 
+    def _record_call(self, user_id: str, session: "CallSession") -> None:
+        """登录用户挂断 → 落一条通话记录（前端「通话历史」数据源）。游客不记。"""
+        if user_id == _ANON or not session:
+            return
+        meter = getattr(session, "billing", None)
+        dur = int(getattr(meter, "elapsed", 0) or 0)
+        if dur <= 0:
+            return
+        reason = "out_of_minutes" if getattr(meter, "exhausted", False) else "ended"
+        try:
+            self.repo.add_call(user_id, session.character_id, getattr(session, "scenario", ""), dur, reason)
+        except Exception as e:
+            log.warning("通话记录失败 user=%s：%r", user_id, e)
+
+    def _on_call_end(self, user_id: str, session: "CallSession") -> None:
+        """通话收尾统一入口：扣费 + 记通话 + 触发离线理解。三处结束点（挂断/切角色/断线）共用。"""
+        self._consume_balance(user_id, session)
+        self._record_call(user_id, session)
+        self._schedule_understanding(session, user_id)
+
     def _schedule_understanding(self, session: "CallSession", user_id: str = _ANON) -> None:
         """通话结束 → 后台跑离线理解（写事实层 + 修正画像 + 生成下次策略）。fire-and-forget。"""
         if not session or not session.history:
@@ -211,8 +231,7 @@ class SignalingServer:
                 elif msg.type == "switch_character":
                     if session:
                         await session.end(emit_ended=False)  # 切角色 = 结束 + 新建（docs/03 §3）
-                        self._consume_balance(user_id, session)
-                        self._schedule_understanding(session, user_id)
+                        self._on_call_end(user_id, session)
                     self._reload_config()
                     session = self._make_session(
                         emit=emit, audio_emit=audio_emit,
@@ -222,8 +241,7 @@ class SignalingServer:
                 elif msg.type == "end_call":
                     if session:
                         await session.end()
-                        self._consume_balance(user_id, session)
-                        self._schedule_understanding(session, user_id)
+                        self._on_call_end(user_id, session)
                         session = None
                 elif msg.type == "text_input":
                     if session and msg.text:
@@ -248,8 +266,7 @@ class SignalingServer:
         finally:
             if session:
                 await session.end(emit_ended=False)
-                self._consume_balance(user_id, session)
-                self._schedule_understanding(session, user_id)
+                self._on_call_end(user_id, session)
 
 
 async def serve_forever(config: Config) -> None:

@@ -345,6 +345,52 @@ class PgRepository(MemoryRepository):
             log.warning("add_seconds 失败：%r", e)
             return 0
 
+    # ── 通话记录 / 账单 ──
+    def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason) -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute(
+                    "INSERT INTO calls (user_id, character_id, scenario, started_at, duration_seconds, ended_reason) "
+                    "VALUES (%s,%s,%s, now() - make_interval(secs => %s), %s, %s)",
+                    (user_id, character_id, scenario or "", int(duration_seconds),
+                     int(duration_seconds), ended_reason or "ended"),
+                )
+        except Exception as e:  # 角色 FK 不符（生成角色未入库）等：通话记录失败不影响主链路
+            log.warning("add_call 失败（忽略）：%r", e)
+
+    def list_calls(self, user_id, *, limit=30) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT character_id, scenario, duration_seconds, ended_reason, started_at "
+                    "FROM calls WHERE user_id=%s ORDER BY started_at DESC LIMIT %s",
+                    (user_id, int(limit)),
+                ).fetchall()
+            return [
+                {"character_id": r[0], "scenario": r[1], "duration_seconds": r[2],
+                 "ended_reason": r[3], "started_at": r[4].isoformat() if r[4] else ""}
+                for r in rows
+            ]
+        except Exception as e:
+            log.warning("list_calls 失败：%r", e)
+            return []
+
+    def list_ledger(self, user_id, *, limit=30) -> list[dict]:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT delta_seconds, reason, created_at FROM billing_ledger "
+                    "WHERE user_id=%s ORDER BY id DESC LIMIT %s",
+                    (user_id, int(limit)),
+                ).fetchall()
+            return [
+                {"delta_seconds": r[0], "reason": r[1], "created_at": r[2].isoformat() if r[2] else ""}
+                for r in rows
+            ]
+        except Exception as e:
+            log.warning("list_ledger 失败：%r", e)
+            return []
+
     def close(self) -> None:
         try:
             self.pool.close()

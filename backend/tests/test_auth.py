@@ -60,6 +60,28 @@ class AuthFlowTest(unittest.TestCase):
         self.assertEqual(self.repo.add_seconds(uid, 600, "recharge"), 4080)
         self.assertEqual(self.repo.add_seconds(uid, -99999, "call"), 0)    # 钳到 ≥0
 
+    def test_calls_and_ledger_history(self):
+        uid = auth.register(self.repo, "a@b.com", "secret1")[1]["user"]["user_id"]
+        self.repo.add_call(uid, "c0", "heart", 728, "ended")
+        self.repo.add_call(uid, "c2", "chat", 261, "out_of_minutes")
+        self.repo.add_seconds(uid, -120, "call")
+
+        calls = self.repo.list_calls(uid)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["character_id"], "c2")            # 新→旧
+        self.assertEqual(calls[0]["ended_reason"], "out_of_minutes")
+        self.assertEqual(calls[1]["duration_seconds"], 728)
+
+        bills = self.repo.list_ledger(uid)                          # 含注册赠送 + 扣费
+        reasons = [b["reason"] for b in bills]
+        self.assertIn("register_gift", reasons)
+        self.assertEqual(bills[0]["reason"], "call")                # 最新在前
+        self.assertEqual(bills[0]["delta_seconds"], -120)
+
+        # 隔离：别的用户看不到这些记录
+        other = auth.register(self.repo, "x@y.com", "secret1")[1]["user"]["user_id"]
+        self.assertEqual(self.repo.list_calls(other), [])
+
 
 if __name__ == "__main__":
     unittest.main()

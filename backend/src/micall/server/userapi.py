@@ -62,9 +62,24 @@ class _Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def _uid(self) -> str | None:
+        """从 Bearer token 解析登录 user_id；未登录返回 None。"""
+        return _REPO.user_for_token(_bearer(self.headers))
+
     def do_GET(self) -> None:
-        if self._route() == "/api/auth/me":
+        route = self._route()
+        if route == "/api/auth/me":
             return self._json(*_auth.me(_REPO, _bearer(self.headers)))
+        if route == "/api/calls":
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            return self._json(200, {"ok": True, "calls": _REPO.list_calls(uid, limit=30)})
+        if route == "/api/bills":
+            uid = self._uid()
+            if not uid:
+                return self._json(401, {"ok": False, "error": "未登录"})
+            return self._json(200, {"ok": True, "bills": _REPO.list_ledger(uid, limit=30)})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
