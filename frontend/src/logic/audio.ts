@@ -3,11 +3,11 @@
 //   • AudioPlayer：后端下行的 PCM16 @ 24kHz 音频块 → Web Audio 播放（H5/iOS 稳，无需 MSE）。
 // 采样率与后端约定一致：上行 16k（ASR session），下行 24k（config tts.sample_rate）。
 //
-// 公放回声的成熟解法（豆包/Siri/各家语音助手在缺硬件 AEC 时的通用做法）= **半双工**：
-// AI 的声音正在外放时，麦克风干脆不上行——AI 自然「听不见自己」，从源头杜绝回声被 ASR
-// 当成用户说话（自己断/凭空冒话/重复「你好」）。浏览器 echoCancellation 只在桌面/安卓 Chrome
-// 可靠，移动端外放（尤其 iOS Safari）的 AEC 只有走 WebRTC 通信模式才生效——纯 WebSocket+WebAudio
-// 拿不到，故用「按真实播放状态门控麦克风」这条确定性方案兜底（见 AudioPlayer.isPlaying）。
+// 公放回声的成熟解法（缺硬件 AEC 时的通用做法）= **半双工**：AI 的声音正在外放时，麦克风
+// 干脆不上行——AI 自然「听不见自己」，从源头杜绝回声被 ASR 当成用户说话（自己断/凭空冒话/重复
+// 「你好」）。靠 AudioPlayer.isPlaying 按真实播放状态门控麦克风上行（确定性，不靠猜阈值）。
+// 注：曾试过把 TTS 经 MediaStream+<audio> 出声以启用浏览器 AEC 做全双工，但部分机型出现电流声/
+// 卡顿，已撤回直连播放（稳）。真·全双工（边说边随时打断）的可靠方案是服务端 WebRTC，留作后续。
 
 const MIC_RATE = 16000;
 const TTS_RATE = 24000;
@@ -81,33 +81,11 @@ export class AudioPlayer {
   private playhead = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private logged = false;
-  // 全双工关键：TTS 不直连 ctx.destination，而是经 MediaStream 走一个隐藏 <audio> 元素出声。
-  // 浏览器会把"媒体元素的播放"纳入回声消除(AEC)的参考信号，移动端外放（尤其 iOS Safari，纯 WebAudio
-  // 直连 destination 时 AEC 不生效）也能消回声 → 麦克风全程开着也不回授，支持边说边随时打断。
-  private out: AudioNode | null = null;        // 实际接音频的节点（MediaStream 目标 或 退回 destination）
-  private el: HTMLAudioElement | null = null;
 
   /** 必须在用户手势（点接听）里调一次，iOS 才允许出声。 */
   resume(): void {
-    if (!this.ctx) {
-      this.ctx = audioCtx();
-      try {
-        const dest = this.ctx.createMediaStreamDestination();
-        const el = document.createElement("audio");
-        el.autoplay = true;
-        el.setAttribute("playsinline", "");       // iOS 不接管/不全屏
-        (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
-        el.srcObject = dest.stream;
-        el.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;";
-        document.body.appendChild(el);            // 个别浏览器要求在 DOM 内才出声
-        this.el = el;
-        this.out = dest;                          // AEC 友好输出
-      } catch {
-        this.out = this.ctx.destination;          // 不支持 MediaStreamDestination：退回直连（仍可出声）
-      }
-    }
+    if (!this.ctx) this.ctx = audioCtx();
     if (this.ctx.state === "suspended") void this.ctx.resume();
-    if (this.el) void this.el.play().catch(() => { /* 手势内调用，通常已可播 */ });
   }
 
   play(frame: ArrayBuffer): void {
@@ -126,7 +104,7 @@ export class AudioPlayer {
       buf.getChannelData(0).set(f32);
       const node = this.ctx.createBufferSource();
       node.buffer = buf;
-      node.connect(this.out || this.ctx.destination);
+      node.connect(this.ctx.destination);   // 直连输出：稳、无杂音（MediaStream+<audio> 那条 AEC 路径在部分机型出电流声，已撤）
       const start = Math.max(this.ctx.currentTime + 0.02, this.playhead);
       node.start(start);
       this.playhead = start + buf.duration;
@@ -154,8 +132,6 @@ export class AudioPlayer {
 
   close(): void {
     this.flush();
-    if (this.el) { try { this.el.pause(); this.el.srcObject = null; this.el.remove(); } catch { /* noop */ } this.el = null; }
-    this.out = null;
     try { void this.ctx?.close(); } catch { /* noop */ }
     this.ctx = null;
   }

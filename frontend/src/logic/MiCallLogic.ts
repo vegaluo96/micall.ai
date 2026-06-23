@@ -84,7 +84,7 @@ export class MiCallLogic {
   private micStream: MediaStream | null = null;
   private micCapture: MicCapture | null = null;  // 麦克风 → 上行 PCM 帧
   private player = new AudioPlayer();             // 下行 TTS PCM → 播放
-  private halfDuplex = false;                     // 默认全双工（麦克风全程开、可随时打断）；=true 退半双工兜底
+  private halfDuplex = true;                      // 默认半双工（AI 外放时不上行，稳·无回声·无杂音）；?duplex=full 才关
 
   bills: any[] = [];
 
@@ -131,11 +131,11 @@ export class MiCallLogic {
     try {
       seen = localStorage.getItem("micall_seen_guide") === "1";
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
-      // 通话模式可用 URL 一键切换并记住（手机无需控制台）：
-      //   ?duplex=full（默认，麦克风全程开、可随时打断）  ?duplex=half（最稳无回声、但不能插话）
+      // 通话模式：默认半双工（稳、无回声无杂音）。可用 URL 一键切换并记住（手机无需控制台）：
+      //   ?duplex=half（默认）  ?duplex=full（实验：麦克风全程开可插话，但无服务端 WebRTC 时部分机型会回声）
       const dux = new URLSearchParams(location.search).get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
-      this.halfDuplex = localStorage.getItem("micall_duplex") === "half";
+      this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
     try {  // 邀请链接 ?invite=CODE：记下来，注册时带上 → 双方各得 60 分钟
@@ -391,9 +391,8 @@ export class MiCallLogic {
     const sig = this.ensureSignaling();
     this.micCapture = new MicCapture(this.micStream, (pcm) => {
       if (this.state.mute) return;                       // 静音：不上行（本地已禁音轨）
-      // 默认全双工：麦克风全程开着，靠浏览器 AEC（TTS 经 <audio> 出声已启用回声消除）消掉自己的声音
-      //   → 用户可边说边随时打断 AI（豆包式体验）。
-      // 兜底：localStorage.micall_duplex='half' 的机型退半双工——AI 外放时不上行，最稳无回声但不能插话。
+      // 默认半双工（稳）：AI 音频正在外放时不上行，从源头杜绝公放回声（自己断/凭空冒话/重复「你好」）。
+      // 仅 ?duplex=full 时关掉这道门，麦克风全程开（实验性，无服务端 WebRTC 时部分机型会回声）。
       if (this.halfDuplex && this.player.isPlaying()) return;
       sig.sendAudio(pcm);
     });
@@ -414,15 +413,11 @@ export class MiCallLogic {
   private async acquireMic(): Promise<boolean> {
     if (this.micStream) return true;
     try {
-      // 全双工核心：开足回声消除/降噪/自动增益。echoCancellation 让浏览器消掉外放的 AI 声音，
-      // 配合 TTS 经 <audio> 出声（AudioPlayer），移动端外放也能 AEC → 麦克风全程开也不回授。
-      // 单声道、16k 贴合 ASR；voiceIsolation 是较新机型的人声分离（不支持自动忽略，故用 any 附加）。
-      const audio: MediaTrackConstraints = {
-        echoCancellation: true, noiseSuppression: true, autoGainControl: true,
-        channelCount: 1, sampleRate: 16000,
-      };
-      (audio as Record<string, unknown>).voiceIsolation = true;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio });
+      // 开回声消除/降噪/自动增益即可（已验证稳）。不再加 channelCount/sampleRate/voiceIsolation 等
+      // 约束——它们在部分机型上会让采集行为异常（卡顿/杂音），属于上次"最差更新"的一部分，撤回。
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       this.micStream = stream;
       this.applyMuteToTracks();
       return true;
@@ -581,10 +576,12 @@ export class MiCallLogic {
     else if (p === "calling") subline = "正在呼叫…";
     else subline = this.fmt(this.state.seconds);
 
+    // 球模式（非文字页）：球下方只显示当前角色状态，固定一行、绝不撑大布局。
+    // AI 说话的逐句字幕是文字模式才展开的内容，不放这里（之前放整句字幕会把球顶上去/抖动）。
     let underOrb = "";
     if (p === "listening") underOrb = "正在聆听";
     else if (p === "thinking") underOrb = "正在思考";
-    else if (p === "speaking") underOrb = this.state.subtitle;
+    else if (p === "speaking") underOrb = "正在说话";
     else if (p === "ended") underOrb = "这次聊得怎么样？";
 
     let actionLabel = "轻点呼叫";
