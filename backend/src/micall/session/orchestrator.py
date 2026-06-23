@@ -155,8 +155,12 @@ class CallSession:
         #   partial_min_chars —— AI 不在播时，partial 回显/预停播的下限（越大越不会"一点声音就在屏上冒字/抢拍"）。
         #   turn_min_chars    —— final 触发新一轮的下限（保留「好的/是啊」等真短回复，故默认 2，不宜再高）。
         self._bargein_min_chars = int(turn.get("bargein_min_chars", 4))
-        self._partial_min_chars = int(turn.get("partial_min_chars", 3))
+        self._partial_min_chars = int(turn.get("partial_min_chars", 2))
         self._turn_min_chars = int(turn.get("turn_min_chars", 2))
+        # 字幕跟读：回复按句一句一句发声，句间按上一句播放时长节流，让高亮字幕随语音推进（而非一齐闪到末句）。
+        # subtitle_pace_lead_ms：下一句比上一句播完提前这么多起，接得上不留大空档。关掉(false)即回旧行为。
+        self._subtitle_pace = bool(turn.get("subtitle_pace", True))
+        self._subtitle_pace_lead = float(turn.get("subtitle_pace_lead_ms", 350)) / 1000.0
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
@@ -400,7 +404,16 @@ class CallSession:
         tail = (buf + stripper.flush()).strip()
         if tail and not self._interrupt.is_set():
             await _open_speaking()
-            await self._speak(tail, spoke)            # 其余一次合成（抢跑过则是尾段，否则是整段）
+            # 其余按句发声：每句先亮字幕再播音；句间按上一句播放时长节流，让高亮随语音一句句推进，不再瞬跳末句。
+            for seg in _split_sentences(tail):
+                if self._interrupt.is_set():
+                    break
+                # 本轮已出过声（抢跑或上一句）→ 等它快播完再发下一句；本轮还没出声则首句不等（不拖延迟）。
+                if self._subtitle_pace and self._audio_emit is not None and spoke:
+                    await self._pace_until(self._audio_until - self._subtitle_pace_lead)
+                    if self._interrupt.is_set():
+                        break
+                await self._speak(seg, spoke)
 
         # 实际播出的话进上下文；被打断则标注，让下轮能自然接住（§1.5 难点4）。
         if spoke:
@@ -423,9 +436,9 @@ class CallSession:
         if not spoken:
             return  # 整句都是括号动作/旁白：不发音、不进上下文
         self._usage["tts_chars"] += len(spoken)   # 成本：TTS 合成字符
-        # 字幕逐句下发（短行，不撑屏）；音频整段一次合成（句间不断气）。
-        for seg in _split_sentences(spoken):
-            await self._emit(ServerEvent.subtitle("ai", seg))
+        # 一句一条字幕：调用方按句喂（见 _generate_turn 的逐句节流），先亮这句字幕、紧接着播这句声音，
+        # 高亮就跟着语音走，而不是把整段多句字幕一齐闪出、瞬间跳到末句。
+        await self._emit(ServerEvent.subtitle("ai", spoken))
         self._ai_said += spoken  # 记入回声基准（这句即将在前端播放，可能回灌麦克风）
         audio_bytes = 0
         _ts = time.monotonic()
@@ -449,6 +462,15 @@ class CallSession:
             self._audio_until = max(time.monotonic(), self._audio_until) + dur + self._play_pad
             log.info("⟶ 句音频 %d bytes（voice=%s）", audio_bytes, self.voice_id)
         spoke.append(spoken)  # 整句播完 → ack 边界（进上下文用清洗后的口语文本）
+
+    async def _pace_until(self, target: float) -> None:
+        """睡到 target（time.monotonic 秒）为止，分 50ms 小段睡，期间一旦被打断立即返回——
+        让句间节流不拖住 barge-in（用户插话能立刻打断剩余句子）。target 已过则立即返回。"""
+        while not self._interrupt.is_set():
+            remain = target - time.monotonic()
+            if remain <= 0:
+                return
+            await asyncio.sleep(min(remain, 0.05))
 
     # ── 打断（§1.5：停下行 → 清队列 → cancel → 半截话进上下文 → 回 listening）──
     async def interrupt(self) -> None:
