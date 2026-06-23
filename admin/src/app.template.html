@@ -338,14 +338,15 @@
                 <span style="font-size:15px;font-weight:700;font-family:ui-monospace,monospace;color:#6E5CFF;letter-spacing:1px;">{{ generatedCode }}</span>
               </div>
             </sc-if>
-            <div style="margin-top:18px;display:grid;grid-template-columns:1.8fr .9fr 1.1fr;gap:12px;font-size:12px;font-weight:600;color:#9A9DA7;border-bottom:1px solid #EEEFF2;padding-bottom:8px;">
-              <span>兑换码</span><span>每份时长</span><span>已用 / 份数</span>
+            <div style="margin-top:18px;display:grid;grid-template-columns:1.8fr .9fr 1.1fr auto;gap:12px;font-size:12px;font-weight:600;color:#9A9DA7;border-bottom:1px solid #EEEFF2;padding-bottom:8px;">
+              <span>兑换码</span><span>每份时长</span><span>已用 / 份数</span><span>操作</span>
             </div>
             <sc-for list="{{ redeemCodesView }}" as="r" hint-placeholder-count="3">
-              <div style="display:grid;grid-template-columns:1.8fr .9fr 1.1fr;gap:12px;padding:9px 0;border-bottom:1px solid #F4F4F6;align-items:center;">
+              <div style="display:grid;grid-template-columns:1.8fr .9fr 1.1fr auto;gap:12px;padding:9px 0;border-bottom:1px solid #F4F4F6;align-items:center;">
                 <span style="font-size:12.5px;font-family:ui-monospace,monospace;color:#5A5E6B;">{{ r.code }}</span>
                 <span style="font-size:13px;color:#5A5E6B;">{{ r.mins }}</span>
                 <span><span style="font-size:12px;font-weight:600;color:{{ r.stColor }};background:{{ r.stBg }};border-radius:7px;padding:3px 9px;">{{ r.uses }}</span></span>
+                <span onClick="{{ r.del }}" style="font-size:12.5px;font-weight:600;color:#E0594F;cursor:pointer;" style-active="opacity:.6">删除</span>
               </div>
             </sc-for>
           </div>

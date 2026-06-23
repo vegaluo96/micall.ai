@@ -162,6 +162,10 @@ class MemoryRepository(ABC):
         """每个角色的真实通话数 {character_id: count}。后台「角色」列表统计。"""
         return {}
 
+    def scenario_call_counts(self) -> dict:
+        """每个场景的真实通话数 {scenario: count}。后台首页「热门场景」。"""
+        return {}
+
     def call_trends(self) -> dict:
         """通话量趋势（从 calls 真实聚合）：{today:[{day,v}], "7d":[...], "30d":[...]}。后台首页图表。"""
         return {"today": [], "7d": [], "30d": []}
@@ -186,6 +190,10 @@ class MemoryRepository(ABC):
     def list_redeem_codes(self, *, limit: int = 200) -> list[dict]:
         """兑换码列表（后台）：{code,seconds,used_count,max_uses,created_at}。"""
         return []
+
+    def delete_redeem_code(self, code: str) -> bool:
+        """删除兑换码（连带其使用记录）。返回是否删除成功。已发出的时长不回收。"""
+        return False
 
     # ── 工单（用户反馈 / 客服）──
     def add_ticket(self, user_id: str, type: str, message: str) -> int:
@@ -216,6 +224,10 @@ class MemoryRepository(ABC):
     def invite_stats(self, user_id: str) -> dict:
         """用户邀请概况：{code, invited, reward_seconds}。"""
         return {"code": "", "invited": 0, "reward_seconds": 0}
+
+    def invite_overview(self) -> dict:
+        """后台邀请 KPI：{total_invites, reward_minutes}（reward 为双方合计分钟）。"""
+        return {"total_invites": 0, "reward_minutes": 0}
 
     def list_all_invites(self, *, limit: int = 200) -> list[dict]:
         """全站邀请记录（后台）：{inviter_email,invitee_email,reward_seconds,created_at}。"""
@@ -436,6 +448,10 @@ class InMemoryRepository(MemoryRepository):
         from collections import Counter
         return dict(Counter(c["character_id"] for c in self._calls))
 
+    def scenario_call_counts(self) -> dict:
+        from collections import Counter
+        return dict(Counter(c["scenario"] for c in self._calls if c.get("scenario")))
+
     def add_usage(self, user_id, node, units, cost_micros) -> None:
         self._usage_log.append({"user_id": user_id, "node": node, "units": int(units),
                                 "cost_micros": int(cost_micros), "created_at": _now_iso()})
@@ -508,6 +524,9 @@ class InMemoryRepository(MemoryRepository):
         return [{"code": r["code"], "seconds": r["seconds"], "used_count": r["used_count"],
                  "max_uses": r["max_uses"], "created_at": r["created_at"]} for r in rows]
 
+    def delete_redeem_code(self, code) -> bool:
+        return self._redeem.pop((code or "").strip().upper(), None) is not None
+
     # ── 工单（内存）──
     def add_ticket(self, user_id, type, message) -> int:
         self._tid += 1
@@ -567,3 +586,7 @@ class InMemoryRepository(MemoryRepository):
         rows = sorted(self._invite_uses, key=lambda u: u["created_at"], reverse=True)[:limit]
         return [{"inviter_email": email.get(u["inviter_id"], ""), "invitee_email": email.get(u["invitee_id"], ""),
                  "reward_seconds": u["reward_seconds"], "created_at": u["created_at"]} for u in rows]
+
+    def invite_overview(self) -> dict:
+        total = len(self._invite_uses)
+        return {"total_invites": total, "reward_minutes": sum(u["reward_seconds"] * 2 for u in self._invite_uses) // 60}

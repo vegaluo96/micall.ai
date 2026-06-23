@@ -134,7 +134,7 @@ async function getList(path: string, key: string): Promise<any[] | null> {
 }
 
 /** 首页 KPI + 热门角色 + 趋势 + 每角色通话数 + 成本汇总。无后端/失败 → null。 */
-export async function loadDashboard(): Promise<{ stats: any; top_characters: any[]; trends: any; char_calls: any; cost: any } | null> {
+export async function loadDashboard(): Promise<{ stats: any; top_characters: any[]; trends: any; char_calls: any; scene_calls: any; invite_stats: any; cost: any } | null> {
   const b = base();
   if (!b) return null;
   try {
@@ -142,7 +142,9 @@ export async function loadDashboard(): Promise<{ stats: any; top_characters: any
     if (r.ok) {
       const d = (await r.json()) as Record<string, any>;
       if (d && d.ok) return { stats: d.stats || {}, top_characters: d.top_characters || [],
-                              trends: d.trends || null, char_calls: d.char_calls || null, cost: d.cost || null };
+                              trends: d.trends || null, char_calls: d.char_calls || null,
+                              scene_calls: d.scene_calls || null, invite_stats: d.invite_stats || null,
+                              cost: d.cost || null };
     }
   } catch {
     /* 退回演示 */
@@ -157,7 +159,21 @@ export const loadTickets = () => getList("/admin/tickets", "tickets");
 export const loadInvites = () => getList("/admin/invites", "invites");
 export const loadRedeemCodes = () => getList("/admin/redeem-codes", "codes");
 
-/** 创建自定义兑换码（code 留空则后端随机生成），返回 {ok, code, error}。 */
+/** 删除兑换码。返回是否成功。 */
+export async function deleteRedeemCode(code: string): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/redeem-codes/delete`, {
+      method: "POST", headers: authHeaders(true), credentials: "include",
+      body: JSON.stringify({ code }),
+    });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch {
+    /* noop */
+  }
+  return false;
+}
 export async function createRedeemCode(code: string, minutes: number, maxUses: number): Promise<{ ok: boolean; code?: string; error?: string }> {
   const b = base();
   if (!b) return { ok: false, error: "需接入后端" };

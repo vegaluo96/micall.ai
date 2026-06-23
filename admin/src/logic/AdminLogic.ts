@@ -12,7 +12,7 @@
 import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
-         loadRedeemCodes, createRedeemCode, usingBackend } from "./configService";
+         loadRedeemCodes, createRedeemCode, deleteRedeemCode, usingBackend } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -46,6 +46,8 @@ export class AdminLogic {
   realTopChars: any[] | null = null;  // 接后端后的热门角色排名
   realTrends: any = null;       // 接后端后的通话量趋势（null = 用演示）
   realCost: any = null;         // 接后端后的成本汇总（null = 用演示）
+  realSceneCalls: any = null;   // 接后端后的各场景通话数（null = 用演示）
+  realInviteStats: any = null;  // 接后端后的邀请 KPI（null = 用演示）
   redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
 
   private _t: Timer | undefined;
@@ -259,6 +261,16 @@ export class AdminLogic {
     this.toastMsg(`已创建兑换码 ${res.code || code}`);
   }
 
+  /** 删除兑换码。 */
+  private async delRedeem(code: string) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const ok = await deleteRedeemCode(code);
+    if (!ok) { this.toastMsg("删除失败"); return; }
+    this.redeemCodes = this.redeemCodes.filter((r: any) => r.code !== code);
+    this.setState({});
+    this.toastMsg(`已删除兑换码 ${code}`);
+  }
+
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
   private async loadRealData() {
     const [dash, users, calls, orders, tickets, invites, codes] = await Promise.all([
@@ -267,9 +279,13 @@ export class AdminLogic {
     if (codes) this.redeemCodes = codes;
     if (dash) {
       this.realStats = dash.stats; this.realTopChars = dash.top_characters || [];
-      if (dash.trends) this.realTrends = dash.trends;
-      if (dash.cost) this.realCost = dash.cost;
-      if (dash.char_calls) for (const c of this.chars) { const n = dash.char_calls[c.cid] ?? dash.char_calls[c.id]; if (n != null) c.calls = String(n); }
+      this.realTrends = dash.trends || this.realTrends;
+      this.realCost = dash.cost || this.realCost;
+      this.realSceneCalls = dash.scene_calls || {};
+      this.realInviteStats = dash.invite_stats || { total_invites: 0, reward_minutes: 0 };
+      // 真实后端：每个角色用真实通话数（无则 0）；后台无来源的「自定义音色数/收藏」诚实置 0/—。
+      const cc = dash.char_calls || {};
+      for (const c of this.chars) { c.calls = String(cc[c.cid] ?? cc[c.id] ?? 0); c.customVoices = 0; c.favs = "—"; }
     }
     const GRADS = ["linear-gradient(140deg,#A78BFF,#6E5CFF)", "linear-gradient(140deg,#FF8FC8,#FF4FA0)",
                    "linear-gradient(140deg,#5BE0A0,#1FA971)", "linear-gradient(140deg,#6FC8FF,#2E7BFF)",
@@ -462,7 +478,7 @@ export class AdminLogic {
     const navConfigView = navCfg.map((n) => ({ label: n.label, icon: n.icon, go: () => this.go(n.key), bg: s.section === n.key ? "rgba(110,92,255,.1)" : "transparent", color: s.section === n.key ? "#6E5CFF" : "#4A4E5A", weight: s.section === n.key ? 600 : 500 }));
     const engStyle = (e: string) => (({ "火山引擎": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "MiniMax": { c: "#6E5CFF", b: "rgba(110,92,255,.1)" }, "Azure": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" }, "ElevenLabs": { c: "#1FA971", b: "rgba(31,169,113,.1)" } } as Record<string, any>)[e] || { c: "#878B95", b: "#F0F0F3" });
     const matchedBy: Record<string, number> = { v1: 230, v2: 96, v3: 142, v4: 61, v5: 58, v6: 120, v7: 78, v8: 0, v9: 72 };
-    const voicesView = this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: m ? m.toLocaleString() + " 次" : "—", name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("正在播放「" + v.name + "」试听…") }; });
+    const voicesView = this.voices.map((v) => { const es = engStyle(v.engine); const m = matchedBy[v.id] || 0; return { matched: this.realStats ? "—" : (m ? m.toLocaleString() + " 次" : "—"), name: v.name, engine: v.engine, engColor: es.c, engBg: es.b, meta: v.gender + " · " + v.lang, char: v.char || "—", hueFilter: v.char ? "hue-rotate(" + (v.hue || 0) + "deg)" : "none", hasChar: !!v.char, status: v.status, stColor: v.status === "启用" ? "#1FA971" : "#878B95", stBg: v.status === "启用" ? "rgba(31,169,113,.1)" : "#F0F0F3", preview: () => this.toastMsg("正在播放「" + v.name + "」试听…") }; });
     const voicePresetCount = this.voices.length;
     const voiceCloneCount = this.chars.reduce((a, c) => a + c.customVoices, 0).toLocaleString();
     const voiceMatchTotal = Object.values(matchedBy).reduce((a, b) => a + b, 0).toLocaleString();
@@ -489,7 +505,13 @@ export class AdminLogic {
     const memNode = node(st === 5, st >= 6, s.testMs.mem);
     const testVideoState = s.testReply ? (this.genReply().indexOf("哈哈") >= 0 ? "speaking_happy" : "speaking_soft") : "";
     const mkKpi = (label: string, value: string, delta: string, dc: string, db: string, note: string) => ({ label, value, delta, deltaColor: dc, deltaBg: db, note });
-    const inviteKpis = [
+    const istat = this.realInviteStats;   // 真实邀请 KPI（接后端则用真实数，否则演示）
+    const inviteKpis = istat ? [
+      mkKpi("累计邀请", (istat.total_invites || 0).toLocaleString(), "实时", "#1FA971", "rgba(31,169,113,.1)", "成功注册数"),
+      mkKpi("成功注册", (istat.total_invites || 0).toLocaleString(), "", "#6E5CFF", "rgba(110,92,255,.1)", "带码注册"),
+      mkKpi("待激活", "0", "", "#878B95", "#F0F0F3", "无待激活态"),
+      mkKpi("已发放奖励", (istat.reward_minutes || 0).toLocaleString(), "分钟", "#878B95", "#F0F0F3", "双方各得 " + s.inviteReward + " 分钟"),
+    ] : [
       mkKpi("累计邀请", "3,847", "+15.2%", "#1FA971", "rgba(31,169,113,.1)", "较上月"),
       mkKpi("成功注册", "2,910", "75.6%", "#6E5CFF", "rgba(110,92,255,.1)", "转化率"),
       mkKpi("待激活", "412", "实时", "#878B95", "#F0F0F3", "尚未完成注册"),
@@ -499,7 +521,9 @@ export class AdminLogic {
     const invitersView = this.inviters.map((v, i) => ({ rank: i + 1, name: v.name, initial: v.initial, grad: v.grad, invited: v.invited, success: v.success, pending: v.pending, mins: v.mins }));
     const inviteRecordsView = this.inviteRecords.map((r) => { const ist = invStatus(r.status); return { inviter: r.inviter, invitee: r.invitee, status: r.status, stColor: ist.c, stBg: ist.b, reward: r.reward, rewardColor: r.reward.indexOf("+") === 0 ? "#1FA971" : "#A8ABB5", date: r.date }; });
     const roleStyle = (r: string) => (r.indexOf("超级") === 0 ? { c: "#6E5CFF", b: "rgba(110,92,255,.1)" } : r === "运营" ? { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } : r === "客服" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : { c: "#878B95", b: "#F0F0F3" });
-    const adminsView = this.admins.map((a) => { const off = !!s.adminOff[a.id]; const rs = roleStyle(a.role); return { name: a.name, email: a.email, initial: a.initial, grad: a.grad, role: a.role, roleColor: rs.c, roleBg: rs.b, last: a.last, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggleLabel: off ? "启用" : "停用", toggle: () => { this.setState((p) => ({ adminOff: { ...p.adminOff, [a.id]: !p.adminOff[a.id] } })); this.toastMsg(off ? "已启用 " + a.name : "已停用 " + a.name); } }; });
+    // 真实后端：暂无团队成员管理表 → 只显示当前登录运营，不展示演示花名册。
+    const adminRoster = this.realStats ? this.admins.slice(0, 1).map((a) => ({ ...a, name: "运营管理员", email: "admin@micall.ai", role: "超级管理员", last: "在线" })) : this.admins;
+    const adminsView = adminRoster.map((a) => { const off = !!s.adminOff[a.id]; const rs = roleStyle(a.role); return { name: a.name, email: a.email, initial: a.initial, grad: a.grad, role: a.role, roleColor: rs.c, roleBg: rs.b, last: a.last, status: off ? "停用" : "启用", stColor: off ? "#878B95" : "#1FA971", stBg: off ? "#F0F0F3" : "rgba(31,169,113,.1)", toggleLabel: off ? "启用" : "停用", toggle: () => { this.setState((p) => ({ adminOff: { ...p.adminOff, [a.id]: !p.adminOff[a.id] } })); this.toastMsg(off ? "已启用 " + a.name : "已停用 " + a.name); } }; });
     const roleMatrixView = Object.keys(this.roleMatrix).map((role) => { const rs = roleStyle(role); return { role, roleColor: rs.c, roleBg: rs.b, cells: this.roleMatrix[role].map((v) => ({ mark: v === 1 ? "✓" : "—", color: v === 1 ? "#1FA971" : "#C9CBD2", bg: v === 1 ? "rgba(31,169,113,.08)" : "transparent" })) }; });
     const apiCards = this.apiSections.map((sec) => { const cfg = s.apiCfg[sec.key]; return {
       name: sec.name, desc: sec.desc, icon: sec.icon, req: sec.req,
@@ -613,12 +637,20 @@ export class AdminLogic {
     const trend = tset.data.map((t: any) => ({ day: t.day, val: t.v.toLocaleString(), h: Math.round(t.v / tmax * 100) + "%" }));
     const trendTitle = tset.title;
     const dateChips = ([["today", "今日"], ["7d", "近 7 日"], ["30d", "近 30 日"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ dateRange: k }), bg: s.dateRange === k ? "#16161A" : "#fff", color: s.dateRange === k ? "#fff" : "#5A5E6B", border: s.dateRange === k ? "#16161A" : "#E6E7EB" }));
-    const topChars = (this.realTopChars && this.realTopChars.length)
-      ? this.realTopChars.map((t, i) => { const c = this.chars.find((x) => x.cid === t.character_id || x.id === t.character_id); return { rank: i + 1, name: c?.name || t.character_id, hueFilter: "hue-rotate(" + (c?.hue ?? 0) + "deg)", calls: String(t.calls) }; })
-      : this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5).map((c, i) => ({ rank: i + 1, name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", calls: c.calls }));
-    const sceneUseRaw = this.scenes.filter((x) => x.type !== "custom");
-    const smax = Math.max(...sceneUseRaw.map((x) => parseFloat(x.uses)));
-    const topScenes = sceneUseRaw.slice().sort((a, b) => parseFloat(b.uses) - parseFloat(a.uses)).slice(0, 5).map((x) => ({ name: x.name, uses: x.uses, pct: Math.round(parseFloat(x.uses) / smax * 100) + "%" }));
+    // 热门角色：this.chars 的 calls 在接后端时已是真实通话数（loadRealData 写入），演示时为内置数。
+    const topChars = this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5)
+      .map((c, i) => ({ rank: i + 1, name: c.name, hueFilter: "hue-rotate(" + c.hue + "deg)", calls: this.realStats ? c.calls + " 次" : c.calls }));
+    const SCENE_NAME: Record<string, string> = { heart: "心情树洞", chat: "随便聊聊", interview: "模拟面试", idiom: "成语接龙", english: "英语陪练", study: "陪我学习", sleep: "睡前故事", meditation: "解压冥想", coffee: "咖啡馆", story: "睡前故事" };
+    let topScenes: any[];
+    if (this.realSceneCalls) {   // 真实：从 calls.scenario 聚合
+      const ent = Object.entries(this.realSceneCalls as Record<string, number>).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const smx = Math.max(1, ...ent.map(([, n]) => n));
+      topScenes = ent.map(([k, n]) => ({ name: SCENE_NAME[k] || k, uses: String(n), pct: Math.round(n / smx * 100) + "%" }));
+    } else {
+      const sceneUseRaw = this.scenes.filter((x) => x.type !== "custom");
+      const smax = Math.max(...sceneUseRaw.map((x) => parseFloat(x.uses)));
+      topScenes = sceneUseRaw.slice().sort((a, b) => parseFloat(b.uses) - parseFloat(a.uses)).slice(0, 5).map((x) => ({ name: x.name, uses: x.uses, pct: Math.round(parseFloat(x.uses) / smax * 100) + "%" }));
+    }
     const recentCalls = this.calls.slice(0, 4).map((c) => ({ char: c.char, hueFilter: hf(c.char), scene: c.scene, dur: c.dur, open: () => this.open("call", c.id) }));
 
     const ufDefs: [string, string][] = [["all", "全部"], ["无限会员", "无限会员"], ["畅聊会员", "畅聊会员"], ["轻享会员", "轻享会员"], ["免费", "免费"], ["已封禁", "已封禁"]];
@@ -658,7 +690,8 @@ export class AdminLogic {
       const st = s.sceneStatus[x.id] || x.status || (x.type === "custom" ? "待审核" : "已上线");
       const pending = st === "待审核";
       const stStyle = st === "已上线" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : (st === "已拒绝" ? { c: "#E0594F", b: "rgba(224,89,79,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" });
-      return { name: x.name, desc: x.desc || "", prompt: x.prompt, byUser: x.byUser || "", uses: x.type === "custom" ? "" : x.uses + " 次使用", status: st, stColor: stStyle.c, stBg: stStyle.b, pending,
+      const realUses = this.realSceneCalls ? (this.realSceneCalls[Object.keys(SCENE_NAME).find((k) => SCENE_NAME[k] === x.name) || ""] || 0) : null;
+      return { name: x.name, desc: x.desc || "", prompt: x.prompt, byUser: x.byUser || "", uses: x.type === "custom" ? "" : (realUses != null ? realUses + " 次使用" : x.uses + " 次使用"), status: st, stColor: stStyle.c, stBg: stStyle.b, pending,
         approve: () => { this.setState((p) => ({ sceneStatus: { ...p.sceneStatus, [x.id]: "已上线" } })); this.toastMsg("已通过「" + x.name + "」"); },
         reject: () => { this.setState((p) => ({ sceneStatus: { ...p.sceneStatus, [x.id]: "已拒绝" } })); this.toastMsg("已拒绝「" + x.name + "」"); } };
     });
@@ -675,7 +708,7 @@ export class AdminLogic {
 
     const oStyle = (st: string) => st === "已支付" ? { c: "#1FA971", b: "rgba(31,169,113,.1)" } : (st === "失败" ? { c: "#E0594F", b: "rgba(224,89,79,.1)" } : { c: "#E0954F", b: "rgba(224,149,79,.12)" });
     const ordersView = this.orders.filter((o) => !q || o.user.toLowerCase().includes(q) || o.id.toLowerCase().includes(q)).map((o) => { const os = oStyle(o.status); return { ...o, stColor: os.c, stBg: os.b }; });
-    const plans = this.plans.map((p) => ({ ...p, border: p.popular ? "#D9D6FF" : "#EBECEF" }));
+    const plans = this.plans.map((p) => ({ ...p, subs: this.realStats ? "—" : p.subs, border: p.popular ? "#D9D6FF" : "#EBECEF" }));
 
     const d = s.detail;
     let dUser: any = null, dChar: any = null, dCall: any = null, dTicket: any = null, dCharExpr: any = null, detailTitle = "";
@@ -751,7 +784,8 @@ export class AdminLogic {
       ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",
       saveInviteRule: () => this.toastMsg("邀请奖励规则已保存"),
       adminsView, permModules: this.permModules, roleMatrixView, addAdmin: () => this.toastMsg("打开「添加管理员」表单…"),
-      notifs: this.notifs, notifOpen: s.notifOpen, notifUnread: !s.notifRead,
+      notifs: this.realStats ? (this.tickets.filter((t: any) => t.status === "待处理").length > 0 ? [{ title: this.tickets.filter((t: any) => t.status === "待处理").length + " 条工单待处理", time: "实时", dot: "#E0594F" }] : []) : this.notifs,
+      notifOpen: s.notifOpen, notifUnread: this.realStats ? this.tickets.some((t: any) => t.status === "待处理") : !s.notifRead,
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),
       userFilters, usersView, charsView, sceneTabs, scenesView, callsView, ticketsView, ordersView, plans,
       redeemCode: s.redeemCode, onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
@@ -764,7 +798,8 @@ export class AdminLogic {
         const done = (r.used_count || 0) >= (r.max_uses || 1);
         return { code: r.code, mins: Math.round((r.seconds || 0) / 60) + " 分钟",
           uses: (r.used_count || 0) + " / " + (r.max_uses || 1),
-          stColor: done ? "#878B95" : "#1FA971", stBg: done ? "#F0F0F3" : "rgba(31,169,113,.1)" };
+          stColor: done ? "#878B95" : "#1FA971", stBg: done ? "#F0F0F3" : "rgba(31,169,113,.1)",
+          del: () => this.delRedeem(r.code) };
       }),
       detailOpen: !!d, closeDetail: () => this.setState({ detail: null }), detailTitle,
       dUser, dChar, dCall, dTicket, dCharExpr,

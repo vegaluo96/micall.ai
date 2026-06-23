@@ -478,6 +478,17 @@ class PgRepository(MemoryRepository):
             log.warning("character_call_counts 失败：%r", e)
             return {}
 
+    def scenario_call_counts(self) -> dict:
+        try:
+            with self.pool.connection() as c:
+                rows = c.execute(
+                    "SELECT scenario, count(*) FROM calls WHERE scenario <> '' GROUP BY scenario"
+                ).fetchall()
+            return {r[0]: int(r[1]) for r in rows}
+        except Exception as e:
+            log.warning("scenario_call_counts 失败：%r", e)
+            return {}
+
     def add_usage(self, user_id, node, units, cost_micros) -> None:
         try:
             with self.pool.connection() as c:
@@ -594,6 +605,17 @@ class PgRepository(MemoryRepository):
         except Exception as e:
             log.warning("list_redeem_codes 失败：%r", e)
             return []
+
+    def delete_redeem_code(self, code) -> bool:
+        code = (code or "").strip().upper()
+        try:
+            with self.pool.connection() as c, c.transaction():
+                c.execute("DELETE FROM redeem_uses WHERE code=%s", (code,))   # 先删 FK 引用
+                r = c.execute("DELETE FROM redeem_codes WHERE code=%s RETURNING code", (code,)).fetchone()
+            return r is not None
+        except Exception as e:
+            log.warning("delete_redeem_code 失败：%r", e)
+            return False
 
     # ── 工单 ──
     def add_ticket(self, user_id, type, message) -> int:
@@ -714,6 +736,15 @@ class PgRepository(MemoryRepository):
         except Exception as e:
             log.warning("list_all_invites 失败：%r", e)
             return []
+
+    def invite_overview(self) -> dict:
+        try:
+            with self.pool.connection() as c:
+                r = c.execute("SELECT count(*), COALESCE(sum(reward_seconds),0) FROM invite_uses").fetchone()
+            return {"total_invites": int(r[0]) if r else 0, "reward_minutes": (int(r[1]) * 2 // 60) if r else 0}
+        except Exception as e:
+            log.warning("invite_overview 失败：%r", e)
+            return {"total_invites": 0, "reward_minutes": 0}
 
     def close(self) -> None:
         try:

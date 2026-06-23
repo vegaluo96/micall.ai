@@ -275,6 +275,8 @@ class _Handler(BaseHTTPRequestHandler):
                                     "top_characters": _REPO.top_characters(limit=5),
                                     "trends": _REPO.call_trends(),
                                     "char_calls": _REPO.character_call_counts(),
+                                    "scene_calls": _REPO.scenario_call_counts(),
+                                    "invite_stats": _REPO.invite_overview(),
                                     "cost": _REPO.cost_summary()})
         if self._route() == "/admin/users":
             if _REPO is None:
@@ -340,6 +342,11 @@ class _Handler(BaseHTTPRequestHandler):
             max_uses = max(1, min(100000, int(b.get("max_uses", 1) or 1)))
             ok, msg = _REPO.create_redeem_code(code, minutes * 60, max_uses)
             return self._json(200, {"ok": ok, "code": code if ok else "", "error": None if ok else msg})
+        if route == "/admin/redeem-codes/delete":   # 删除兑换码
+            if _REPO is None:
+                return self._json(200, {"ok": False, "error": "no repo"})
+            ok = _REPO.delete_redeem_code((self._body().get("code") or "").strip())
+            return self._json(200, {"ok": ok})
         if route == "/admin/tickets/reply":     # 回复工单
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

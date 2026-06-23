@@ -26,7 +26,7 @@ log = logging.getLogger("micall.signal")
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
-_DEFAULT_REMAINING = 720  # 骨架默认通话余额（秒）；真实从 users 表读 remaining_seconds（§5）
+_GUEST_TRIAL_SECONDS = 60  # 游客（未登录）试用：1 分钟，到期提示注册（注册即送 60 分钟）
 _ANON = "anon"            # 骨架无鉴权；真实从登录态取 user_id
 
 
@@ -187,7 +187,7 @@ class SignalingServer:
             memory_top_k=int(self.config.global_defaults.get("memory_depth", 5)),
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客给试用额度。
-        remaining = self.repo.remaining_seconds(user_id) if user_id != _ANON else _DEFAULT_REMAINING
+        remaining = self.repo.remaining_seconds(user_id) if user_id != _ANON else _GUEST_TRIAL_SECONDS
         return CallSession(
             config=self.config,
             emit=emit,
