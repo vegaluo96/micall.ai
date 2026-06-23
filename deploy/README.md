@@ -289,11 +289,11 @@ journalctl -u micall-backend -n 5 --no-pager    # 启动正常即可（未装 ai
 #    或自建 TURN 后只放 TURN 端口）。仅放行 443/TCP 是不够的——WebRTC 媒体走 UDP。
 ```
 
-**默认走 WS（即时接通）**，WebRTC 仅 `zsky.com/?rtc=1` 显式开启（不记忆）。原因：WebRTC 开场要
-建连(offer/answer/ICE/DTLS)，境内弱网 + 没有自建 STUN/TURN 时会「一上来反应很慢」，不适合做默认。
-要把全双工做成**默认**，正解是**自建 coturn（STUN+TURN）放在 ECS 上或同区**，公网 STUN（尤其 Google）
-在境内不可靠。架好 coturn 后，把它填进前端 RTCPeerConnection 的 iceServers 与 `webrtc.py` 的
-`_ICE_SERVERS`，再把默认切回 WebRTC。
+**没配 coturn 时默认走 WS（即时接通）**，WebRTC 仅 `zsky.com/?rtc=1` 显式试。**配了自建 coturn
+（前端 `VITE_ICE_SERVERS` 非空、重新 build）后，默认自动切到 WebRTC 全双工**（真打断 + 外放硬件 AEC），
+无需改代码；`?rtc=0` 可强制退回 WS，连不通也会在 ~4.5s 内自动回退。原因：WebRTC 开场要建连
+(offer/answer/ICE/DTLS)，境内弱网 + 没有自建 STUN/TURN 时会「一上来反应很慢」——所以必须先架 coturn
+（公网 STUN 尤其 Google 在境内不可靠）。
 
 **`?rtc=1` 实验前提 / 局限**：
 - **UDP 必须放行**（上面第 2 步）。只开 443 不行。
@@ -336,6 +336,7 @@ MICALL_ICE_SERVERS='[{"urls":"stun:zsky.com:3478"},{"urls":"turn:zsky.com:3478",
 # 前端（frontend/.env.production，需重新 build）
 VITE_ICE_SERVERS=[{"urls":"stun:zsky.com:3478"},{"urls":"turn:zsky.com:3478","username":"micall","credential":"<同上密码>"}]
 ```
-真机 `?rtc=1` 验证连得快又稳后，再把前端默认切回 WebRTC（`MiCallLogic` 里 `rtcEnabled` 那行），我可以帮你切。
+填好 `VITE_ICE_SERVERS` 重新 `npm run build` 后，**默认即自动走 WebRTC 全双工**（`MiCallLogic` 的 `rtcEnabled`
+已据此判定，无需手改代码）。真机若某些网络连不上会自动回退 WS；可用 `?rtc=0` 强制走 WS 做对比。
 > 注：把长期 TURN 密码放进前端会暴露给客户端。要更安全用 coturn 的 `use-auth-secret` + 后端发临时凭据，
 > 那需要再加个发凭据的接口；先用长期密码跑通，安全加固作为后续。

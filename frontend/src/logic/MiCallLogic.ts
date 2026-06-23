@@ -185,10 +185,12 @@ export class MiCallLogic {
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
       this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工
-      // WebRTC 全双工：仅当前 URL 带 ?rtc=1 才开（不记忆，避免之前存的 '1' 让普通访问也走 RTC）。
-      // 默认走「即时接通」的 WS —— WebRTC 开场要建连(offer/answer/ICE/DTLS)，境内弱网 + 无自建
-      // STUN/TURN 时会慢甚至回退，做默认就是「一上来反应很慢」。等架了 coturn 再考虑设默认。
-      this.rtcEnabled = qs.get("rtc") === "1" &&
+      // WebRTC 全双工（真打断 + 外放硬件 AEC）：配了自建 coturn（VITE_ICE_SERVERS 非空）就默认开——
+      // 此时 ICE 走境内可达的 STUN/TURN，建连快且稳。没配 coturn 时默认仍走「即时接通」的 WS（稳，
+      // 境内弱网不卡），仅 ?rtc=1 试。?rtc=0 可随时强制退回 WS；连不通也会自动回退，不会坏掉通话。
+      const rtcParam = qs.get("rtc");
+      const hasIce = !!(((import.meta.env?.VITE_ICE_SERVERS as string) || "").trim());
+      this.rtcEnabled = rtcParam !== "0" && (rtcParam === "1" || hasIce) &&
                         typeof RTCPeerConnection !== "undefined" && !this.usingMockSignaling();
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
