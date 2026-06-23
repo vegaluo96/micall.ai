@@ -244,11 +244,14 @@ journalctl -u micall-backend -n 5 --no-pager    # 启动正常即可（未装 ai
 #    或自建 TURN 后只放 TURN 端口）。仅放行 443/TCP 是不够的——WebRTC 媒体走 UDP。
 ```
 
-测试：手机 HTTPS 打开 `zsky.com/?rtc=1` 发起通话。能听到 AI 且 AI 说话时你出声它立刻停下来听你 = 全双工通。
-回退默认：`zsky.com/?rtc=0`（或后端没装 aiortc，前端会自动回退 WS）。
+WebRTC **已设为默认**（连不通会在 ~4.5s 内自动回退 WS 半双工，所以默认开是安全的）。
+强制走 WS：`zsky.com/?rtc=0`；强制 WebRTC：`zsky.com/?rtc=1`。
 
 **已知前提 / 局限（务必知悉）**：
 - **UDP 必须放行**（上面第 2 步）。只开 443 不行。
-- **移动对称 NAT** 可能仍连不通——需要自建 **TURN（coturn）** 中继。先用 STUN 试，连不通再加 TURN。
-- 前端 RTCPeerConnection + 真机连通性我无法在本地验证，需要你在真机上测、把现象反馈给我再迭代。
-- 稳定前**不要设为默认**；默认仍是 WS 半双工，零风险。
+- **服务端不配 STUN**（境内连不通 Google STUN 会让 aiortc 等 ~5s 才发 answer = "一上来很慢"的元凶，已去掉）。
+  服务端用 **host 候选（公网 IP）** 直连：要求 ECS 公网 IP 能被浏览器直达（多数有公网 IP 的 ECS 可以）。
+  若你的 ECS 在 NAT 后（host 是内网 IP）连不通，需自配**境内可达的 STUN/TURN**（别用 Google），
+  在 `backend/src/micall/server/webrtc.py` 的 `_ICE_SERVERS` 填上即可。
+- **移动对称 NAT** 仍可能要 **TURN（coturn）** 中继才能覆盖；先不配试，连不通的用户会自动退回 WS。
+- 前端 RTCPeerConnection + 真机连通性我无法本地验证，请真机实测、把现象反馈给我再迭代。

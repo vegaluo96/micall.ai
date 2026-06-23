@@ -48,8 +48,12 @@ RTC_RATE = 48000      # WebRTC/Opus 标准采样率
 ASR_RATE = 16000      # ASR 上行采样率
 FRAME_SAMPLES = RTC_RATE * 20 // 1000   # 20ms @48k = 960 样本/帧
 
-# STUN：公网 IP 服务端 + 浏览器侧反射候选即可打通多数网络；移动对称 NAT 仍可能要 TURN（见部署文档）。
-_STUN = "stun:stun.l.google.com:19302"
+# 服务端 ICE：**不配 STUN**。关键——服务端在公网 IP 上，host 候选(公网 IP)即可被浏览器直连；
+# 而 aiortc 的 setLocalDescription 会**阻塞等 ICE 收集完成**，若配了境内连不通的 STUN（如 Google），
+# 每通都要等它超时(~5s)才发 answer → "一上来反应很慢" 的元凶。空 iceServers = 只收 host 候选，瞬间完成。
+# （浏览器侧仍用自己的 STUN 拿反射候选，让服务端能回连到手机；那是 trickle、不阻塞，不拖慢开场。）
+# 若服务端在 NAT 后、host 是内网 IP，需自配可达的 STUN/TURN（境内可达的，别用 Google）—— 见部署文档。
+_ICE_SERVERS: list = []
 
 
 if _OK:
@@ -124,7 +128,7 @@ class RTCVoiceTransport:
             raise RuntimeError(f"aiortc 未安装，WebRTC 不可用：{_IMPORT_ERR!r}")
         self._emit = emit
         self._on_audio = on_audio
-        self.pc = RTCPeerConnection(RTCConfiguration(iceServers=[RTCIceServer(urls=_STUN)]))
+        self.pc = RTCPeerConnection(RTCConfiguration(iceServers=list(_ICE_SERVERS)))
         self.tts = _TTSTrack()
         self.pc.addTrack(self.tts)
         self._consumers: set[asyncio.Task] = set()

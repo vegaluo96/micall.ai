@@ -539,8 +539,9 @@ export class MiCallLogic {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
-      // 看门狗：7s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 回退 WS。
-      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 7000);
+      // 看门狗：4.5s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 回退 WS。服务端已去掉境内连不通的
+      // STUN（开场不再卡 ~5s），正常 1~2s 即连上；连不上的快速退回 WS，把"一上来很慢"的尾巴也压短。
+      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 4500);
     } catch {
       this.rtcFallback();   // 建不起来 → 回退 WS
     }
