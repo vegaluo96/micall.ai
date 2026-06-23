@@ -428,8 +428,9 @@ class InMemoryRepository(MemoryRepository):
     # ── 后台看板聚合（内存）──
     def admin_stats(self) -> dict:
         today = _now_iso()[:10]
+        # 与「用户管理」一致：只数真实注册用户（有邮箱），不含游客/无邮箱测试行。
         return {
-            "total_users": len(self._users),
+            "total_users": sum(1 for u in self._users.values() if (u.get("email") or "").strip()),
             "calls_today": sum(1 for c in self._calls if c["started_at"][:10] == today),
             "total_minutes": sum(c["duration_seconds"] for c in self._calls) // 60,
             "month_revenue_cents": sum(o.get("amount_cents", 0) for o in self._orders if o.get("status") == "paid"),

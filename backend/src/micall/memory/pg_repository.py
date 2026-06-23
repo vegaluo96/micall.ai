@@ -428,7 +428,9 @@ class PgRepository(MemoryRepository):
         out = {"total_users": 0, "calls_today": 0, "total_minutes": 0, "month_revenue_cents": 0}
         try:
             with self.pool.connection() as c:
-                out["total_users"] = (c.execute("SELECT count(*) FROM users").fetchone() or [0])[0]
+                # 与「用户管理」一致：只数真实注册用户（有邮箱），不含游客/无邮箱测试行。
+                out["total_users"] = (c.execute(
+                    "SELECT count(*) FROM users WHERE email IS NOT NULL AND email <> ''").fetchone() or [0])[0]
                 out["calls_today"] = (c.execute(
                     "SELECT count(*) FROM calls WHERE started_at::date = current_date").fetchone() or [0])[0]
                 out["total_minutes"] = (c.execute(
