@@ -30,6 +30,18 @@ def _embed_endpoint(ep: str) -> str:
     return ep
 
 
+_SHARED_CLIENT: "httpx.AsyncClient | None" = None
+
+
+def _shared_client() -> "httpx.AsyncClient":
+    """进程级共享 HTTP 连接池：实时路径每轮召回都向（多在新加坡的）Embedding 发一次，复用 keep-alive
+    省掉「每轮一次 TCP+TLS 握手」→ "说完→AI 接话"更跟手。与 minimax_tts/apiyi_llm 同法。"""
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is None or _SHARED_CLIENT.is_closed:
+        _SHARED_CLIENT = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))
+    return _SHARED_CLIENT
+
+
 class BailianEmbedding:
     def __init__(self, node: NodeConfig) -> None:
         if httpx is None:  # pragma: no cover
@@ -50,20 +62,20 @@ class BailianEmbedding:
             "Content-Type": "application/json",
         }
         out: list[list[float]] = []
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
-            for i in range(0, len(items), _BATCH):
-                chunk = items[i : i + _BATCH]
-                resp = await client.post(
-                    self.endpoint, headers=headers,
-                    json={"model": self.model, "input": chunk},
-                )
-                if resp.status_code >= 400:
-                    detail = resp.text[:300]
-                    raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
-                data = resp.json().get("data") or []
-                # 按 index 排序，保证与输入顺序一致。
-                data.sort(key=lambda d: d.get("index", 0))
-                out.extend([list(d.get("embedding") or []) for d in data])
+        client = _shared_client()   # 进程级连接池，复用 keep-alive（不再 async with 关客户端）
+        for i in range(0, len(items), _BATCH):
+            chunk = items[i : i + _BATCH]
+            resp = await client.post(
+                self.endpoint, headers=headers,
+                json={"model": self.model, "input": chunk},
+            )
+            if resp.status_code >= 400:
+                detail = resp.text[:300]
+                raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
+            data = resp.json().get("data") or []
+            # 按 index 排序，保证与输入顺序一致。
+            data.sort(key=lambda d: d.get("index", 0))
+            out.extend([list(d.get("embedding") or []) for d in data])
         return out
 
     async def embed_one(self, text: str) -> list[float]:  # pragma: no cover

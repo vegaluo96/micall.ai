@@ -129,7 +129,9 @@ class CallSession:
         self._billing_task: asyncio.Task | None = None
         self._listen_task: asyncio.Task | None = None    # task A：ASR 感知常驻协程
         self._current_turn: asyncio.Task | None = None   # 语音模式下当前一轮（可被打断）
-        self._mic_q: asyncio.Queue[bytes | None] = asyncio.Queue()  # 上行麦克风帧
+        # 上行麦克风帧：有界（≈1–1.5s）。无界时 ASR/网络一慢，帧就积压，ASR 永远在嚼过期音频
+        # → 越聊越延迟、还容易把旧片段重判（与"一句被当五遍"同源）。满则丢最旧、永远喂最新（见 push_audio）。
+        self._mic_q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=64)
         self._turn_lock = asyncio.Lock()  # 串行化一轮生成，防并发触发
         self.history: list[dict] = []      # 对话滑窗（assistant 只记实际播出，§1.5）
         self.emotion_tag = "neutral"
@@ -150,6 +152,9 @@ class CallSession:
         self._play_pad = float(turn.get("echo_play_pad_ms", 400)) / 1000.0
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
+        # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
+        # 表现为"一直在思考/突然卡死"。只卡首 token（宽松，不误杀慢而有效的长回复）。
+        self._llm_first_token_timeout = float(turn.get("llm_first_token_timeout_s", 8.0))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:
@@ -172,7 +177,18 @@ class CallSession:
     # ── 上行音频：server 收到二进制帧 → 入队，喂给 task A 的 ASR 流 ──
     def push_audio(self, frame: bytes) -> None:
         if frame and self.sm.active and not self._muted:
-            self._mic_q.put_nowait(frame)
+            try:
+                self._mic_q.put_nowait(frame)
+            except asyncio.QueueFull:
+                # 队列满（ASR/网络慢导致积压）：丢最旧一帧腾位，再塞最新 → 始终喂最新音频，防"越聊越延迟"。
+                try:
+                    self._mic_q.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                try:
+                    self._mic_q.put_nowait(frame)
+                except asyncio.QueueFull:
+                    pass
 
     async def _mic_frames(self) -> AsyncIterator[bytes]:
         """把上行队列包成异步帧流喂 ASR；收到哨兵 None（挂断）即收尾。"""
@@ -344,7 +360,20 @@ class CallSession:
         spoke_first = False
         _first_token = True
         async with aclosing(self.llm.stream(messages, max_tokens=self._reply_max_tokens)) as llm_gen:
-            async for token in llm_gen:
+            _it = llm_gen.__aiter__()
+            while True:
+                try:
+                    if _first_token:
+                        # 只给首 token 套墙钟超时：卡死时快速放弃本轮，而非干等 httpx 30s 读超时。
+                        token = await asyncio.wait_for(_it.__anext__(), timeout=self._llm_first_token_timeout)
+                    else:
+                        token = await _it.__anext__()
+                except StopAsyncIteration:
+                    break
+                except asyncio.TimeoutError:
+                    log.warning("LLM 首 token 超时 %.1fs，放弃本轮（防卡死，下方兜底回 listening）",
+                                self._llm_first_token_timeout)
+                    break
                 if self._interrupt.is_set():
                     break
                 if _first_token:
@@ -462,7 +491,14 @@ class CallSession:
 
     async def end(self, emit_ended: bool = True) -> None:
         self._interrupt.set()
-        self._mic_q.put_nowait(None)        # 哨兵：让 _mic_frames 收尾 → ASR 流自然结束
+        try:
+            self._mic_q.put_nowait(None)    # 哨兵：让 _mic_frames 收尾 → ASR 流自然结束
+        except asyncio.QueueFull:           # 队列满（有界）：腾一帧再放哨兵，保证收尾不丢
+            try:
+                self._mic_q.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            self._mic_q.put_nowait(None)
         # 收掉计费 / task A / 当前一轮（避免它们在挂断后还往已关连接下行）。
         tasks = [self._billing_task, self._listen_task, self._current_turn]
         self._billing_task = self._listen_task = self._current_turn = None

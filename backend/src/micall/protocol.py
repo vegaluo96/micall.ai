@@ -61,9 +61,12 @@ class ServerEvent:
 
 
 # 合法的服务端事件 type（用于测试/校验与前端枚举对齐）。
+# rtc_answer / rtc_unavailable 由 wsserver/webrtc 直接发（不经本文件的构造器），但同属服务端下行，
+# 计入枚举以便校验/测试覆盖 WebRTC 路径（前端 signaling.ts ServerEvent 含这两个）。
 SERVER_EVENT_TYPES = frozenset(
     {"connected", "state", "interrupted", "subtitle", "emotion", "billing",
-     "low_minutes", "out_of_minutes", "call_failed", "ended"}
+     "low_minutes", "out_of_minutes", "call_failed", "ended",
+     "rtc_answer", "rtc_unavailable"}
 )
 
 
@@ -79,6 +82,8 @@ class ClientMessage:
     text: str | None = None
 
 
+# 注：WebRTC 信令上行 rtc_offer / rtc_ice / rtc_close 不在此列——它们字段形态与 ClientMessage 不同，
+# 由 wsserver 在 parse_client_message 之前旁路分发（见 wsserver.handle）。此集合只管「会话控制」上行。
 CLIENT_MESSAGE_TYPES = frozenset(
     {"start_call", "end_call", "mute", "switch_character", "set_scene", "text_input",
      "reset_memory"}
