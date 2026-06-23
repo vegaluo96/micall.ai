@@ -510,7 +510,16 @@ export class AdminLogic {
     const stC: Record<string, any> = { "正常": { c: "#1FA971", b: "rgba(31,169,113,.1)" }, "未配置": { c: "#878B95", b: "#F0F0F3" }, "延迟高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "成本高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "异常": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "备用中": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } };
     const stp = (st: string) => { const x = stC[st] || stC["正常"]; return { status: st, stColor: x.c, stBg: x.b }; };
     const linkFlow = [{ label: "用户语音", a: "#9AA0AC" }, { label: "Qwen3-ASR-Flash", a: "#2E7BFF" }, { label: "记忆检索", a: "#9AA0AC" }, { label: "deepseek-chat", a: "#6E5CFF" }, { label: "MiniMax TTS", a: "#E0594F" }, { label: "Seedance 表情", a: "#9277F5" }, { label: "用户听到", a: "#1FA971" }, { label: "Qwen-Long 记忆整理", a: "#1FA971" }];
-    const healthKpis = [
+    // 接了真实后端 → 成本/延迟/失败率需用量埋点，未开启时显示「—」而非假数字（只有「今日通话」是真的）。
+    const rc = this.realStats;
+    const healthKpis = rc ? [
+      { label: "整体健康", value: "正常", sub: "服务运行中", vc: "#1FA971" },
+      { label: "首句响应", value: "—", sub: "需用量统计", vc: "#878B95" },
+      { label: "每小时成本", value: "—", sub: "需用量统计", vc: "#878B95" },
+      { label: "每 100 分钟成本", value: "—", sub: "需用量统计", vc: "#878B95" },
+      { label: "今日失败率", value: "—", sub: "需用量统计", vc: "#878B95" },
+      { label: "今日通话", value: (rc.calls_today || 0).toLocaleString(), sub: "次", vc: "#16161A" },
+    ] : [
       { label: "整体健康", value: "正常", sub: "6 / 6 节点在线", vc: "#1FA971" },
       { label: "首句响应", value: "1.4s", sub: "目标 < 1.8s", vc: "#16161A" },
       { label: "每小时成本", value: "$38.6", sub: "近 1 小时", vc: "#16161A" },
@@ -519,22 +528,24 @@ export class AdminLogic {
       { label: "今日通话", value: "3,219", sub: "分钟", vc: "#16161A" },
     ];
     const nodeCards = [
-      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: "180ms", calls: "42.1k 次", cost: "$6.20" },
-      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: "620ms", calls: "38.7k 次", cost: "$14.80" },
-      { name: "TTS · 语音合成", role: "说", model: "", ...stp("延迟高"), latency: "310ms", calls: "38.7k 次", cost: "$9.40" },
-      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: "预生成库", cost: "$0" },
-      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: "2.1s", calls: "3.2k 次", cost: "$4.90" },
+      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: rc ? "—" : "180ms", calls: rc ? "—" : "42.1k 次", cost: rc ? "—" : "$6.20" },
+      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: rc ? "—" : "620ms", calls: rc ? "—" : "38.7k 次", cost: rc ? "—" : "$14.80" },
+      { name: "TTS · 语音合成", role: "说", model: "", ...stp(rc ? "正常" : "延迟高"), latency: rc ? "—" : "310ms", calls: rc ? "—" : "38.7k 次", cost: rc ? "—" : "$9.40" },
+      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: rc ? "—" : "预生成库", cost: rc ? "—" : "$0" },
+      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: rc ? "—" : "2.1s", calls: rc ? "—" : "3.2k 次", cost: rc ? "—" : "$4.90" },
     ];
-    const costKpis = [{ label: "今日总成本", value: "$926" }, { label: "本月总成本", value: "$21,480" }, { label: "每小时平均", value: "$38.6" }, { label: "每 100 分钟", value: "$12.4" }];
-    const costByProvider = [{ name: "LLM 快脑", value: "$352", pct: "38%", c: "#6E5CFF" }, { name: "TTS 语音合成", value: "$231", pct: "25%", c: "#E0594F" }, { name: "音色生成", value: "$120", pct: "13%", c: "#FF6FA5" }, { name: "ASR 语音识别", value: "$139", pct: "15%", c: "#2E7BFF" }, { name: "记忆整理", value: "$56", pct: "6%", c: "#1FA971" }, { name: "表情视频", value: "$28", pct: "3%", c: "#9277F5" }];
+    const costKpis = rc
+      ? [{ label: "今日总成本", value: "—" }, { label: "本月总成本", value: "—" }, { label: "每小时平均", value: "—" }, { label: "每 100 分钟", value: "—" }]
+      : [{ label: "今日总成本", value: "$926" }, { label: "本月总成本", value: "$21,480" }, { label: "每小时平均", value: "$38.6" }, { label: "每 100 分钟", value: "$12.4" }];
+    const costByProvider = rc ? [] : [{ name: "LLM 快脑", value: "$352", pct: "38%", c: "#6E5CFF" }, { name: "TTS 语音合成", value: "$231", pct: "25%", c: "#E0594F" }, { name: "音色生成", value: "$120", pct: "13%", c: "#FF6FA5" }, { name: "ASR 语音识别", value: "$139", pct: "15%", c: "#2E7BFF" }, { name: "记忆整理", value: "$56", pct: "6%", c: "#1FA971" }, { name: "表情视频", value: "$28", pct: "3%", c: "#9277F5" }];
     const memTypeC: Record<string, string> = { fact: "#2E7BFF", preference: "#6E5CFF", project: "#E0954F", relationship: "#FF6FA5", open_loop: "#1FA971" };
-    const memoryRecent = [
+    const memoryRecent = (rc ? [] : [   // 真实记忆涉及用户隐私，不在后台明文展示；演示模式保留示例
       { content: "用户是应届生，正在准备产品经理面试", type: "project", imp: "高", conf: "0.92", source: "林晚 · 今天 23:14", written: true },
       { content: "喜欢深夜安静地聊天，不喜欢被催", type: "preference", imp: "中", conf: "0.88", source: "林晚 · 昨天 00:22", written: true },
       { content: "下周一有一场重要面试（open loop）", type: "open_loop", imp: "高", conf: "0.81", source: "江野 · 周一 20:15", written: true },
       { content: "和 AI 的关系：信任、依赖深夜倾诉", type: "relationship", imp: "中", conf: "0.76", source: "林晚 · 多次", written: false },
       { content: "母语中文，在学英语，备考六级", type: "fact", imp: "低", conf: "0.95", source: "苏窈 · 周日 15:40", written: true },
-    ].map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
+    ]).map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
     const fallbackRows = [
       { kind: "ASR", primary: "阿里云", backups: "火山 ASR · ElevenLabs Scribe", cond: "连续失败 3 次 / 延迟 > 2s / 错误率 > 5%" },
       { kind: "LLM 快脑", primary: "deepseek-chat", backups: "Qwen Flash · 豆包", cond: "超时 / 连续失败 / 成本超阈值" },
