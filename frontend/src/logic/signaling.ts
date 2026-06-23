@@ -245,6 +245,14 @@ class MockSignalingClient implements SignalingClient {
  *  otherwise the in-browser mock so the app runs with no backend. */
 export function createSignaling(onEvent: ServerHandler, onAudio?: AudioHandler): SignalingClient {
   const url = import.meta.env.VITE_SIGNALING_URL;
-  if (url && url.trim()) return new WebSocketSignalingClient(url.trim(), onEvent, onAudio);
+  if (url && url.trim()) {
+    let full = url.trim();
+    // 登录态：把 token 带进握手 URL，后端据此解析真实 user_id（替换游客）。未登录则不带。
+    try {
+      const tok = localStorage.getItem("micall_token") || "";
+      if (tok) full += (full.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(tok);
+    } catch { /* noop */ }
+    return new WebSocketSignalingClient(full, onEvent, onAudio);
+  }
   return new MockSignalingClient(onEvent);
 }

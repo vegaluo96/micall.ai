@@ -23,6 +23,7 @@ import {
   type SignalingClient,
 } from "./signaling";
 import { AudioPlayer, MicCapture } from "./audio";
+import * as authApi from "./authService";
 import type { Vals } from "../dc/resolve";
 
 export interface MiCallProps {
@@ -184,6 +185,24 @@ export class MiCallLogic {
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
     } catch (e) { /* noop */ }
     this.setState({ showGuide: !seen, cookieOpen: !cookie });
+    this.restoreSession();   // 用存的 token 恢复登录态 + 真实余额（接了后端才生效）
+  }
+
+  /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */
+  private async restoreSession() {
+    if (!authApi.authConfigured()) return;
+    try {
+      const u = await authApi.me();
+      if (u) this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds });
+    } catch { /* 离线/后端不可达：维持游客态 */ }
+  }
+
+  /** 登录态变化后丢弃旧信令连接，下一通电话用新 token（或匿名）重连。仅在空闲时重置。 */
+  private resetSignaling() {
+    if (this.state.phase === "idle" && this.sig) {
+      try { this.sig.close(); } catch { /* noop */ }
+      this.sig = null;
+    }
   }
   componentWillUnmount() {
     this.clearTimers();
@@ -865,17 +884,39 @@ export class MiCallLogic {
       openRegister: () => this.setState({ ...this.sheets(), authOpen: true, authMode: "register", menuOpen: false, regPromptShown: false, regPromptDismissed: true }),
       openLogin: () => this.setState({ ...this.sheets(), authOpen: true, authMode: "login", menuOpen: false }),
       authClose: () => this.setState({ authOpen: false }),
-      submitAuth: () => {
-        const ok = /.+@.+\..+/.test((this.state.authEmail || "").trim()) && (this.state.authPw || "").length >= 6;
-        if (!ok) { this.setState({ toast: "请输入有效邮箱和至少 6 位密码" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000)); return; }
+      submitAuth: async () => {
+        const email = (this.state.authEmail || "").trim();
+        const pw = this.state.authPw || "";
+        if (!(/.+@.+\..+/.test(email) && pw.length >= 6)) {
+          this.setState({ toast: "请输入有效邮箱和至少 6 位密码" });
+          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2000));
+          return;
+        }
         const reg = this.state.authMode === "register";
-        this.setState((s) => ({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: reg ? Math.max(s.remaining, 3600) : s.remaining, toast: reg ? "注册成功，已送 60 分钟免费时长" : "登录成功" }));
+        const okMsg = reg ? "注册成功，已送 60 分钟免费时长" : "登录成功";
+        // 纯演示（未接后端）：保留原前端假登录。
+        if (!authApi.authConfigured()) {
+          this.setState((s) => ({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: reg ? Math.max(s.remaining, 3600) : s.remaining, toast: okMsg }));
+          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+          return;
+        }
+        // 真实后端：打 /api/auth/*，存 token，余额以服务端为准。
+        this.setState({ toast: reg ? "注册中…" : "登录中…" });
+        const res = reg ? await authApi.register(email, pw) : await authApi.login(email, pw);
+        if (!res.ok || !res.token) {
+          this.setState({ toast: res.error || "操作失败，请重试" });
+          this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
+          return;
+        }
+        authApi.setToken(res.token);
+        this.resetSignaling();   // 让下一通电话带上新 token 重连
+        this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false, remaining: res.user?.remaining_seconds ?? this.state.remaining, toast: okMsg });
         this.t.push(setTimeout(() => this.setState({ toast: "" }), 2200));
       },
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.t.push(setTimeout(() => this.setState({ toast: "" }), 1600)); },
       pendingVoiceDel: this.state.pendingVoiceDel,
       pendingVoiceName: this.state.pendingVoiceDel ? this.state.pendingVoiceDel.key : "",
       cancelVoiceDel: () => this.setState({ pendingVoiceDel: null }),
