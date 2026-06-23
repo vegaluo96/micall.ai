@@ -234,12 +234,13 @@ class CallSession:
                     continue
                 flushed = False  # 这句说完，下一句重新允许打断
                 now = time.monotonic()
+                nt = _norm(t)   # 归一化（去标点/空白）做去重键：「你好」「你好。」「你 好」视为同句，挡住变体重复
                 recent = {k: ts for k, ts in recent.items() if now - ts < 10.0}  # 只看近 10 秒
-                # 最终结果门控：太短（噪声/静音误识别）或 10 秒内重复出现的同句（回声/幻听）→ 丢弃，
+                # 最终结果门控：太短（噪声/静音误识别）或 10 秒内重复出现的同句（回声/幻听/重判）→ 丢弃，
                 # 否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
-                if len(_norm(t)) < 2 or t in recent:
+                if len(nt) < 2 or nt in recent:
                     continue
-                recent[t] = now
+                recent[nt] = now
                 log.info("⟵ 用户说完：%r", t)
                 if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
                     await self.interrupt()

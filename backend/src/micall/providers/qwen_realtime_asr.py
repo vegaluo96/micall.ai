@@ -42,22 +42,12 @@ class QwenRealtimeASR(ASRProvider):
     async def stream(
         self, frames: AsyncIterator[bytes]
     ) -> AsyncIterator[tuple[str, bool]]:  # pragma: no cover （需真实网络/密钥）
-        """断线自动重连续传：ASR WS 中途断了就退避重连（同一 frames，不丢后续语音），整通不会「突然不应答」；
-        挂断时本 task 被 cancel → CancelledError 向上抛、不重连。"""
-        import logging
-        _log = logging.getLogger("micall.asr")
-        backoff = 0.5
-        while True:
-            try:
-                async for _out in self._stream_once(frames):
-                    yield _out
-                return
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                _log.warning("ASR 流中断，%.1fs 后重连：%r", backoff, e)
-                await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, 5.0)
+        """单次连接流式识别（连接断开即结束本通 ASR）。
+        注：曾加过「断线自动重连」，但重连期间麦克风音频在队列积压、重连后服务端 server_vad 从头重判，
+        会把同一段语音跨连接重复识别（用户实测「说一句被当成五遍」+ 延迟飙高），已回退为单次连接。
+        若确需 mid-call 容灾，必须配合「重连后清空服务端 buffer + 跨连接精确去重」再开，否则弊大于利。"""
+        async for out in self._stream_once(frames):
+            yield out
 
     async def _stream_once(
         self, frames: AsyncIterator[bytes]
