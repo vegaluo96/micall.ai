@@ -47,7 +47,8 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "new_facts(string[])、"
         "insights([{insight,confidence,evidence}]，印证或推翻旧判断、暴露新模式)、"
         "hypotheses([{guess,confidence,next}]，带着假设进下次对话去验证)、"
-        "relationship({stage,last_topic,open_threads,shared_refs})、"
+        "relationship({stage,last_topic,open_threads,last_mood,shared_refs}，"
+        "last_mood 用一句话概括 TA 这次的情绪基调与挂电话时的状态，供下次开场自然接住)、"
         "next_strategy(string，下次开场接哪个线头、验证哪个假设、哪些话题小心、怎么回应)。"
     )
     user = f"现有画像：{json.dumps(existing, ensure_ascii=False)}\n\n本次通话：\n{transcript}"
@@ -100,6 +101,7 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
         r = profile.relationship
         r.stage = rel.get("stage", r.stage)
         r.last_topic = rel.get("last_topic", r.last_topic)
+        r.last_mood = rel.get("last_mood", r.last_mood)
         if rel.get("open_threads"):
             r.open_threads = list(rel["open_threads"])
         if rel.get("shared_refs"):

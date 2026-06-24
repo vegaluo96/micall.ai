@@ -43,7 +43,8 @@ class TestMerge(unittest.TestCase):
         update = {
             "insights": [{"insight": "需要被听见", "confidence": 0.8, "evidence": "多次打断建议"}],
             "hypotheses": [{"guess": "和家人关系紧张", "confidence": 0.3, "next": "下次轻轻试探"}],
-            "relationship": {"stage": "熟络", "last_topic": "面试", "open_threads": ["面试结果"]},
+            "relationship": {"stage": "熟络", "last_topic": "面试", "open_threads": ["面试结果"],
+                             "last_mood": "聊到面试焦虑，挂电话时还有点紧绷"},
             "next_strategy": "开场先接面试线头",
         }
         merge_profile(p, update)
@@ -53,6 +54,7 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(len(p.open_hypotheses), 1)
         self.assertEqual(p.relationship.stage, "熟络")
         self.assertEqual(p.relationship.open_threads, ["面试结果"])
+        self.assertEqual(p.relationship.last_mood, "聊到面试焦虑，挂电话时还有点紧绷")  # 情绪连续性
         self.assertEqual(p.next_strategy, "开场先接面试线头")
 
     def test_merge_dedups_and_caps_insights(self):

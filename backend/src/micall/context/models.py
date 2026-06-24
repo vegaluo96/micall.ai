@@ -62,6 +62,7 @@ class Relationship:
     last_topic: str = ""
     open_threads: list[str] = field(default_factory=list)  # 留的线头，下次开场可接
     last_call_at: str = ""
+    last_mood: str = ""          # 上次通话的情绪基调（如"聊到工作压力，挂电话时闷闷的"）→ 下次开场能接住
     shared_refs: list[str] = field(default_factory=list)   # 共享的梗（"猫叫团子"）
 
 
