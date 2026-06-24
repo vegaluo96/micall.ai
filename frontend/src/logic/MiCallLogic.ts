@@ -837,7 +837,7 @@ export class MiCallLogic {
 
     let subline = "";
     if (p === "idle") subline = "在线";
-    else if (p === "calling") subline = "正在呼叫…";
+    else if (p === "calling") subline = "";   // 拨号态顶部留白，连接动效集中到球下「正在为你接通···」一处，不重复
     else subline = this.fmt(this.state.seconds);
 
     // 球模式（非文字页）：球下方只显示当前角色状态，固定一行、绝不撑大布局。
@@ -917,6 +917,9 @@ export class MiCallLogic {
     });
     const phaseCalling = p === "calling";
     const inCall = p === "calling" || connected;
+    // 「正在接通」的丝滑等待：拨号阶段球体保持有生气（呼吸+光场+光晕，见 orbAnim/fieldAnim/haloAnim 改用
+    // connected 而非 inCall 门控），球下方走三个跳动圆点的连接动效；接通后这道动效收起，球转入沉稳通话态。
+    const showUnderOrb = showOrbStatus && !phaseCalling;   // 接通中用专属圆点动效，故球下状态文字仅非拨号态显示
     const showHeaderChrome = p === "idle";
     const mute = this.state.mute, speaker = this.state.speaker;
     const muteBg = mute ? "#fff" : "var(--ctrl)";
@@ -975,7 +978,7 @@ export class MiCallLogic {
       // 锥形渐变，省掉持续的 GPU 合成（仅通话各阶段才挂载）。
       edgeVisible: edgeOpacity > 0,
       title: p === "ended" ? "通话结束" : charName,
-      orbHue, showOrbStatus, charDots,
+      orbHue, showOrbStatus, showUnderOrb, charDots,
       charTagline: char.desc,
       charDetail: {
         name: char.name, tagline: char.desc, bio: char.bio, traits: char.traits, hueFilter: orbHue,
@@ -1386,9 +1389,9 @@ export class MiCallLogic {
       })),
       langCurrent: this.state.lang,
       langClose: () => this.setState({ langOpen: false }),
-      orbAnim: inCall ? "none" : orbAnim,
-      fieldAnim: inCall ? "none" : `spin ${fieldDur}s linear infinite`,
-      haloAnim: inCall ? "none" : `haloPulse ${haloDur}s ease-in-out infinite`,
+      orbAnim: connected ? "none" : orbAnim,            // 拨号时仍呼吸（有生气），仅真正通话中(listening/speaking)才静止
+      fieldAnim: connected ? "none" : `spin ${fieldDur}s linear infinite`,
+      haloAnim: connected ? "none" : `haloPulse ${haloDur}s ease-in-out infinite`,
       orbBg: `radial-gradient(circle at 38% 33%, rgba(255,255,255,.97), ${this.hexA(tint, .62)} 38%, ${this.hexA(tint, .20)} 64%, ${this.hexA(tint, .03)} 82%)`,
       orbShadow: `0 0 50px 4px ${this.hexA(tint, .28)}, 0 0 100px 22px rgba(110,92,255,.16)`,
       haloBg: `radial-gradient(circle, ${this.hexA(tint, .26)}, rgba(255,79,160,.10) 45%, transparent 72%)`,
