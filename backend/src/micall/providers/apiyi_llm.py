@@ -51,11 +51,17 @@ class ApiyiLLM(LLMProvider):
         self._node = node
         self._endpoint = _chat_endpoint(node.endpoint)
         self._model = node.params.get("model", "deepseek-v4-flash")
+        # 配置透传的额外请求字段（铁律2，走配置不硬编码）。用途如：给会思考的快脑关思考——
+        # DeepSeek 这类模型实测接受 reasoning_effort(low/medium/high) / thinking 等参数；快脑空想纯属
+        # 拖慢接话（思考过程我们根本不取用）。在 nodes.llm_fast.extra_body 里配，逻辑不动即可调。
+        eb = node.params.get("extra_body")
+        self._extra_body = dict(eb) if isinstance(eb, dict) else {}
 
     async def stream(
         self, messages: Sequence[Message], *, temperature: float = 0.8, max_tokens: int = 256
     ) -> AsyncIterator[str]:  # pragma: no cover  （需真实网络/密钥，不在测试路径）
         payload = {
+            **self._extra_body,          # 配置透传字段（如关思考）；核心字段在后，永不被覆盖
             "model": self._model,
             "messages": list(messages),
             "temperature": temperature,

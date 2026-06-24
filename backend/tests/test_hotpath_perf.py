@@ -78,6 +78,22 @@ class TestEmbedSkipShortTurns(unittest.TestCase):
         self.assertEqual(emb.calls, 1)
 
 
+class TestLLMExtraBody(unittest.TestCase):
+    @unittest.skipUnless(be.httpx is not None, "httpx 未安装")
+    def test_extra_body_parsed_and_safe(self):
+        from micall.config import NodeConfig
+        from micall.providers.apiyi_llm import ApiyiLLM
+        node = NodeConfig(name="llm_fast", endpoint="https://x/v1", api_key="k",
+                          params={"model": "deepseek-v4-flash",
+                                  "extra_body": {"reasoning_effort": "low"}})
+        llm = ApiyiLLM(node)
+        self.assertEqual(llm._extra_body, {"reasoning_effort": "low"})   # 配置透传被读到
+        # 非 dict 的误配被忽略（不致崩）。
+        bad = NodeConfig(name="llm_fast", endpoint="https://x/v1", api_key="k",
+                         params={"extra_body": "oops"})
+        self.assertEqual(ApiyiLLM(bad)._extra_body, {})
+
+
 class TestMicQueueBounded(unittest.TestCase):
     def _active_session(self):
         async def emit(ev):
