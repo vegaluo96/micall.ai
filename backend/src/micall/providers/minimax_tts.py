@@ -42,11 +42,16 @@ def _minimax_emotion(tag: str) -> str:
     return _EMOTION_ALIAS.get(t, "")
 
 
-def _is_param_emotion_error(e: Exception) -> bool:
-    """这个错误像不像「该音色不支持 emotion 参数」（2013 invalid params / 提到 emotion）。
-    只对这类做降级缓存，避免把网络/鉴权等瞬时错误误判成"音色不支持情绪"而永久砍掉它的情绪。"""
+def _is_param_error(e: Exception) -> bool:
+    """像不像「参数不被接受」（2013 invalid params / 提到 emotion / invalid param）。只对这类做降级，
+    避免把网络/鉴权/余额等错误误判成"参数不支持"。"""
     s = repr(e).lower()
     return ("2013" in s) or ("emotion" in s) or ("invalid" in s and "param" in s)
+
+
+# 进程级：扩展功能（language_boost/pronunciation_dict/english_normalization/voice_modify）整体是否可用。
+# 某次带扩展报参数错、去掉扩展就好 → 说明扩展格式与该端点不符，本进程不再带（省得每句都试错），并打日志。
+_RICH_OK = True
 
 
 _SHARED_CLIENT: "httpx.AsyncClient | None" = None
@@ -67,7 +72,15 @@ class MiniMaxTTS(TTSProvider):
         if not node.configured:
             raise RuntimeError(f"节点 {node.name} 未配置 endpoint/api_key（铁律2）")
         self.node = node
-        self.model = node.params.get("model", "speech-2.8-turbo")
+        p = node.params
+        self.model = p.get("model", "speech-2.8-turbo")
+        # 榨干 2.8-turbo 的"质量/正确性"功能（都走配置，铁律2；不确定格式时由下方分级兜底保平安）：
+        self._language_boost = str(p.get("language_boost", "auto") or "")   # 自动判语种，助中英混说；"" 则不传
+        self._english_norm = bool(p.get("english_normalization", True))      # 数字/缩写读得自然
+        pd = p.get("pronunciation_dict") or []                               # 纠正多音字/名字/英文：["处理/(chu3)(li3)", ...]
+        self._pron_dict = [str(x) for x in pd] if isinstance(pd, list) else []
+        vm = p.get("voice_modify") or {}                                     # 音色微调 {pitch,intensity,timbre,sound_effects}；默认空=不动
+        self._voice_modify = dict(vm) if isinstance(vm, dict) else {}
 
     async def synthesize(
         self, text: str, *, voice_id: str, emotion: str = "",
@@ -76,27 +89,47 @@ class MiniMaxTTS(TTSProvider):
     ) -> AsyncIterator[bytes]:  # pragma: no cover （需真实网络/密钥）
         """句子级流式合成：stream=true，按 SSE 收 hex 音频块，首块一出即可下行（§1.7）。
         emotion/speed/pitch/vol 让 AI 说话带情绪。audio_format：通话下行用 "pcm"，试听用 "mp3"。
-        emotion 自愈：该音色不支持 emotion（2013）→ 记下并仅靠韵律重试一次，绝不让通话因情绪参数断话。"""
+        分级自愈（绝不让通话因任何参数断话）：全功能 → 去扩展 → 去情绪。每档若「参数错且没出过音频」就降一档。"""
+        global _RICH_OK
         vid = voice_id or self.node.params.get("default_voice", "")
         emo = _minimax_emotion(emotion) if vid not in _NO_EMOTION_VOICES else ""
+
+        # 第一档：尽量全功能（情绪 + 扩展）。
         yielded = False
         try:
-            async for chunk in self._stream(vid, text, emo, speed, pitch, vol, sample_rate, audio_format):
+            async for chunk in self._stream(vid, text, emo, speed, pitch, vol, sample_rate, audio_format, rich=_RICH_OK):
                 yielded = True
                 yield chunk
+            return
         except Exception as e:
-            # 只在「带了 emotion + 还没出过音频 + 像情绪参数错」时降级重试；其它错照常抛（上层兜底）。
-            if emo and not yielded and _is_param_emotion_error(e):
-                _NO_EMOTION_VOICES.add(vid)
-                log.warning("voice %s 不支持 emotion，降级为仅韵律重试：%r", vid, e)
-                async for chunk in self._stream(vid, text, "", speed, pitch, vol, sample_rate, audio_format):
+            if yielded or not _is_param_error(e):
+                raise  # 出过音频 / 非参数错（网络/鉴权/余额）→ 照常抛，上层兜底
+            log.warning("TTS 合成参数被拒，分级降级重试：%r", e)
+
+        # 第二档：去掉扩展功能（保留情绪 + 韵律）——定位是不是扩展参数格式与端点不符。
+        if _RICH_OK:
+            yielded = False
+            try:
+                async for chunk in self._stream(vid, text, emo, speed, pitch, vol, sample_rate, audio_format, rich=False):
+                    yielded = True
                     yield chunk
-            else:
-                raise
+                _RICH_OK = False   # 去掉扩展就好了 → 扩展格式有问题，本进程不再带（日志已提示，可据此修配置）
+                log.warning("扩展功能(language_boost/pronunciation_dict/english_normalization/voice_modify)疑似格式不符，本进程停用")
+                return
+            except Exception as e:
+                if yielded or not _is_param_error(e):
+                    raise
+
+        # 第三档：连情绪也去掉（最小安全）→ 记下该音色不支持 emotion。
+        if emo:
+            _NO_EMOTION_VOICES.add(vid)
+            log.warning("voice %s 疑似不支持 emotion，降级为仅韵律", vid)
+        async for chunk in self._stream(vid, text, "", speed, pitch, vol, sample_rate, audio_format, rich=False):
+            yield chunk
 
     async def _stream(
         self, vid: str, text: str, emo: str, speed: float, pitch: int, vol: float,
-        sample_rate: int, audio_format: str,
+        sample_rate: int, audio_format: str, *, rich: bool = True,
     ) -> AsyncIterator[bytes]:  # pragma: no cover （需真实网络/密钥）
         # 钳到 MiniMax 合法区间：speed 0.5–2、pitch -12~12 整、vol 0–10。越界会 2013。
         vs: dict = {
@@ -107,6 +140,8 @@ class MiniMaxTTS(TTSProvider):
         }
         if emo:
             vs["emotion"] = emo  # 仅传 MiniMax 认的情绪，否则省略（默认中性）
+        if rich and self._english_norm:
+            vs["english_normalization"] = True
         body: dict = {
             "model": self.model,
             "text": text,
@@ -114,6 +149,14 @@ class MiniMaxTTS(TTSProvider):
             "voice_setting": vs,
             "audio_setting": {"sample_rate": sample_rate, "format": audio_format, "channel": 1},
         }
+        if rich:
+            # 榨干 2.8-turbo：语种增强 / 发音纠正 / 音色微调。空则不传（不画蛇添足）。
+            if self._language_boost:
+                body["language_boost"] = self._language_boost
+            if self._pron_dict:
+                body["pronunciation_dict"] = {"tone": self._pron_dict}
+            if self._voice_modify:
+                body["voice_modify"] = self._voice_modify
         headers = {
             "Authorization": f"Bearer {self.node.api_key}",
             "Content-Type": "application/json",
