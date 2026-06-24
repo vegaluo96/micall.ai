@@ -24,7 +24,12 @@ systemctl status micall-backend            # running 即可
 
 # 2) 用户端 zsky.com
 cd ~/micall.ai/frontend && npm ci
-echo 'VITE_SIGNALING_URL=wss://zsky.com/realtime/signal' > .env.production
+# ⚠️ .env.production 必须两行都写：只写 SIGNALING 会抹掉 ICE → RTC 不启用 → 全双工打断失效（落回半双工）。
+# VITE_ICE_SERVERS 必须与后端 backend/config/micall.env 的 MICALL_ICE_SERVERS 完全一致（同一 coturn）。
+cat > .env.production <<'EOF'
+VITE_SIGNALING_URL=wss://zsky.com/realtime/signal
+VITE_ICE_SERVERS=[{"urls":"turn:47.82.67.99:3478","username":"micall","credential":"<改成你的TURN密码>"}]
+EOF
 npm run build && sudo cp -r dist/* /var/www/micall/
 
 # 3) 运营后台 admin.zsky.com
@@ -36,6 +41,8 @@ npm run build && sudo cp -r dist/* /var/www/micall-admin/
 > ⚠️ **两个 `.env.production` 都必须非空**。后台留空 → `usingBackend()` 为 false →
 > 音色库 / 试听 / 邀请奖励保存等全部退回假数据、不持久化（「邀请奖励改了仍显 60」的常见根因）；
 > 用户端留空 → 走内置 mock，不连真实后端。
+> 用户端 **`VITE_ICE_SERVERS` 也必须写**（与后端 `MICALL_ICE_SERVERS` 一致）→ 否则 RTC 全双工不启用、
+> 通话「打不断」（落回半双工）。`turn:` 地址/密码与 coturn(`deploy` coturn 段) 同步。
 
 **验证**（部署后在服务器上跑）：
 
