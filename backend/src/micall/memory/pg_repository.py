@@ -105,14 +105,14 @@ class PgRepository(MemoryRepository):
             )
 
     # ── 事实层 ──
-    def add_fact(self, user_id, character_id, text, *, emotion_weight=1.0, vector=None) -> None:
+    def add_fact(self, user_id, character_id, text, *, emotion_weight=1.0, importance=0.5, vector=None) -> None:
         try:
             self.ensure_user(user_id)
             with self.pool.connection() as c:
                 c.execute(
-                    "INSERT INTO facts (user_id, character_id, text, embedding, emotion_weight) "
-                    "VALUES (%s,%s,%s,%s::vector,%s)",
-                    (user_id, character_id, text, _vec_literal(vector), emotion_weight),
+                    "INSERT INTO facts (user_id, character_id, text, embedding, emotion_weight, importance) "
+                    "VALUES (%s,%s,%s,%s::vector,%s,%s)",
+                    (user_id, character_id, text, _vec_literal(vector), emotion_weight, importance),
                 )
         except Exception as e:  # FK/维度不符/连接：离线写入失败不该影响通话
             log.warning("add_fact 失败（忽略）：%r", e)
@@ -120,21 +120,38 @@ class PgRepository(MemoryRepository):
                 try:
                     with self.pool.connection() as c:
                         c.execute(
-                            "INSERT INTO facts (user_id, character_id, text, emotion_weight) VALUES (%s,%s,%s,%s)",
-                            (user_id, character_id, text, emotion_weight),
+                            "INSERT INTO facts (user_id, character_id, text, emotion_weight, importance) "
+                            "VALUES (%s,%s,%s,%s,%s)",
+                            (user_id, character_id, text, emotion_weight, importance),
                         )
                 except Exception:
                     pass
 
     def recall(self, user_id, character_id, query, *, top_k=5) -> list[str]:
+        # 非向量兜底（embedding 超时/未配/旧数据无向量时走这里）。此前只按 created_at DESC，
+        # 完全忽略 query → 翻出不相关的旧事。改为取近段候选，按「字符重叠 × 情感权重 × 重要性 × 新近」
+        # 在内存里打分（与 InMemoryRepository 一致），只回相关的。候选窗 50 条，~ms 级、可控。
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
-                    "SELECT text FROM facts WHERE user_id=%s AND character_id=%s "
-                    "ORDER BY created_at DESC LIMIT %s",
-                    (user_id, character_id, top_k),
+                    "SELECT text, emotion_weight, importance FROM facts "
+                    "WHERE user_id=%s AND character_id=%s ORDER BY created_at DESC LIMIT 50",
+                    (user_id, character_id),
                 ).fetchall()
-            return [r[0] for r in rows]
+            if not rows:
+                return []
+            q = set(query or "")
+            if not q:  # 没有 query（如开场）→ 退化为最新若干条
+                return [r[0] for r in rows[:top_k]]
+            n = len(rows)
+            # rows 是 created_at DESC（新→旧）；新近加成给靠前的（i 越小越新）。
+            scored = [
+                (len(q & set(r[0])) * float(r[1] or 1.0) * float(r[2] if r[2] is not None else 0.5)
+                 * (1 + (n - i) / n), r[0])
+                for i, r in enumerate(rows)
+            ]
+            scored.sort(key=lambda s: s[0], reverse=True)
+            return [t for score, t in scored[:top_k] if score > 0]
         except Exception as e:
             log.warning("recall 失败：%r", e)
             return []
@@ -144,9 +161,11 @@ class PgRepository(MemoryRepository):
             return self.recall(user_id, character_id, query, top_k=top_k)
         try:
             with self.pool.connection() as c:
+                # 余弦距离按「重要性 × 情感权重」缩放：要紧的记忆等效距离更小、更易被召回（importance 维，
+                # Generative Agents）。GREATEST 兜底防除零。距离越小越相关，故除以权重。
                 rows = c.execute(
                     "SELECT text FROM facts WHERE user_id=%s AND character_id=%s AND embedding IS NOT NULL "
-                    "ORDER BY embedding <=> %s::vector LIMIT %s",
+                    "ORDER BY (embedding <=> %s::vector) / GREATEST(importance * emotion_weight, 0.05) LIMIT %s",
                     (user_id, character_id, _vec_literal(query_vector), top_k),
                 ).fetchall()
             return [r[0] for r in rows] or self.recall(user_id, character_id, query, top_k=top_k)

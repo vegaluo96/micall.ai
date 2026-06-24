@@ -77,6 +77,28 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(p.next_strategy, "原策略")  # 空 update 不抹掉已有
 
 
+class TestFactImportance(unittest.TestCase):
+    def test_normalize_string_and_dict(self):
+        from micall.offline.understanding import _fact_text_importance
+        self.assertEqual(_fact_text_importance("养了猫"), ("养了猫", 0.5))       # 字符串 → 默认重要性
+        self.assertEqual(_fact_text_importance({"text": "下周手术", "importance": 0.9}),
+                         ("下周手术", 0.9))
+        self.assertEqual(_fact_text_importance({"text": "x", "importance": 5}), ("x", 1.0))   # 钳到 [0,1]
+        self.assertEqual(_fact_text_importance({"text": "y", "importance": "bad"}), ("y", 0.5))  # 容错
+        self.assertEqual(_fact_text_importance(123), ("", 0.5))                  # 非法 → 空
+
+    def test_importance_flows_to_recall(self):
+        # 慢脑给「要紧事」高 importance，召回时即便它更早，也排在更近的琐事前。
+        repo = InMemoryRepository()
+        update = {"new_facts": [{"text": "下周要去医院做手术", "importance": 0.95}]}
+        engine = UnderstandingEngine(StubLLM([json.dumps(update, ensure_ascii=False)]), repo)
+        history = [{"role": "user", "content": "随便聊聊，今天去医院旁边吃了面"},
+                   {"role": "assistant", "content": "嗯"}]
+        asyncio.run(engine.process_call("u", "c", history))
+        hits = repo.recall("u", "c", "医院", top_k=2)
+        self.assertEqual(hits[0], "下周要去医院做手术")   # 高重要性排前
+
+
 class TestEngine(unittest.TestCase):
     def test_process_call_writes_both_layers(self):
         repo = InMemoryRepository()

@@ -47,8 +47,10 @@ CREATE TABLE IF NOT EXISTS facts (
     text           TEXT NOT NULL,
     embedding      vector(1024),                 -- text-embedding-v3 维度（按实际模型调整）
     emotion_weight REAL NOT NULL DEFAULT 1.0,     -- 情感权重，进检索打分
+    importance     REAL NOT NULL DEFAULT 0.5,     -- 重要性（离线打分，要紧事高/闲话低），进检索打分（Generative Agents）
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE facts ADD COLUMN IF NOT EXISTS importance REAL NOT NULL DEFAULT 0.5;
 CREATE INDEX IF NOT EXISTS facts_user_char_idx ON facts (user_id, character_id);
 -- 语义检索（余弦）。真实可换 HNSW：USING hnsw (embedding vector_cosine_ops)。
 CREATE INDEX IF NOT EXISTS facts_embedding_idx ON facts USING ivfflat (embedding vector_cosine_ops);

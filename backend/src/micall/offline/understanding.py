@@ -44,7 +44,8 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
     system = (
         "你是离线理解引擎。基于本次通话与现有画像，推断并修正你对这个人的理解。"
         "严格只输出一个 JSON 对象，字段："
-        "new_facts(string[])、"
+        "new_facts(数组；每项可以是字符串，或 {text, importance} 对象，importance 取 0~1——"
+        "TA 的重要事/在意的人事物/承诺给高分，闲聊寒暄给低分，便于日后优先想起要紧事)、"
         "insights([{insight,confidence,evidence}]，印证或推翻旧判断、暴露新模式)、"
         "hypotheses([{guess,confidence,next}]，带着假设进下次对话去验证)、"
         "relationship({stage,last_topic,open_threads,last_mood,shared_refs}，"
@@ -64,6 +65,21 @@ def parse_profile_update(raw: str) -> dict[str, Any]:
         return obj if isinstance(obj, dict) else {}
     except (ValueError, json.JSONDecodeError):
         return {}
+
+
+def _fact_text_importance(f: Any, default: float = 0.5) -> tuple[str, float]:
+    """归一化一条 new_facts：可能是字符串，或 {text, importance}。返回 (text, importance∈[0,1])。
+    无效 → ("", default)。importance 容错钳到 [0,1]，缺省 default。"""
+    if isinstance(f, str):
+        return f.strip(), default
+    if isinstance(f, dict):
+        text = str(f.get("text", "")).strip()
+        try:
+            imp = float(f.get("importance", default))
+        except (TypeError, ValueError):
+            imp = default
+        return text, max(0.0, min(1.0, imp))
+    return "", default
 
 
 _MAX_INSIGHTS = 20  # 画像洞察上限：无限堆叠会把人设块撑爆、稀释模型注意力 → 跨通话越聊越笨。
@@ -146,16 +162,20 @@ class UnderstandingEngine:
         raw = await self._run_llm(build_understanding_prompt(profile, history))
         update = parse_profile_update(raw)
 
-        # 2. 事实层（只增）：用户原话 + 模型抽取的新事实，去重保序后批量向量化入库。
-        facts = list(extract_facts(history))
+        # 2. 事实层（只增）：用户原话（默认重要性）+ 模型抽取的新事实（可带 importance），
+        #    去重保序后批量向量化入库。重要性进检索打分，让日后优先想起要紧事（Generative Agents importance 维）。
+        scored_facts: list[tuple[str, float]] = [(t, 0.5) for t in extract_facts(history)]  # 原话默认 0.5
         for f in update.get("new_facts", []) or []:
-            if isinstance(f, str) and f.strip():
-                facts.append(f.strip())
-        seen: set[str] = set()
-        uniq = [f for f in facts if not (f in seen or seen.add(f))]
+            text, imp = _fact_text_importance(f)
+            if text:
+                scored_facts.append((text, imp))
+        seen: dict[str, float] = {}
+        for text, imp in scored_facts:  # 去重保序：同一句保留较高的重要性
+            seen[text] = max(seen.get(text, 0.0), imp)
+        uniq = list(seen.keys())
         vectors = await self._vectors(uniq)
         for text, vec in zip(uniq, vectors):
-            self.repo.add_fact(user_id, character_id, text, vector=vec)
+            self.repo.add_fact(user_id, character_id, text, importance=seen[text], vector=vec)
 
         merged = merge_profile(profile, update)
         self.repo.save_profile(merged)

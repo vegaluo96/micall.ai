@@ -119,6 +119,16 @@ class CallSession:
         self.character_id = character_id
         self.scenario = scenario
         self.voice_id = voice_id
+        # has_facts 一通电话内不变（事实由离线引擎在挂断后才写）→ 开场算一次缓存，
+        # 省掉每轮思考前那次查库往返。查库失败按「无记忆」处理（仅退关键词召回，安全）。
+        self._mem_has_facts = False
+        try:
+            mem, prof = assembler.memory, assembler.profile
+            self._mem_has_facts = bool(
+                mem is not None and prof is not None and mem.has_facts(prof.user_id, character_id)
+            )
+        except Exception as e:
+            log.warning("has_facts 预查失败，按无记忆处理：%r", e)
 
         self.sm = CallStateMachine()
         self.billing = BillingMeter(
@@ -315,9 +325,8 @@ class CallSession:
         否则纯属给实时路径白加一次网络往返（开场/新会话尤其明显，对话发钝）。带紧超时兜底。"""
         if self._embedder is None or not (text or "").strip():
             return None
-        mem, prof = self.assembler.memory, self.assembler.profile
-        if mem is None or prof is None or not mem.has_facts(prof.user_id, self.character_id):
-            return None  # 没有可召回的记忆 → 不嵌入，省一次往返（recall 也只会返回空）
+        if not self._mem_has_facts:
+            return None  # 没有可召回的记忆 → 不嵌入，省一次往返（recall 也只会返回空）。开场已缓存，不再每轮查库
         try:
             # 实时路径硬上限：嵌入慢/卡也不拖累对话，超时即退关键词召回。0.6s 让「说完→AI接话」更跟手，
             # 嵌入正常都 <0.6s（不影响召回质量），只有真卡时才快速降级关键词。

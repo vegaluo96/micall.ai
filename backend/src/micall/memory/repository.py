@@ -40,7 +40,8 @@ class MemoryRepository(ABC):
     @abstractmethod
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
-        emotion_weight: float = 1.0, vector: list[float] | None = None,
+        emotion_weight: float = 1.0, importance: float = 0.5,
+        vector: list[float] | None = None,
     ) -> None: ...
 
     @abstractmethod
@@ -301,9 +302,10 @@ class InMemoryRepository(MemoryRepository):
 
     def add_fact(
         self, user_id: str, character_id: str, text: str, *,
-        emotion_weight: float = 1.0, vector: list[float] | None = None,
+        emotion_weight: float = 1.0, importance: float = 0.5,
+        vector: list[float] | None = None,
     ) -> None:
-        self._facts.setdefault((user_id, character_id), []).append((text, emotion_weight, vector))
+        self._facts.setdefault((user_id, character_id), []).append((text, emotion_weight, vector, importance))
 
     def has_facts(self, user_id: str, character_id: str) -> bool:
         return bool(self._facts.get((user_id, character_id)))
@@ -317,10 +319,10 @@ class InMemoryRepository(MemoryRepository):
         if not items:
             return []
         q = set(query)
-        # 近似分 = 字符重叠 × 情感权重 × 越近越重（list 末尾更新，给递增的新近加成）。
+        # 近似分 = 字符重叠 × 情感权重 × 重要性 × 越近越重（list 末尾更新，给递增的新近加成）。
         scored = [
-            (len(q & set(text)) * weight * (1 + i / max(1, len(items))), text)
-            for i, (text, weight, _v) in enumerate(items)
+            (len(q & set(text)) * weight * imp * (1 + i / max(1, len(items))), text)
+            for i, (text, weight, _v, imp) in enumerate(items)
         ]
         scored.sort(key=lambda s: s[0], reverse=True)
         return [text for score, text in scored[:top_k] if score > 0]
@@ -335,11 +337,11 @@ class InMemoryRepository(MemoryRepository):
         n = len(items)
         scored: list[tuple[float, str]] = []
         any_vec = False
-        for i, (text, weight, vec) in enumerate(items):
+        for i, (text, weight, vec, imp) in enumerate(items):
             if vec:
                 any_vec = True
-                # 余弦相似 × 情感权重 × 新近加成（末尾更近）。
-                scored.append((_cosine(query_vector, vec) * weight * (1 + i / max(1, n)), text))
+                # 余弦相似 × 情感权重 × 重要性 × 新近加成（末尾更近）。
+                scored.append((_cosine(query_vector, vec) * weight * imp * (1 + i / max(1, n)), text))
         if not any_vec:  # 库里还没有向量（旧数据/未向量化）→ 退关键词。
             return self.recall(user_id, character_id, query, top_k=top_k)
         scored.sort(key=lambda s: s[0], reverse=True)

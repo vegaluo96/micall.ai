@@ -33,6 +33,14 @@ class TestMemory(unittest.TestCase):
         r.add_fact("u1", "c", "u1 的秘密")
         self.assertEqual(r.recall("u2", "c", "秘密"), [])  # 不串号（铁律7）
 
+    def test_importance_outranks_recency(self):
+        # 重要性进检索打分：要紧事即便更早，也应排在更近但琐碎的事之前（Generative Agents importance 维）。
+        r = InMemoryRepository()
+        r.add_fact("u", "c", "下周要去医院做手术", importance=0.95)  # 早、但要紧
+        r.add_fact("u", "c", "今天午饭吃了医院旁边的面", importance=0.1)  # 近、但琐碎
+        hits = r.recall("u", "c", "医院", top_k=2)
+        self.assertEqual(hits[0], "下周要去医院做手术")  # 重要的排前
+
     def test_voice_and_profile_roundtrip(self):
         r = InMemoryRepository()
         self.assertIsNone(r.get_user_voice("u", "c"))
