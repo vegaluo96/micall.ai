@@ -11,11 +11,29 @@
 """
 from __future__ import annotations
 
+import datetime
 from typing import Any
 
 from .models import AutonomousState, CharacterRuntime, UserProfile
 
 Message = dict
+
+_CN_WEEKDAY = "一二三四五六日"
+
+
+def _now_line(now: datetime.datetime | None = None) -> str:
+    """给角色「时间观念」的一行（东八区——用户多在国内/香港，均 UTC+8）。每轮新算，折进末轮 user
+    （不进 prefix 缓存）。让 AI 能自然地体现时间：深夜关心 TA 怎么还没睡、早上道早安，而非半夜说「早上好」。"""
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    h = now.hour
+    part = ("深夜" if h < 5 else "清晨" if h < 8 else "上午" if h < 11 else "中午" if h < 13
+            else "下午" if h < 17 else "傍晚" if h < 19 else "晚上" if h < 23 else "深夜")
+    return (
+        f"（现实时间：{now.year}年{now.month}月{now.day}日 周{_CN_WEEKDAY[now.weekday()]}{part}，{now:%H:%M}。"
+        "你有正常的时间观念，自然相关时可体现（如深夜关心 TA 怎么还不睡、早上道早安、节假日应应景），"
+        "但别刻意报时、别每句都提。）"
+    )
 
 
 def _identity_line(idt: dict) -> str:
@@ -189,12 +207,16 @@ class ContextAssembler:
                     + "；".join(recalls) + "）\n"
                 )
 
-        if recall_preamble and hist and hist[-1].get("role") == "user":
+        # 时间观念：每轮新算的「现实时间」一行，和情节记忆一样折进末轮 user（动态内容不进 prefix 缓存，
+        # 保持 system+历史前缀稳定、缓存不废）。无末轮 user（如开场白）则作为一条 system 追加在末尾。
+        now_line = _now_line()
+        if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": recall_preamble + last["content"]})
+            messages.append({"role": "user", "content": now_line + "\n" + recall_preamble + last["content"]})
         else:
             messages.extend(hist)
+            messages.append({"role": "system", "content": now_line})
         return messages
 
     def _windowed(self, history: list[Message], *, reserved: int) -> list[Message]:

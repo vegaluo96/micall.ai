@@ -65,7 +65,9 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("焦虑时用自嘲掩饰", sysmsg)       # L2 画像
         self.assertIn("有点累", sysmsg)                # 尺度四 自主状态
         self.assertIn("心情树洞", sysmsg)              # 情境
-        self.assertEqual(msgs[-1], {"role": "user", "content": "在吗"})  # L4 滑窗
+        self.assertEqual(msgs[-1]["role"], "user")     # L4 滑窗（末轮 user 会折进时间/记忆前缀）
+        self.assertTrue(msgs[-1]["content"].endswith("在吗"))
+        self.assertIn("现实时间", msgs[-1]["content"])   # 时间观念每轮注入末轮 user
 
     def test_identity_injected_into_persona(self):
         # AI 要知道自己的基本资料（性别/年龄/外貌/生日），否则被问就不知道。
@@ -87,7 +89,27 @@ class TestAssembler(unittest.TestCase):
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]
         msgs = a.build(character_id="c", scenario="", history=hist)
         self.assertLess(len(msgs), 1 + 20)            # system + 被裁后的少量滑窗
-        self.assertEqual(msgs[-1], hist[-1])          # 保留最近
+        self.assertTrue(msgs[-1]["content"].endswith(hist[-1]["content"]))  # 保留最近（末轮折进时间前缀）
+
+    def test_time_awareness_injected(self):
+        import datetime
+        from micall.context.assembler import _now_line
+
+        # 时段措辞按小时正确（深夜不会说成上午）。
+        tz = datetime.timezone(datetime.timedelta(hours=8))
+        deep = _now_line(datetime.datetime(2026, 6, 24, 23, 47, tzinfo=tz))
+        self.assertIn("周三深夜", deep)            # 时段标签随小时正确（23 点 = 深夜，不会说成上午）
+        self.assertIn("23:47", deep)
+        morning = _now_line(datetime.datetime(2026, 6, 24, 8, 5, tzinfo=tz))
+        self.assertIn("周三上午", morning)
+        self.assertIn("08:05", morning)
+
+    def test_time_line_when_no_last_user(self):
+        # 开场白（无末轮 user）：时间作为一条 system 追加，至少让模型知道现在几点。
+        a = ContextAssembler(self._char())
+        msgs = a.build(character_id="lin_wan", scenario="", history=[])
+        self.assertIn("现实时间", msgs[-1]["content"])
+        self.assertEqual(msgs[-1]["role"], "system")
 
     def test_recall_injected(self):
         r = InMemoryRepository()
