@@ -161,11 +161,13 @@ class CallSession:
         #   echo_tail_ms  —— AI 音频播完后仍按「可能回声」对待的拖尾窗（盖住前端半双工放开的瞬间 + ASR 延迟）。
         #   echo_overlap  —— 音频播放中，识别文本与 AI 已说内容的字符重叠达此比例即判回声。
         turn = config.turn or {}
-        self._echo_tail = float(turn.get("echo_tail_ms", 1200)) / 1000.0
-        self._echo_overlap = float(turn.get("echo_overlap", 0.7))
+        # 拖尾窗放宽到 1.6s（原 1200）：全双工外放下，AI 话音回授常在播放刚结束的瞬间被 ASR 转写出来，
+        # 窗太短就漏成「自言自语」。重叠门槛 0.65（原 0.7）略松，多兜住转写不全的回声；真用户附和多不与 AI 原话重叠，误伤小。
+        self._echo_tail = float(turn.get("echo_tail_ms", 1600)) / 1000.0
+        self._echo_overlap = float(turn.get("echo_overlap", 0.65))
         # 下行播放延迟补偿：全双工(RTC)经 coturn 中继 + jitter buffer，AI 这句实际播得比合成时刻晚。
         # 把它加进 _audio_until，让「播放中」回声窗盖住外放回授时段 → 治「听到自己 / 屏幕冒出没说的话」。
-        self._play_pad = float(turn.get("echo_play_pad_ms", 400)) / 1000.0
+        self._play_pad = float(turn.get("echo_play_pad_ms", 500)) / 1000.0
         # 灵敏度门槛（治「一点声音就反应/打断」）。文本越长越像真说话，短碎片多是噪声/呼吸/回授。可在 turn 配置调：
         #   bargein_min_chars —— AI 外放时，partial 达到这么多字才算真打断。4 是稳值：挡掉 AI 自己声音回授的短碎片
         #     （太低会"自己打断自己"→ 听着像不说话）；戴耳机/RTC 干净环境可调到 2–3 让短插话更跟手。
