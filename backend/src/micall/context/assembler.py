@@ -213,25 +213,14 @@ def _probe_guard_line(text: str) -> str:
 
 
 def _emotion_instruction(emotion_map: dict[str, str]) -> str:
-    # 逐句情绪 + 拟声 + 停顿：让语音带情绪、像真人，而非平铺直叙。标签/拟声/停顿都只给语音引擎，绝不显示给用户。
+    # 逐句情绪 + 拟声 + 停顿（精简版，控前缀长度=控延迟）。标签/拟声/停顿只给语音引擎，用户看不到。
     return (
-        "【说话要带情绪、像真人，别平铺直叙】"
-        "每句话开头用情绪标签标出这句的情绪，格式 [emotion:tag]这句话。情绪和上一句一样就省略标签（自动沿用）。"
-        "tag 从这些里选最贴合的：neutral、tender、caring、gentle、happy、excited、playful、shy、sad、"
-        "comfort、calm、angry、fearful、worried、surprised、disgusted。"
-        "怎么配情绪（贴着对话内容走，不是乱标）：TA 难过/低落 → sad，很需要安慰时 → comfort（更慢更柔）；"
-        "TA 开心 → happy / excited；逗趣、撒娇、调侃 → playful；认真关怀 → caring；惊讶 → surprised；"
-        "日常闲聊 → tender / neutral。"
-        "【要有真人的声音质感——高频、自然地带反应，这是重点，别端着像念稿】"
-        "真人说话不是一条直线：会笑、会叹气、会停顿、会换气、会「嗯…」「那个…」地想一下。你要经常这样。"
-        "这些英文括号标签会被读成真实人声，该用就大胆用、用得密一点："
-        "好笑/逗趣 (laughs)、轻笑 (chuckle)；无奈/心疼/疲惫 (sighs)；哽咽 (sniffs)（MiniMax 没有嚎啕大哭，"
-        "最多到抽鼻子）；惊讶/被逗到 (gasps)；起话头/喘口气 (breath)。再配合 <#0.3#> 这样的停顿，"
-        "以及「嗯」「欸」「那个」「怎么说呢」这类口头语气，让整段话有真人的节奏和呼吸感。"
-        "例：「(sighs) 唉…今天是不是又被为难了。<#0.3#> 没事的，跟我说说。」"
-        "「哈哈 (laughs)，你也太逗了，<#0.2#> 我服了。」"
-        "频率原则：贴着情绪走、密但不假——情绪平淡时少用，情绪有起伏时就多用，像真人那样自然流露。"
-        "记住：情绪标签、英文括号拟声、<#…#> 停顿都只是给语音的暗号，用户看不到，也别写成中文括号的旁白。"
+        "【说话带情绪、像真人，别平铺直叙】每句开头标情绪：[emotion:tag]这句；情绪没变可省略（继承上一句）。"
+        "tag 选：neutral/tender/caring/happy/excited/playful/shy/sad/comfort/calm/angry/fearful/surprised。"
+        "贴对话走：难过→sad（很需安慰→comfort）、开心→happy/excited、逗趣撒娇→playful、认真关怀→caring、惊讶→surprised、日常→tender。"
+        "真人会笑会叹气：该笑就 (laughs)、无奈/心疼 (sighs)、哽咽 (sniffs)、惊讶 (gasps)、喘口气 (breath)，"
+        "想停顿插 <#0.3#>——情绪到位就大胆用、用得勤一点，让声音有呼吸感。"
+        "这些标签/拟声/停顿都只给语音、用户看不到，也别写中文括号旁白。"
     )
 
 

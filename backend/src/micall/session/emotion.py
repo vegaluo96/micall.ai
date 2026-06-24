@@ -84,23 +84,24 @@ class EmotionStripper:
 
 # 情绪标签 → (MiniMax 语义情绪, speed[0.5-2], pitch[-12~12 整], vol[0-10])。初版凭直觉，留真机听调。
 # emotion 这一列交给 minimax 层再映射到其 6 枚举；非枚举（""）则只靠韵律实现。
+# 幅度调大，让情绪真听得出来（之前太保守=「没感觉」）。仍在 MiniMax 合法区间(speed 0.5-2, pitch ±12, vol 0-10)。
 _PROSODY: dict[str, tuple[str, float, int, float]] = {
     "neutral":   ("neutral", 1.00, 0, 1.0),
-    "tender":    ("", 0.95, 0, 1.0),       # 温柔：中性音色 + 略慢
-    "caring":    ("", 0.92, -1, 1.0),      # 关切：略慢略低
-    "gentle":    ("", 0.94, 0, 1.0),
-    "happy":     ("happy", 1.06, 1, 1.0),
-    "excited":   ("happy", 1.12, 3, 1.2),  # 兴奋：快、高、响
-    "playful":   ("happy", 1.08, 2, 1.0),  # 俏皮/撒娇：MiniMax 无此枚举，靠快+高
-    "shy":       ("", 0.96, 1, 0.9),       # 害羞：略慢略高略轻
-    "sad":       ("sad", 0.88, -1, 1.0),   # 难过：慢、低
-    "comfort":   ("sad", 0.85, -2, 0.9),   # 安慰：更慢更柔
-    "calm":      ("", 0.93, -1, 1.0),
-    "angry":     ("angry", 1.05, 1, 1.2),
-    "fearful":   ("fearful", 1.04, 1, 1.0),
-    "worried":   ("fearful", 0.97, 0, 1.0),
-    "surprised": ("surprised", 1.10, 3, 1.1),
-    "disgusted": ("disgusted", 0.98, 0, 1.0),
+    "tender":    ("", 0.92, -1, 1.0),      # 温柔：明显放软放慢
+    "caring":    ("", 0.88, -2, 1.0),      # 关切：更慢更低
+    "gentle":    ("", 0.90, -1, 1.0),
+    "happy":     ("happy", 1.14, 3, 1.1),  # 开心：明显快、亮
+    "excited":   ("happy", 1.22, 5, 1.3),  # 兴奋：很快、很高、响
+    "playful":   ("happy", 1.16, 4, 1.05), # 俏皮/撒娇：快+高（MiniMax 无此枚举，靠韵律做足）
+    "shy":       ("", 0.92, 2, 0.85),      # 害羞：慢、略尖、轻
+    "sad":       ("sad", 0.80, -3, 0.95),  # 难过：明显慢、低、沉
+    "comfort":   ("sad", 0.76, -4, 0.9),   # 安慰：很慢很柔很低
+    "calm":      ("", 0.86, -2, 1.0),
+    "angry":     ("angry", 1.14, 2, 1.5),  # 生气：快、冲、响
+    "fearful":   ("fearful", 1.12, 4, 1.0),
+    "worried":   ("fearful", 0.94, 1, 1.0),
+    "surprised": ("surprised", 1.20, 5, 1.2),  # 惊讶：拔高、变快
+    "disgusted": ("disgusted", 0.94, -1, 1.0),
 }
 
 
