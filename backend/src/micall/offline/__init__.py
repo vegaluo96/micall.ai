@@ -2,6 +2,7 @@ from .autonomy import (
     AutonomyEngine,
     build_autonomy_prompt,
     describe_gap,
+    due_to_advance,
     parse_autonomous_state,
 )
 from .understanding import (
@@ -21,5 +22,6 @@ __all__ = [
     "AutonomyEngine",
     "build_autonomy_prompt",
     "describe_gap",
+    "due_to_advance",
     "parse_autonomous_state",
 ]

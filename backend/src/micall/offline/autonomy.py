@@ -19,6 +19,12 @@ from ..providers.base import LLMProvider
 from .understanding import parse_profile_update  # 复用容错 JSON 抠取
 
 
+def due_to_advance(last_advance: float | None, now: float, throttle_s: float) -> bool:
+    """她的「生活」是否该再推进一次：从未推进过(last_advance=None)→是；否则距上次≥节流窗口才推。
+    节流让自主状态最多每 throttle_s 推进一次——既省慢脑成本，也避免近况变得太快、失了真实感。"""
+    return last_advance is None or (now - last_advance) >= throttle_s
+
+
 def describe_gap(hours_since_last_call: float) -> str:
     """把"距上次通话的时长"翻成口语近况粒度（间隔越久，越可能有事可主动提）。"""
     if hours_since_last_call < 6:

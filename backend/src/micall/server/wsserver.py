@@ -11,13 +11,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
 from ..config import Config, load_config, resolve_voice
 from ..context import CharacterRuntime, ContextAssembler
 from ..memory import MemoryRepository, make_repository
-from ..offline import UnderstandingEngine
+from ..offline import AutonomyEngine, UnderstandingEngine, due_to_advance
 from ..protocol import ServerEvent, parse_client_message
 from ..providers import make_embedding, make_llm, make_realtime_asr, make_tts
 from ..session import CallSession
@@ -28,6 +29,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
 _GUEST_TRIAL_SECONDS = 60  # 游客（未登录）试用：1 分钟，到期提示注册（注册即送 60 分钟）
 _ANON = "anon"            # 骨架无鉴权；真实从登录态取 user_id
+_AUTONOMY_THROTTLE_S = 3 * 3600  # 角色自主状态最多每 3 小时推进一次（节流慢脑成本 + 近况不过快变）
 
 
 def _client_ip(websocket: Any) -> str:
@@ -90,6 +92,7 @@ class SignalingServer:
         # 离线理解引擎（§3.3）每次会话结束按当前配置新建（慢脑 llm_slow + 向量化 embedding），
         # 这样 admin 改了「接口配置」即时生效；后台触发，不碰实时路径。
         self._bg_tasks: set[asyncio.Task] = set()
+        self._autonomy_last: dict[str, float] = {}  # char_id → 上次推进自主状态的 monotonic（节流，见 _schedule_autonomy）
 
     def _consume_balance(self, user_id: str, session: "CallSession") -> None:
         """登录用户挂断 → 按实际通话秒数扣余额 + 记 call 流水（§5 服务端权威计费）。游客不入账。"""
@@ -138,6 +141,40 @@ class SignalingServer:
             self._record_call(user_id, session)
         self._record_usage(user_id, session)
         self._schedule_understanding(session, user_id)
+        self._schedule_autonomy(session)
+
+    def _schedule_autonomy(self, session: "CallSession") -> None:
+        """通话结束 → 后台推进「角色自己这段时间的近况」（§4.2，per-character，独立于用户）。fire-and-forget。
+        这是「她有对话之外的生命」的来源：下次通话时 get_autonomous 读到的 mood/近况/精力即由此生长。
+        节流（_AUTONOMY_THROTTLE_S）：同一角色最多每隔一段才推一次——既省较贵的慢脑，也让近况自然推进、
+        不至于每通都变一个人。游客通话也推（她的生活不分谁来电），成本由节流兜住。"""
+        if not session:
+            return
+        char = session.character_id
+        now = time.monotonic()
+        last = self._autonomy_last.get(char)
+        if not due_to_advance(last, now, _AUTONOMY_THROTTLE_S):
+            return
+        self._autonomy_last[char] = now
+        # 距上次推进多久 → 近况粒度（首次用一天，给她攒点可主动提的事）。
+        hours = 24.0 if last is None else max(1.0, (now - last) / 3600.0)
+        try:
+            character = self._character(char)
+        except Exception as e:
+            log.warning("自主状态推进取角色失败 char=%s：%r", char, e)
+            return
+        engine = AutonomyEngine(make_llm(self.config.node("llm_slow")), self.repo)
+
+        async def run() -> None:
+            try:
+                await engine.advance(character, hours_since_last_call=hours)
+                log.info("自主状态推进完成 char=%s", char)
+            except Exception as e:  # 离线失败不影响任何实时路径
+                log.warning("自主状态推进失败 char=%s：%r", char, e)
+
+        task = asyncio.create_task(run())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
 
     def _schedule_understanding(self, session: "CallSession", user_id: str = _ANON) -> None:
         """通话结束 → 后台跑离线理解（写事实层 + 修正画像 + 生成下次策略）。fire-and-forget。

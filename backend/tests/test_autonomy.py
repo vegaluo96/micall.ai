@@ -8,6 +8,7 @@ from micall.offline import (
     AutonomyEngine,
     build_autonomy_prompt,
     describe_gap,
+    due_to_advance,
     parse_autonomous_state,
 )
 from micall.providers import StubLLM
@@ -19,6 +20,14 @@ class TestGap(unittest.TestCase):
         self.assertEqual(describe_gap(30), "一两天")
         self.assertEqual(describe_gap(72), "好几天")
         self.assertEqual(describe_gap(24 * 10), "一周多")
+
+
+class TestThrottle(unittest.TestCase):
+    def test_due_to_advance(self):
+        throttle = 3 * 3600
+        self.assertTrue(due_to_advance(None, 1000.0, throttle))          # 从未推过 → 推
+        self.assertFalse(due_to_advance(1000.0, 1000.0 + 60, throttle))  # 刚推过 1 分钟 → 不推
+        self.assertTrue(due_to_advance(1000.0, 1000.0 + throttle, throttle))  # 满节流窗 → 推
 
 
 class TestPrompt(unittest.TestCase):

@@ -162,6 +162,14 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("绝不", sysmsg)
         self.assertIn("最高优先", sysmsg)   # 铁壁段标记在位
 
+    def test_relating_block_in_prefix(self):
+        # 关系经营（相互自我表露 + 先接情绪 + 提共同旧事）常驻 system 前缀。
+        a = ContextAssembler(self._char())
+        sysmsg = a.build(character_id="lin_wan", scenario="", history=[])[0]["content"]
+        self.assertIn("也聊你自己", sysmsg)     # 相互自我表露（社会渗透理论）
+        self.assertIn("先接情绪", sysmsg)        # 情绪呼应优先于内容
+        self.assertIn("慢慢来", sysmsg)          # 亲疏有度、渐进加深
+
     def test_probe_guard_detection(self):
         from micall.context.assembler import _probe_guard_line
 
