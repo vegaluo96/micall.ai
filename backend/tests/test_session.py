@@ -99,7 +99,9 @@ class TestSentenceEmotion(unittest.TestCase):
         self.assertLess(prosody_for("sad")[1], 1.0)        # 难过更慢
         self.assertLess(prosody_for("comfort")[1], prosody_for("sad")[1])  # 安慰比难过更慢
         self.assertGreater(prosody_for("happy")[1], 1.0)   # 开心更快
-        self.assertGreater(prosody_for("excited")[2], 0)   # 兴奋音高更高
+        self.assertGreater(prosody_for("excited")[1], prosody_for("happy")[1])  # 兴奋比开心更快
+        # pitch 一律 0——改音高=换音色=「像换了个人」，情绪只靠枚举+语速+拟声。
+        self.assertTrue(all(prosody_for(e)[2] == 0 for e in ("sad", "happy", "excited", "playful", "angry")))
         self.assertEqual(prosody_for("没这个情绪"), prosody_for("neutral"))  # 未知 → 中性兜底
 
     def test_take_sentence_emotion_inherit(self):
