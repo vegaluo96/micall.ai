@@ -461,7 +461,11 @@ export class MiCallLogic {
   }
   selectScenario(key: string) {
     this.setState({ scenario: key, scenarioOpen: false });
-    if (this.isConnected()) this.send({ type: "set_scene", scene: key });
+    // 通话中切场景：发完整情境指令（不是 key），AI 才真进入新场景。
+    if (this.isConnected()) {
+      const prompt = this.scenarioDefs.find((d) => d.key === key)?.prompt || key;
+      this.send({ type: "set_scene", scene: prompt });
+    }
   }
   selectLang(l: string) { this.setState({ lang: l, langOpen: false }); this.savePrefs(); }
   selectChar(i: number) { this.setState({ charIndex: i, charOpen: false }); }
@@ -527,6 +531,13 @@ export class MiCallLogic {
   }
   private characterId(idx: number) { return this.chars[idx]?.id ?? "c" + idx; }
   private currentScenarioKey() { return this.state.scenario || "chat"; }
+  /** 当前场景的完整情境指令（喂 LLM 用，不是 key）。自定义场景 = 用户输入的文本；内置 = scenarioDefs[].prompt。
+   *  这才是让 AI 真正进入场景的内容；start_call/set_scene 都带它，key 只留作记录/统计标签。 */
+  private currentScenarioPrompt(): string {
+    if (!this._scenesBuilt) { this.buildScenarios(); this._scenesBuilt = true; }
+    if (this.state.scenario === "__custom") return this.state.customScene || "";
+    return this.scenarioDefs.find((d) => d.key === this.currentScenarioKey())?.prompt || "";
+  }
 
   private ensureSignaling(): SignalingClient {
     if (!this.sig) {
@@ -612,11 +623,12 @@ export class MiCallLogic {
     if (this.state.micGranted && !this.micStream) await this.acquireMic();
     this.player.resume(); // 必须在点接听的手势链里，iOS 才允许出声
     this.setState({ phase: "calling", callFailed: false, lowWarned: false });
-    const msg: ClientMessage = { type: "start_call", character_id: this.characterId(this.state.charIndex), scenario: this.currentScenarioKey() };
+    // scenario = key（记录/统计的稳定标签）；scenario_prompt = 完整情境指令（喂 LLM，让 AI 真进入场景）。
+    const msg: ClientMessage = {
+      type: "start_call", character_id: this.characterId(this.state.charIndex),
+      scenario: this.currentScenarioKey(), scenario_prompt: this.currentScenarioPrompt(),
+    };
     this.send(msg);
-    if (this.state.scenario === "__custom" && this.state.customScene) {
-      this.send({ type: "set_scene", scene: this.state.customScene });
-    }
   }
 
   retryDial() { this.setState({ callFailed: false }); void this.beginCall(); }

@@ -104,6 +104,7 @@ class CallSession:
         scenario: str,
         remaining_seconds: int,
         voice_id: str,
+        scenario_prompt: str = "",
         audio_emit: AudioEmit | None = None,
         realtime_asr: ASRProvider | None = None,
         embedder=None,
@@ -117,7 +118,8 @@ class CallSession:
         self._embedder = embedder          # 记忆检索向量化（Embedding 节点）；None=关键词召回
         self.assembler = assembler
         self.character_id = character_id
-        self.scenario = scenario
+        self.scenario = scenario                              # 短标签：通话记录/统计用（前端传 key，如 heart/sc0）
+        self.scenario_prompt = scenario_prompt or scenario    # 完整情境指令：喂 LLM（缺省回退标签，向后兼容）
         self.voice_id = voice_id
         # has_facts 一通电话内不变（事实由离线引擎在挂断后才写）→ 开场算一次缓存，
         # 省掉每轮思考前那次查库往返。查库失败按「无记忆」处理（仅退关键词召回，安全）。
@@ -357,7 +359,7 @@ class CallSession:
         _t0 = time.monotonic()   # ⏱ 诊断埋点：从「触发本轮」起算各阶段耗时，定位延迟卡在哪一跳
         qvec = await self._embed_query(user_text)  # 配了 Embedding 节点才算；失败/未配 → None（退关键词）
         messages = self.assembler.build(
-            character_id=self.character_id, scenario=self.scenario, history=self.history,
+            character_id=self.character_id, scenario=self.scenario_prompt, history=self.history,
             query_vector=qvec,
         )
         log.info("⏱ 召回嵌入 %.0fms", (time.monotonic() - _t0) * 1000)
@@ -496,7 +498,8 @@ class CallSession:
         self._muted = on  # 前端本地也停麦；服务端记录（真实路径据此忽略上行帧）
 
     def set_scene(self, scene: str) -> None:
-        self.scenario = scene  # 作为情境注入（assembler 下轮读取）；画面不变（固定背景）
+        # 切场景：更新喂 LLM 的情境（assembler 下轮读取）；记录标签 self.scenario 不动（统计稳定）。画面不变（固定背景）。
+        self.scenario_prompt = scene
 
     def cost_breakdown(self) -> list[tuple[str, int, int]]:
         """按整通实际用量×config.cost 估算成本，返回 [(node, units, cost_micros)]（micros=微美元）。

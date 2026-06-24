@@ -77,6 +77,7 @@ class ClientMessage:
     type: str
     character_id: str | None = None
     scenario: str | None = None
+    scenario_prompt: str | None = None   # 场景的完整情境指令（喂 LLM）；scenario 仅作记录/统计的短标签
     on: bool | None = None
     scene: str | None = None
     text: str | None = None
@@ -105,6 +106,7 @@ def parse_client_message(raw: str | bytes | dict[str, Any]) -> ClientMessage | N
         type=t,
         character_id=d.get("character_id"),
         scenario=d.get("scenario"),
+        scenario_prompt=d.get("scenario_prompt"),
         on=d.get("on"),
         scene=d.get("scene"),
         text=d.get("text"),

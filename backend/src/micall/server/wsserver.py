@@ -244,7 +244,7 @@ class SignalingServer:
             log.warning("实时 ASR 初始化失败，转文字模式：%r", e)
             return None
 
-    def _make_session(self, *, emit, audio_emit=None, character_id, scenario, user_id=_ANON, client_ip="") -> CallSession:
+    def _make_session(self, *, emit, audio_emit=None, character_id, scenario, scenario_prompt="", user_id=_ANON, client_ip="") -> CallSession:
         char = self._character(character_id)
         user_voice = self.repo.get_user_voice(user_id, char.character_id)
         voice_id = resolve_voice(
@@ -272,6 +272,7 @@ class SignalingServer:
             assembler=assembler,
             character_id=char.character_id,
             scenario=scenario or "",
+            scenario_prompt=scenario_prompt or "",
             remaining_seconds=remaining,
             voice_id=voice_id,
         )
@@ -342,7 +343,8 @@ class SignalingServer:
                     self._reload_config()  # 拾取后台「接口配置」最新改动（无需重启）
                     session = self._make_session(
                         emit=emit, audio_emit=audio_emit,
-                        character_id=msg.character_id, scenario=msg.scenario, user_id=user_id, client_ip=client_ip,
+                        character_id=msg.character_id, scenario=msg.scenario,
+                        scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
                     )
                     await session.start()
                 elif msg.type == "switch_character":
@@ -352,7 +354,8 @@ class SignalingServer:
                     self._reload_config()
                     session = self._make_session(
                         emit=emit, audio_emit=audio_emit,
-                        character_id=msg.character_id, scenario=msg.scenario, user_id=user_id, client_ip=client_ip,
+                        character_id=msg.character_id, scenario=msg.scenario,
+                        scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
                     )
                     await session.start()
                 elif msg.type == "end_call":

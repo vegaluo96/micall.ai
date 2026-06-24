@@ -171,5 +171,38 @@ class TestOrchestrator(unittest.TestCase):
         self.assertIn("out_of_minutes", [e["type"] for e in events])
 
 
+class TestScenarioPrompt(unittest.TestCase):
+    """场景：短标签(记录/统计)与完整情境指令(喂 LLM)分离——修「选场景只把 key 传给 AI」的半残 bug。"""
+
+    def _sess(self, **kw):
+        async def emit(ev):
+            pass
+        config = load_config()
+        char = CharacterRuntime("lin_wan", "林晚", {"core_traits": ["温柔"]}, emotion_map={"tender": "g"})
+        repo = InMemoryRepository()
+        assembler = ContextAssembler(char, profile=repo.get_profile("u", "lin_wan"), memory=repo)
+        return CallSession(config=config, emit=emit, llm=StubLLM(["在"]), tts=StubTTS(),
+                           assembler=assembler, character_id="lin_wan", remaining_seconds=30,
+                           voice_id="v1", **kw)
+
+    def test_prompt_feeds_llm_label_kept_for_record(self):
+        s = self._sess(scenario="heart", scenario_prompt="我可能心情不好，请你耐心倾听、不说教。")
+        self.assertEqual(s.scenario, "heart")                       # 记录用短标签
+        # 喂 LLM 的 system 前缀注入的是完整指令，而非 key。
+        sysmsg = s.assembler.build(character_id="lin_wan", scenario=s.scenario_prompt, history=[])[0]["content"]
+        self.assertIn("耐心倾听", sysmsg)
+        self.assertNotIn("当前情境：heart", sysmsg)
+
+    def test_default_falls_back_to_label(self):
+        s = self._sess(scenario="chat")                              # 没给 prompt → 回退标签（向后兼容）
+        self.assertEqual(s.scenario_prompt, "chat")
+
+    def test_set_scene_updates_prompt_not_label(self):
+        s = self._sess(scenario="heart", scenario_prompt="原情境")
+        s.set_scene("现在假装在海边散步")
+        self.assertEqual(s.scenario_prompt, "现在假装在海边散步")   # LLM 情境换了
+        self.assertEqual(s.scenario, "heart")                        # 记录标签不动（统计稳定）
+
+
 if __name__ == "__main__":
     unittest.main()

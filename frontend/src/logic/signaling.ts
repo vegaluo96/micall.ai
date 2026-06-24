@@ -33,10 +33,10 @@ export type ServerEvent =
 
 /** 前端 → 服务端 (control uplink). */
 export type ClientMessage =
-  | { type: "start_call"; character_id: string; scenario: string }
+  | { type: "start_call"; character_id: string; scenario: string; scenario_prompt?: string }
   | { type: "end_call" }
   | { type: "mute"; on: boolean }
-  | { type: "switch_character"; character_id: string; scenario: string }
+  | { type: "switch_character"; character_id: string; scenario: string; scenario_prompt?: string }
   | { type: "set_scene"; scene: string }
   | { type: "text_input"; text: string }
   | { type: "reset_memory"; character_id: string };
