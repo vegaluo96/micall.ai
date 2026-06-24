@@ -181,13 +181,13 @@ export class MiCallLogic {
     try {
       seen = localStorage.getItem("micall_seen_guide") === "1";
       cookie = localStorage.getItem("micall_cookie_ok") === "1";
-      // 通话模式：默认全双工（麦克风全程开 → 随时能打断，体验最好）。靠浏览器 AEC + 后端回声护栏压回声；
-      // 外放机型若仍回声，?duplex=half 一键退回半双工（稳、无回声，但 AI 说话时不能打断）。戴耳机最干净。
-      //   ?duplex=full（默认）  ?duplex=half（兜底：AI 外放时静麦，杜绝回声但不可打断）
+      // 通话模式：默认半双工（稳——AI 一定说得出话、外放无回声/不自我打断）。打断走 RTC（连上 coturn 即真全双工）
+      // 或戴耳机后 ?duplex=full。外放强开全双工会"自己打断自己"(AI 录到自己的声音)，故不设默认。
+      //   ?duplex=half（默认，稳）  ?duplex=full（麦克风全程开可插话；外放有回声，建议配耳机）
       const qs = new URLSearchParams(location.search);
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
-      this.halfDuplex = localStorage.getItem("micall_duplex") === "half";  // 缺省即全双工（能打断）
+      this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工（稳）
       // WebRTC 全双工（真打断 + 外放硬件 AEC）：配了自建 coturn（VITE_ICE_SERVERS 非空）就默认开——
       // 此时 ICE 走境内可达的 STUN/TURN，建连快且稳。没配 coturn 时默认仍走「即时接通」的 WS（稳，
       // 境内弱网不卡），仅 ?rtc=1 试。?rtc=0 可随时强制退回 WS；连不通也会自动回退，不会坏掉通话。
