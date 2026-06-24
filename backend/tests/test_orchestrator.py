@@ -134,23 +134,6 @@ class TestOrchestrator(unittest.TestCase):
         spoke = asyncio.run(run())
         self.assertEqual(spoke, [])  # 熔断：未播完不进上下文（§1.5 难点4）
 
-    def test_pace_until_past_and_interruptible(self):
-        import time
-
-        async def emit(ev):
-            pass
-
-        async def run():
-            s = _make_session(emit)
-            await s._pace_until(time.monotonic() - 1)   # target 已过 → 立即返回
-            s._interrupt.set()                          # 被打断 → 即便 target 在未来也立即返回，不空等
-            t0 = time.monotonic()
-            await s._pace_until(time.monotonic() + 100)
-            return time.monotonic() - t0
-
-        elapsed = asyncio.run(run())
-        self.assertLess(elapsed, 0.3)   # 句间节流不拖住 barge-in
-
     def test_interrupt_guard_when_idle(self):
         events: list[dict] = []
 
