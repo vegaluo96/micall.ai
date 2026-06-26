@@ -258,6 +258,10 @@ export class MiCallLogic {
     const cid = this.chars[ci]?.id || "";
     this.setState({ previewing: ci });
     const done = () => this.setState((s) => (s.previewing === ci ? { previewing: null } : {}));
+    // 通话中【不试听】：试听的 <audio>.play() 会和通话音频抢同一个音频会话（尤其手机/iOS、RTC 远端轨），
+    // 把通话声音挤断 →「换音色就出问题、听不到声」。换音色本就下一通才生效（已在 pickVoice 持久化），
+    // 通话中试听既没用又有害 → 直接跳过。
+    if (this.callActive()) { done(); return; }
     // 未接后端（纯演示）或无角色 id：给一个短促的状态反馈即可，不假装在放声音。
     if (!authApi.authConfigured() || !cid) { this.t.push(setTimeout(done, 1400)); return; }
     try { this.previewAudio?.pause(); } catch { /* noop */ }
