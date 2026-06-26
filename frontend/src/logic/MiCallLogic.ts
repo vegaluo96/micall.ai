@@ -623,6 +623,9 @@ export class MiCallLogic {
 
   async startCall() {
     if (this.state.phase !== "idle") return;
+    // 拨号前先停掉音色试听音频——否则试听后直接拨号，试听会和通话叠着一起播。
+    try { this.previewAudio?.pause(); this.previewAudio = null; } catch { /* noop */ }
+    this.setState((s) => (s.previewing != null ? { previewing: null } : {}));
     this.player.resume();   // 在点击手势同步链里先解锁音频（iOS 要求），再去要麦克风
     if (!this.state.micGranted) {
       // 直接触发浏览器原生授权弹窗——不再叠一层自定义「允许」弹窗（避免双弹窗、少一次点击）。
