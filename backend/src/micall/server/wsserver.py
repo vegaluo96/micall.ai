@@ -311,7 +311,8 @@ class SignalingServer:
                 # 前端在 pc 未 connected 时本就播 WS 音频；RTC 一连上，前端切远端轨、后端这里也切 feed_tts。
                 await websocket.send(buf)
 
-        # 握手鉴权：URL ?token= 解析出真实 user_id（替换游客 _ANON）。无/失效 token → 游客可继续通话。
+        # 握手鉴权：优先靠连接后首条 auth 帧（见下方拦截）；URL ?token= 作向后兼容兜底（旧客户端）。
+        # 无/失效 token → 游客 _ANON（仍可通话，前端会提示注册）。
         user_id = _resolve_user(self.repo, websocket)
         client_ip = _client_ip(websocket)   # 游客按 IP 计试用配额（防刷）
         log.info("⇆ 新连接 %s user=%s", client_ip, user_id)
@@ -337,6 +338,16 @@ class SignalingServer:
                 try:
                     d = json.loads(raw)
                 except (ValueError, TypeError):
+                    continue
+                # 首条鉴权帧：token 改由连接后首条消息携带（不再进 URL query → 不落 nginx/代理日志）。
+                # 向后兼容：握手时已按 ?token= 解析过（_resolve_user），旧客户端仍可用；新客户端发本帧覆盖。
+                if isinstance(d, dict) and d.get("type") == "auth":
+                    tok = str(d.get("token") or "").strip()
+                    if tok:
+                        uid = self.repo.user_for_token(tok)
+                        if uid:
+                            user_id = uid
+                            log.info("⇆ WS 首条鉴权 user=%s", user_id)
                     continue
                 if isinstance(d, dict) and d.get("type") in ("rtc_offer", "rtc_ice", "rtc_close"):
                     if d.get("type") == "rtc_close":          # 前端回退 WS → 关掉 RTC，下行音频改回 WS

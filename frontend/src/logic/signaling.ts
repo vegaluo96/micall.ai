@@ -66,10 +66,13 @@ class WebSocketSignalingClient implements SignalingClient {
   private terminal = false;        // 已正常收尾（ended/out_of_minutes/call_failed）→ close 不再报「连接中断」
   private closedByUs = false;      // 本端主动挂断 → close 不报「连接中断」
 
-  constructor(url: string, private onEvent: ServerHandler, private onAudio?: AudioHandler) {
+  constructor(url: string, private onEvent: ServerHandler, private onAudio?: AudioHandler, private authToken = "") {
     this.ws = new WebSocket(url);
     this.ws.binaryType = "arraybuffer";
     this.ws.addEventListener("open", () => {
+      // 登录态：连接后【先发鉴权帧】再发其它控制帧。token 不再进 URL query → 不落 nginx/代理日志。
+      // 后端据此把游客替换为真实 user_id（见 wsserver 首条 auth 拦截）。未登录则不发。
+      if (this.authToken) { try { this.ws.send(JSON.stringify({ type: "auth", token: this.authToken })); } catch { /* noop */ } }
       for (const m of this.queue) this.ws.send(JSON.stringify(m));
       this.queue = [];
     });
@@ -278,13 +281,10 @@ class MockSignalingClient implements SignalingClient {
 export function createSignaling(onEvent: ServerHandler, onAudio?: AudioHandler): SignalingClient {
   const url = import.meta.env.VITE_SIGNALING_URL;
   if (url && url.trim()) {
-    let full = url.trim();
-    // 登录态：把 token 带进握手 URL，后端据此解析真实 user_id（替换游客）。未登录则不带。
-    try {
-      const tok = localStorage.getItem("micall_token") || "";
-      if (tok) full += (full.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(tok);
-    } catch { /* noop */ }
-    return new WebSocketSignalingClient(full, onEvent, onAudio);
+    // 登录态：token 不再拼进握手 URL（避免落 nginx/代理日志），改由连接后首条 auth 帧携带（见上）。
+    let tok = "";
+    try { tok = localStorage.getItem("micall_token") || ""; } catch { /* noop */ }
+    return new WebSocketSignalingClient(url.trim(), onEvent, onAudio, tok);
   }
   return new MockSignalingClient(onEvent);
 }
