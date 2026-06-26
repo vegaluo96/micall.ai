@@ -253,8 +253,9 @@ class CallSession:
         # 个性化素材（关系/上次聊到什么/隔了多久/上次心情/节日）assembler 在开场轮已组装。默认开。
         self._greet_on_start = bool(turn.get("greet_on_start", True))
         self._opening_directive = str(turn.get("opening_directive",
-            "（来电刚接通，请你先开口说第一句话。结合你对 TA 的了解和上次的情形自然地招呼，"
-            "别等 TA 先开口、别像查档案、别太长，一两句即可。）"))
+            "（来电刚接通，请你先开口说第一句话，自然地招呼 TA。可基于你对 TA 的了解让开场更贴心，"
+            "但绝不要编造没真实发生过的共同经历或'上次谈过的事'——拿不准就只温暖地打个招呼。"
+            "别等 TA 先开口、别太长，一两句即可。）"))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:

@@ -51,6 +51,10 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "relationship({stage,last_topic,open_threads,last_mood,shared_refs}，"
         "last_mood 用一句话概括 TA 这次的情绪基调与挂电话时的状态，供下次开场自然接住)、"
         "next_strategy(string，下次开场接哪个线头、验证哪个假设、哪些话题小心、怎么回应)。"
+        "【铁律】只记录本次通话里【明确出现过】的信息：不要把推测/脑补/'可能'当成事实写进 "
+        "new_facts 或 last_topic——拿不准的一律放进 hypotheses（带 confidence）。"
+        "绝不要虚构'谈过合作/约定过/一起做过/答应过'之类对话里没真实发生的共同经历或承诺。"
+        "证据不足就少写、宁缺毋滥；没有可靠新信息时 new_facts 可为空数组。"
     )
     user = f"现有画像：{json.dumps(existing, ensure_ascii=False)}\n\n本次通话：\n{transcript}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]

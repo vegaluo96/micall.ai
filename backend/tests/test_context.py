@@ -217,6 +217,13 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("绝不", sysmsg)
         self.assertIn("最高优先", sysmsg)   # 铁壁段标记在位
 
+    def test_anti_fabrication_redline_in_prefix(self):
+        # 防胡编乱造红线常驻 system 前缀：绝不编造没发生过的共同经历（修「AI 说我们谈过合作」类幻觉）。
+        a = ContextAssembler(self._char())
+        sysmsg = a.build(character_id="lin_wan", scenario="", history=[])[0]["content"]
+        self.assertIn("绝不编造", sysmsg)
+        self.assertIn("没真实发生", sysmsg)
+
     def test_relating_block_in_prefix(self):
         # 关系经营（相互自我表露 + 先接情绪 + 提共同旧事）常驻 system 前缀。
         a = ContextAssembler(self._char())
