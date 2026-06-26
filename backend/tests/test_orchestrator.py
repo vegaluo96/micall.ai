@@ -22,6 +22,33 @@ def _make_session(emit, llm=None):
     )
 
 
+class TestInitialBalanceZero(unittest.TestCase):
+    """初始余额为 0：start() 必须发 out_of_minutes 进终态，不能静默结束、不启动会话链路。"""
+
+    def test_zero_balance_emits_out_of_minutes(self):
+        import asyncio
+
+        from micall.session.state import Phase
+        events = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        config = load_config()
+        char = CharacterRuntime("lin_wan", "林晚", {"core_traits": ["温柔"]})
+        repo = InMemoryRepository()
+        assembler = ContextAssembler(char, profile=repo.get_profile("u", "lin_wan"), memory=repo)
+        s = CallSession(config=config, emit=emit, llm=StubLLM(["在"]), tts=StubTTS(),
+                        assembler=assembler, character_id="lin_wan", scenario="",
+                        remaining_seconds=0, voice_id="v")
+        asyncio.run(s.start())
+        types = [e.get("type") for e in events]
+        self.assertIn("out_of_minutes", types)       # 前端据此进「余额不足」UI
+        self.assertNotIn("connected", types)          # 未接通、未启动麦克风/LLM/TTS
+        self.assertEqual(s.sm.phase, Phase.ENDED)     # 进终态
+        self.assertIsNone(s._listen_task)             # 没起监听
+
+
 class TestStripActions(unittest.TestCase):
     def test_strip_stage_directions(self):
         from micall.session.orchestrator import _strip_actions

@@ -252,6 +252,12 @@ class CallSession:
         if self.sm.phase != Phase.IDLE:
             return
         self.sm.to(Phase.CALLING)
+        # 初始余额已耗尽（remaining<=0）：直接发 out_of_minutes 进终态，不启动麦克风/LLM/TTS。
+        # 否则 _billing_loop 首个 tick 在 exhausted 时返回空、不发 out_of_minutes 就静默 end → 前端无「余额不足」提示。
+        if self.billing.exhausted:
+            await self._emit(ServerEvent.out_of_minutes())
+            await self.end(emit_ended=False)   # 已发 out_of_minutes，前端走耗尽 UI；进 ENDED 并清理
+            return
         # 真实：建 WebRTC + ASR/LLM/TTS 就绪后接通；骨架立即接通。失败走 call_failed。
         await self._emit(ServerEvent.connected())
         self.sm.to(Phase.LISTENING)
