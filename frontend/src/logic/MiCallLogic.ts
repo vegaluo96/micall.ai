@@ -39,9 +39,10 @@ type Timer = ReturnType<typeof setTimeout>;
 // 太短：1~2s 小抖动就误拆 RTC（丢硬件 AEC，本通退 WS 半双工）；太长：用户干等死寂会挂断重拨。
 const RTC_DISCONNECT_GRACE_MS = 4000;
 
-// 接通看门狗：建连多久还没 connected 就回退 WS。线上日志实测：大陆→香港经 443 TLS 中继，远端 relay 候选
-// ~+2s 才到、DTLS/ICE 再 ~+1s 完成 = 压在 3s 线上 → 旧的 3s 看门狗常在握手将成的瞬间误杀、被迫退 WS 半双工
-// （没硬件 AEC → 自我打断「说一半停」）。放宽到 5s 让多数中继握手做完落到 RTC；期间下行已走 WS，不影响开口。
+// 接通看门狗：RTC 建连多久还没 connected 就彻底放弃、拆掉 pc（通话继续走已起的 WS）。线上日志实测：大陆→香港经
+// 443 TLS 中继，远端 relay 候选 ~+2s 才到、DTLS/ICE 再 ~+1s 完成 = 压在 3s 线上 → 3s 太紧会在握手将成的瞬间误杀、
+// 落不到 RTC（丢硬件 AEC → WS 半双工自我打断「说一半停」）。放宽到 5s 提高 RTC 命中率。**已与 goLive 解耦**
+// （接通即用 WS 起通话，见 onServerEvent:connected），故拉长看门狗只影响后台何时放弃 RTC，不再拖慢启动。
 const RTC_CONNECT_WATCHDOG_MS = 5000;
 
 interface Char {
@@ -824,7 +825,8 @@ export class MiCallLogic {
         if (st === "connected") {
           if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
           if (this.rtcDiscoTimer) { clearTimeout(this.rtcDiscoTimer); this.rtcDiscoTimer = null; }  // 自愈成功 → 撤销宽限回退，保住 RTC（硬件 AEC 全双工）
-          this.goLive();
+          this.stopMicUplink();   // RTC 接管上行（mic 轨已 addTrack 进 pc）→ 停 WS 上行，避免 WS+RTC 双上行把 ASR 搞乱
+          this.goLive();          // 已在 listening 时为 no-op（phase 守卫），不会清空转写
         } else if (st === "disconnected") {
           // 中继瞬断：下行 RTC 轨不再吐帧 → AI 声音僵住。先给 ~4s 宽限让 ICE 自愈（多数瞬断会自己回 connected）；
           // 到点仍没回来就主动 rtcFallback（发 rtc_close → 后端下行切回 WS，声音续上），而不是干等浏览器默认
@@ -879,10 +881,12 @@ export class MiCallLogic {
     if (inCall && !this.callActive()) return;
     switch (ev.type) {
       case "connected":
-        // RTC 开启：保持「正在接通」loading，直到 RTC 真连上(或回退)才 goLive——让 loading 真正盖住建连过程，
-        // loading 结束 = 已就绪、立刻能对话（而不是显示就绪了 RTC 还在后台连）。不开 RTC：WS 已就绪，立即 goLive。
-        if (this.rtcEnabled) { void this.startRtc(); }
-        else { this.startMicUplink(); this.goLive(); }
+        // 接通即用 WS 起通话：立刻 goLive + 起 WS 上行麦克风 → 启动快、马上能听能说（开场音频本就走 WS）。
+        // RTC 开启时再在后台连，连上了无缝升级到全双工硬件 AEC（见 onconnectionstatechange:connected → stopMicUplink
+        // 把 WS 上行让位给 RTC 轨，避免双上行）。如此看门狗可放宽（提高 RTC 命中率）又不拖慢启动。
+        this.startMicUplink();
+        this.goLive();
+        if (this.rtcEnabled) void this.startRtc();
         break;
       case "rtc_answer":
         if (this.pc && (ev as { sdp?: string }).sdp) {
