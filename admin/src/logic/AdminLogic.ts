@@ -143,8 +143,19 @@ export class AdminLogic {
     const chars = await loadCharacters();
     if (chars) {
       for (const row of chars) {
-        const c = this.chars.find((x) => x.cid === row.id);
-        if (!c) continue;
+        let c = this.chars.find((x) => x.cid === row.id);
+        if (!c) {
+          // 运营新建角色（custom_xxx）：内置 mock 没有它 → 新建一条加进列表。否则后台看不到、
+          // 设不了默认、也编辑不了（用户实测：新建的角色无法设为默认，出厂的可以——就是这里漏加）。
+          c = {
+            id: row.id, cid: row.id, name: "", desc: "", hue: (this.chars.length * 47) % 360,
+            gender: "女", age: "", height: "", weight: "", birthday: "", nationality: "", race: "", appearance: "",
+            traits: [], tags: [], speaking_style: "", bio: "", hidden_layer: "", values: "",
+            likes: "", dislikes: "", voiceId: "", slogan: "",
+            calls: "0", customVoices: 0, favs: "—", status: "上线",
+          } as any;
+          this.chars.push(c);
+        }
         if (row.name) c.name = row.name;
         if (row.tagline) c.desc = row.tagline;
         if (row.traits) { c.traits = this._splitList(row.traits); c.tags = c.traits.slice(0, 4); }  // 标签=性格前若干，和用户端一致（过去标签是写死 mock）
