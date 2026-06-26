@@ -219,6 +219,10 @@ export class MiCallLogic {
       id: c.id, name: c.name || "TA", desc: c.desc || "",
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
       hue: HUE[c.id] ?? ((i * 47) % 360),
+      // 基础资料/喜好从后端真值带过来（缺省留空，profileOf 再按需兜底），让角色卡对齐后台设置。
+      gender: c.gender || "", age: c.age, height: c.height, weight: c.weight,
+      birthday: c.birthday || "", nationality: c.nationality || "", race: c.race || "",
+      likes: Array.isArray(c.likes) ? c.likes : [], dislikes: Array.isArray(c.dislikes) ? c.dislikes : [],
     }));
     // 默认角色（运营在后台设、后端把它标 default 并排首位）：进来先选它。
     const di = list.findIndex((c: any) => c && c.default);
@@ -443,20 +447,26 @@ export class MiCallLogic {
     const nats = ["中国", "日本", "美国", "英国", "法国", "韩国"];
     const races = ["东亚人", "欧裔", "混血", "东亚人"];
     const pick = (arr: string[], n: number, seed: number) => { const out: string[] = []; for (let k = 0; k < n; k++) out.push(arr[(seed * 7 + k * 13 + idx * 5) % arr.length]); return [...new Set(out)]; };
+    // 优先用后端真值（运营在后台设的）；缺省才退回按下标编的占位，避免「前台和后台对不上」。
+    const cc: any = c;
+    const has = (v: any) => v !== undefined && v !== null && v !== "";
+    const fmtBirthday = (b: string) => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(b || ""); return m ? `${m[1]}年${+m[2]}月${+m[3]}日` : b; };
+    const realGender = has(cc?.gender) ? cc.gender : gender;
+    const realTags = Array.isArray(cc?.traits) ? cc.traits.slice(0, 4) : [];
     return {
-      gender,
-      genderColor: gender === "女" ? "#FF6FA5" : "#5B8DEF",
-      age: 18 + (idx * 3) % 13,
-      height: 156 + (idx * 5) % 30,
-      weight: 44 + (idx * 3) % 22,
-      birthday: (2006 - (idx % 12)) + "年" + (1 + idx % 12) + "月" + (1 + (idx * 7) % 27) + "日",
-      nationality: nats[idx % nats.length],
-      race: races[idx % races.length],
+      gender: realGender,
+      genderColor: realGender === "女" ? "#FF6FA5" : "#5B8DEF",
+      age: has(cc?.age) ? cc.age : 18 + (idx * 3) % 13,
+      height: has(cc?.height) ? cc.height : 156 + (idx * 5) % 30,
+      weight: has(cc?.weight) ? cc.weight : 44 + (idx * 3) % 22,
+      birthday: has(cc?.birthday) ? fmtBirthday(cc.birthday) : (2006 - (idx % 12)) + "年" + (1 + idx % 12) + "月" + (1 + (idx * 7) % 27) + "日",
+      nationality: has(cc?.nationality) ? cc.nationality : nats[idx % nats.length],
+      race: has(cc?.race) ? cc.race : races[idx % races.length],
       nickname: c.name,
-      tags: pick(tagPool, 4, idx + 1),
+      tags: realTags.length ? realTags : pick(tagPool, 4, idx + 1),
       slogan: (this.scenarioDefs[idx % 5] && this.scenarioDefs[idx % 5].lines[0]) || "嗯……你好。",
-      likes: pick(likePool, 5, idx + 2).join("、"),
-      dislikes: pick(dislikePool, 4, idx + 3).join("、"),
+      likes: (Array.isArray(cc?.likes) && cc.likes.length) ? cc.likes.join("、") : pick(likePool, 5, idx + 2).join("、"),
+      dislikes: (Array.isArray(cc?.dislikes) && cc.dislikes.length) ? cc.dislikes.join("、") : pick(dislikePool, 4, idx + 3).join("、"),
       personality: (c.traits || []).join("、"),
     };
   }

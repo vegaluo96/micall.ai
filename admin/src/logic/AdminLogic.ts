@@ -147,7 +147,7 @@ export class AdminLogic {
         if (!c) continue;
         if (row.name) c.name = row.name;
         if (row.tagline) c.desc = row.tagline;
-        if (row.traits) c.traits = this._splitList(row.traits);
+        if (row.traits) { c.traits = this._splitList(row.traits); c.tags = c.traits.slice(0, 4); }  // 标签=性格前若干，和用户端一致（过去标签是写死 mock）
         if (row.background_story) c.bio = row.background_story;
         if (row.likes != null) c.likes = row.likes;
         if (row.dislikes != null) c.dislikes = row.dislikes;

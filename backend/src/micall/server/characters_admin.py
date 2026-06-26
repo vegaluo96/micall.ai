@@ -302,10 +302,17 @@ def public_characters() -> list[dict]:
     for cid, s in effective_specs().items():
         ident = s.get("identity", {}) or {}
         persona = s.get("persona", {}) or {}
+        prof = ident.get("profile", {}) or {}
         out.append({
             "id": cid, "name": ident.get("name", ""), "desc": ident.get("tagline", ""),
             "traits": persona.get("core_traits", []) or [],
             "bio": persona.get("background_story", ""),
+            # 基础资料 + 喜好：过去用户端这些是按下标瞎编的假数据（与后台对不上）。回真值，让角色卡=后台设置。
+            "gender": ident.get("gender", ""), "age": ident.get("age", ""),
+            "appearance": ident.get("appearance", ""), "nationality": ident.get("nationality", ""),
+            "height": prof.get("height_cm", ""), "weight": prof.get("weight_kg", ""),
+            "birthday": prof.get("birthday", ""), "race": prof.get("race", ""),
+            "likes": persona.get("likes", []) or [], "dislikes": persona.get("dislikes", []) or [],
             "default": cid == default_id,
         })
     out.sort(key=lambda c: 0 if c.get("default") else 1)  # stable：默认排首位，其余保持原序
