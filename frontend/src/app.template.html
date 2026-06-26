@@ -179,15 +179,26 @@
       <div style="flex:none;padding:0 28px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;height:{{ bottomH }};box-sizing:border-box;">
         <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
           <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
-            <div style="height:83px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-              <div style="width:280px;height:5px;border-radius:3px;background:var(--ctrl);overflow:hidden;">
-                <div style="width:{{ remainPct }};height:100%;border-radius:3px;background:var(--fg);opacity:.5;"></div>
-              </div>
-              <div style="display:flex;align-items:center;gap:11px;font-size:13px;letter-spacing:.4px;">
-                <span style="color:var(--dim);">{{ remainLabel }}</span>
-                <div onClick="{{ rechargeToggle }}" style="color:#2E7BFF;cursor:pointer;display:inline-flex;align-items:center;gap:3px;user-select:none;">充值
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px;"><path d="M9 6l6 6-6 6"/></svg>
+            <!-- 占位 3 图标行：排版与「通话中」控制行一致（54 圆 + 12 标签 + gap:30），让首页与通话中对齐。
+                 功能暂未接（无 onClick），礼物/回忆/设置 为占位标签，待确定功能后再换图标+接事件。 -->
+            <div style="display:flex;gap:30px;justify-content:center;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
+                <div style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
                 </div>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">礼物</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
+                <div style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;">
+                  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">回忆</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
+                <div style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </div>
+                <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">设置</span>
               </div>
             </div>
             <div onClick="{{ actionTap }}" style="width:70px;height:70px;border-radius:50%;background:#33C376;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(51,195,118,.40);transition:transform .18s ease;" style-active="transform:scale(.93)">
