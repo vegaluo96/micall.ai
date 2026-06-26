@@ -339,6 +339,16 @@ export async function deleteCharacter(id: string): Promise<boolean> {
   } catch { /* noop */ }
   return false;
 }
+/** 下架/上架角色：online=false 下架（不对用户端展示），online=true 上架。 */
+export async function setCharacterOnline(id: string, online: boolean): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/characters/online`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ id, online }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
 /** AI 一键生成角色字段。 */
 export async function generateCharacter(prompt: string): Promise<{ ok: boolean; fields?: any; error?: string }> {
   const b = base();

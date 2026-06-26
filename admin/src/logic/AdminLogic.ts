@@ -13,7 +13,7 @@ import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
-         createCharacter, deleteCharacter, generateCharacter,
+         createCharacter, deleteCharacter, generateCharacter, setCharacterOnline,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned } from "./configService";
@@ -175,6 +175,7 @@ export class AdminLogic {
         if ((row as any).weight !== "" && (row as any).weight != null) c.weight = (row as any).weight;
         if ((row as any).birthday != null) c.birthday = (row as any).birthday;
         if ((row as any).race != null) c.race = (row as any).race;
+        if ((row as any).status) c.status = (row as any).status;   // 上线 / 下架（后端真值）
       }
       this.setState({}); // 用真实角色数据重渲染
     }
@@ -205,6 +206,18 @@ export class AdminLogic {
     this.defaultCharId = cid;
     this.setState({});
     this.toastMsg("已设为默认角色（用户端进来先选它）");
+  }
+
+  /** 下架/上架角色：下架后用户端 discover 里看不到（仍在后台可上架），下一次拉角色即生效。 */
+  async toggleCharOnline(cid: string, online: boolean) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (!cid) return;
+    const ok = await setCharacterOnline(cid, online);
+    if (!ok) { this.toastMsg(online ? "上架失败" : "下架失败"); return; }
+    const c = this.chars.find((x) => x.cid === cid);
+    if (c) c.status = online ? "上线" : "下架";
+    this.setState({});
+    this.toastMsg(online ? "已上架（用户端可见）" : "已下架（用户端不再展示）");
   }
 
   setCost(k: string, v: string) { this.setState((p) => ({ costCfg: { ...(p as any).costCfg, [k]: v } })); }
@@ -659,6 +672,10 @@ export class AdminLogic {
       notDefault: !(!!c.cid && c.cid === this.defaultCharId),
       setDefault: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.setDefaultChar(c.cid || c.id); },
       status: c.status,
+      // 下架/上架：下架的显「上架」按钮、上线的显「下架」按钮。
+      isOnline: c.status !== "下架",
+      onlineLabel: c.status === "下架" ? "上架" : "下架",
+      toggleOnline: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); this.toggleCharOnline(c.cid || c.id, c.status === "下架"); },
       ...((st: string) => st === "上线" ? { stColor: "#1FA971", stBg: "rgba(31,169,113,.1)" } : { stColor: "#878B95", stBg: "#F0F0F3" })(c.status), open: () => this.open("char", c.id) }));
 
     const callsView = this.calls.filter((c) => !q || (c.char + c.user + c.scene).toLowerCase().includes(q)).map((c) => ({ char: c.char, hueFilter: hf(c.char), user: c.user, scene: c.scene, dur: c.dur, ended: c.ended, time: c.time, open: () => this.open("call", c.id) }));
