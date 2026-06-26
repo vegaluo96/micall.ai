@@ -390,13 +390,25 @@ class ContextAssembler:
         if static is None:
             bits: list[str] = []
             if self.memory is not None and self.profile is not None:
-                try:
-                    secs = self.memory.seconds_since_last_call(self.profile.user_id, character_id)
-                except Exception:
-                    secs = None
-                el = _elapsed_line(secs)
-                if el:
-                    bits.append(el)
+                # 「又打回来了/上次聊到」这类间隔感是**记忆线索**：只有她还记得你们时才提。
+                # 重置记忆后 calls 表仍在（间隔很短），但 facts/profile 已清空 → 她不该说「又打回来了」，
+                # 否则「重置后第一次打电话，开场白却像老熟人」（用户实测）。故无记忆则不带间隔感。
+                rel = self.profile.relationship
+                remembers = bool(rel and (rel.last_topic or rel.shared_refs or rel.open_threads
+                                          or rel.last_call_at or (rel.stage and rel.stage != "初识")))
+                if not remembers:
+                    try:
+                        remembers = self.memory.has_facts(self.profile.user_id, character_id)
+                    except Exception:
+                        remembers = False
+                if remembers:
+                    try:
+                        secs = self.memory.seconds_since_last_call(self.profile.user_id, character_id)
+                    except Exception:
+                        secs = None
+                    el = _elapsed_line(secs)
+                    if el:
+                        bits.append(el)
             sp = _special_day_line(now)
             if sp:
                 bits.append(sp)

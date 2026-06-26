@@ -165,13 +165,14 @@ class TestAssembler(unittest.TestCase):
 
         r = InMemoryRepository()
         r.add_call("u", "lin_wan", "", 60, "ended")          # 制造一次往次通话
+        r.add_fact("u", "lin_wan", "聊过工作压力")            # 有记忆 → 她才会提「又打回来」
         prof = UserProfile("u", "lin_wan")
         a = ContextAssembler(self._char(), profile=prof, memory=r)
         tz = datetime.timezone(datetime.timedelta(hours=8))
         now = datetime.datetime(2026, 10, 1, 9, 0, tzinfo=tz)
         human = a._human_context("lin_wan", opening=True, now=now)
         self.assertIn("现实时间", human)     # 时间
-        self.assertIn("刚通完话", human)      # 间隔感（刚 add_call）
+        self.assertIn("刚通完话", human)      # 间隔感（刚 add_call + 有记忆）
         self.assertIn("国庆节", human)        # 节日应景
         # 非开场轮：只给时间感，不再重复「又拨进来/节日」的开场寒暄（治「我正想着你呢」反复重复）。
         later = a._human_context("lin_wan", opening=False, now=now)
@@ -179,10 +180,23 @@ class TestAssembler(unittest.TestCase):
         self.assertNotIn("刚通完话", later)
         self.assertNotIn("国庆节", later)
 
+    def test_no_callback_line_without_memory_after_reset(self):
+        # 用户实测：重置记忆后第一次打电话，开场却说「又打回来了」。calls 表还在（间隔短），
+        # 但 facts/profile 已清空 → 她不该记得上次通话，故不带间隔感。
+        import datetime
+        r = InMemoryRepository()
+        r.add_call("u", "lin_wan", "", 60, "ended")          # 通话记录仍在（重置不删 calls）
+        a = ContextAssembler(self._char(), profile=UserProfile("u", "lin_wan"), memory=r)  # 无 facts、关系=初识
+        now = datetime.datetime(2026, 10, 1, 9, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=8)))
+        human = a._human_context("lin_wan", opening=True, now=now)
+        self.assertIn("现实时间", human)
+        self.assertNotIn("刚通完话", human)   # 没记忆 → 不说「又打回来了」
+
     def test_callback_greeting_only_on_opening_turn(self):
         # 用户实测：AI 每轮都「又响了，我正想着你呢」反复寒暄。间隔感只该开场给，之后不再带。
         r = InMemoryRepository()
         r.add_call("u", "lin_wan", "", 60, "ended")
+        r.add_fact("u", "lin_wan", "聊过养的猫")             # 有记忆，间隔感才生效
         a = ContextAssembler(self._char(), profile=UserProfile("u", "lin_wan"), memory=r)
         # 开场轮（历史仅 1 条 user）：末轮 user 带间隔感
         first = a.build(character_id="lin_wan", scenario="",
