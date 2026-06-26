@@ -56,6 +56,7 @@ export class AdminLogic {
 
   state: State = {
     section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {},
+    confirm: null, confirmBusy: false, savingChar: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
     apiCfg: {
@@ -164,6 +165,7 @@ export class AdminLogic {
         if ((row as any).values != null) c.values = (row as any).values;
         if (row.likes != null) c.likes = row.likes;
         if (row.dislikes != null) c.dislikes = row.dislikes;
+        if ((row as any).prompt_extra != null) c.prompt_extra = (row as any).prompt_extra;  // 本角色实时口吻补充
         c.speaking_style = row.speaking_style || "";
         c.voiceId = row.voice_id || "";
         // 基础资料取真值覆盖内置 mock（过去后台显示的是写死假数据，和通话用的出厂 spec 对不上）。
@@ -256,13 +258,22 @@ export class AdminLogic {
     this.toastMsg(`已创建兑换码 ${res.code || code}`);
   }
 
-  /** 封禁/解封用户：写后端（账号级，封后该用户登录被拒、通话被拒），成功后同步本地。 */
-  async toggleBan(userId?: string) {
+  /** 封禁/解封用户：封禁是限制性操作 → 二次确认；解封是恢复性 → 直接执行。 */
+  toggleBan(userId?: string) {
     if (!userId) return;
+    const u = this.users.find((x) => x.id === userId);
+    if (!u) return;
+    if (!u.banned) {
+      this.askConfirm({ title: "封禁用户", body: `确定封禁「${u.name || u.email || userId}」？封禁后该账号登录与通话都会被拒，可随时解封。`,
+        okLabel: "封禁", action: () => this._doToggleBan(userId, true) });
+    } else {
+      this._doToggleBan(userId, false);
+    }
+  }
+  private async _doToggleBan(userId: string, next: boolean) {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
     const u = this.users.find((x) => x.id === userId);
     if (!u) return;
-    const next = !u.banned;
     const ok = await setUserBanned(userId, next);
     if (!ok) { this.toastMsg("操作失败"); return; }
     u.banned = next;
@@ -270,14 +281,31 @@ export class AdminLogic {
     this.toastMsg(next ? "已封禁该用户（登录/通话将被拒）" : "已解除封禁");
   }
 
-  /** 删除兑换码。 */
-  private async delRedeem(code: string) {
+  /** 删除兑换码：二次确认后执行（删除即失效，不可撤销）。 */
+  delRedeem(code: string) {
+    this.askConfirm({ title: "删除兑换码", body: `确定删除兑换码 ${code}？删除后该码立即失效，不可撤销。`,
+      okLabel: "删除", action: () => this._doDelRedeem(code) });
+  }
+  private async _doDelRedeem(code: string) {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
     const ok = await deleteRedeemCode(code);
     if (!ok) { this.toastMsg("删除失败"); return; }
     this.redeemCodes = this.redeemCodes.filter((r: any) => r.code !== code);
     this.setState({});
     this.toastMsg(`已删除兑换码 ${code}`);
+  }
+
+  // ── 通用二次确认弹层：危险写操作（删除/封禁）走它，避免单击即不可撤销。 ──
+  private askConfirm(opts: { title: string; body: string; okLabel: string; danger?: boolean; action: () => Promise<void> | void }) {
+    this.setState({ confirm: { ...opts, danger: opts.danger !== false }, confirmBusy: false });
+  }
+  confirmCancel() { if (this.state.confirmBusy) return; this.setState({ confirm: null }); }
+  async confirmOk() {
+    const c = this.state.confirm;
+    if (!c || this.state.confirmBusy) return;
+    this.setState({ confirmBusy: true });
+    try { await c.action(); }
+    finally { this.setState({ confirmBusy: false, confirm: null }); }
   }
 
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
@@ -409,6 +437,7 @@ export class AdminLogic {
         traits: Array.isArray(c.traits) ? c.traits.join("、") : (c.traits || ""),
         speaking_style: c.speaking_style || "", background_story: c.bio || "",
         hidden_layer: c.hidden_layer || "", values: c.values || "",
+        prompt_extra: c.prompt_extra || "",
         likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
       };
     }
@@ -423,7 +452,7 @@ export class AdminLogic {
   /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
   openNewChar() {
     this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
-      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", likes: "", dislikes: "", voice_id: "" } });
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", prompt_extra: "", likes: "", dislikes: "", voice_id: "" } });
   }
 
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
@@ -440,8 +469,15 @@ export class AdminLogic {
     this.toastMsg("已生成，可微调后保存");
   }
 
-  /** 删除当前角色（自定义直删 / 出厂隐藏）。 */
-  async delChar() {
+  /** 删除当前角色：二次确认后执行（自定义直删 / 出厂隐藏，不可撤销）。 */
+  delChar() {
+    const d = this.state.detail;
+    if (!d || d.type !== "char" || d.id === "__new__") return;
+    const c = this.chars.find((x) => x.id === d.id);
+    this.askConfirm({ title: "删除角色", body: `确定删除「${c?.name || "该角色"}」？删除后用户端将不再显示，不可撤销。`,
+      okLabel: "删除", action: () => this._doDelChar() });
+  }
+  private async _doDelChar() {
     const d = this.state.detail;
     if (!d || d.type !== "char" || d.id === "__new__") return;
     const c = this.chars.find((x) => x.id === d.id);
@@ -456,39 +492,52 @@ export class AdminLogic {
   async saveChar() {
     const d = this.state.detail;
     if (!d || d.type !== "char") return;
+    if (this.state.savingChar) return;   // 防连点重复提交
     const e: any = this.state.charEdit || {};
     if (d.id === "__new__") {   // 新建自定义角色
       if (!(e.name || "").trim()) { this.toastMsg("请填写角色名"); return; }
-      const res = await createCharacter(e);
-      if (!res.ok || !res.id) { this.toastMsg(res.error || "创建失败"); return; }
-      this.chars.push({ id: res.id, cid: res.id, name: e.name, desc: e.tagline, hue: (this.chars.length * 47) % 360,
-        gender: e.gender || "女", age: e.age || "20", height: 160, weight: 48, birthday: "", nationality: "", race: "",
-        traits: this._splitList(e.traits), tags: [], slogan: "", likes: e.likes || "", dislikes: e.dislikes || "",
-        bio: e.background_story || "", speaking_style: e.speaking_style || "", voiceId: e.voice_id || "",
-        calls: "0", customVoices: 0, favs: "0", status: "上线" });
-      this.setState({ detail: null });
-      this.toastMsg("角色已创建，下一通通话生效");
+      this.setState({ savingChar: true });
+      try {
+        const res = await createCharacter(e);   // e 含 prompt_extra，后端按字段落 runtime_overrides
+        if (!res.ok || !res.id) { this.toastMsg(res.error || "创建失败"); return; }
+        this.chars.push({ id: res.id, cid: res.id, name: e.name, desc: e.tagline, hue: (this.chars.length * 47) % 360,
+          gender: e.gender || "女", age: e.age || "20", height: 160, weight: 48, birthday: "", nationality: "", race: "",
+          traits: this._splitList(e.traits), tags: [], slogan: "", likes: e.likes || "", dislikes: e.dislikes || "",
+          bio: e.background_story || "", speaking_style: e.speaking_style || "", prompt_extra: e.prompt_extra || "", voiceId: e.voice_id || "",
+          calls: "0", customVoices: 0, favs: "0", status: "上线" });
+        this.setState({ detail: null });
+        this.toastMsg("角色已创建，下一通通话生效");
+      } finally {
+        this.setState({ savingChar: false });
+      }
       return;
     }
     const c = this.chars.find((x) => x.id === d.id);
     if (!c || !c.cid) { this.toastMsg("该角色未关联后端，无法保存"); return; }
-    const ok = await saveCharacter({
-      id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
-      gender: e.gender, age: e.age, nationality: e.nationality, appearance: e.appearance,
-      height: e.height, weight: e.weight, birthday: e.birthday, race: e.race,
-      speaking_style: e.speaking_style, background_story: e.background_story,
-      hidden_layer: e.hidden_layer, values: e.values,
-      likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
-    });
-    if (ok) {  // 本地同步，列表/详情立即反映
-      c.name = e.name; c.desc = e.tagline; c.traits = this._splitList(e.traits);
-      c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
-      c.hidden_layer = e.hidden_layer; c.values = e.values;
-      c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
-      if (e.gender) c.gender = e.gender; if (e.age !== "" && e.age != null) c.age = e.age;
-      c.nationality = e.nationality; c.appearance = e.appearance; c.birthday = e.birthday; c.race = e.race;
-      if (e.height !== "" && e.height != null) c.height = e.height;
-      if (e.weight !== "" && e.weight != null) c.weight = e.weight;
+    this.setState({ savingChar: true });
+    let ok = false;
+    try {
+      ok = await saveCharacter({
+        id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
+        gender: e.gender, age: e.age, nationality: e.nationality, appearance: e.appearance,
+        height: e.height, weight: e.weight, birthday: e.birthday, race: e.race,
+        speaking_style: e.speaking_style, background_story: e.background_story,
+        hidden_layer: e.hidden_layer, values: e.values, prompt_extra: e.prompt_extra,
+        likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
+      });
+      if (ok) {  // 本地同步，列表/详情立即反映
+        c.name = e.name; c.desc = e.tagline; c.traits = this._splitList(e.traits);
+        c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
+        c.hidden_layer = e.hidden_layer; c.values = e.values; c.prompt_extra = e.prompt_extra;
+        c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
+        if (e.gender) c.gender = e.gender; if (e.age !== "" && e.age != null) c.age = e.age;
+        c.nationality = e.nationality; c.appearance = e.appearance; c.birthday = e.birthday; c.race = e.race;
+        if (e.height !== "" && e.height != null) c.height = e.height;
+        if (e.weight !== "" && e.weight != null) c.weight = e.weight;
+      }
+    } finally {
+      // 写成功后关详情回列表（与新建/删除一致，避免面板残留旧态）；失败则留在面板让运营重试。
+      this.setState({ savingChar: false, detail: ok ? null : this.state.detail });
     }
     this.toastMsg(ok ? "角色已保存，下一通通话生效" : "保存失败，检查后端连接");
   }
@@ -567,7 +616,10 @@ export class AdminLogic {
       tileBg: sec.chain === "快链路" ? "linear-gradient(140deg,#8E7BFF,#6E5CFF)" : "linear-gradient(140deg,#5BE0A0,#1FA971)",
       ...this._apiStatusBadge(sec.key),
       providers: (sec.providers || []).map((p: string) => ({ name: p, pick: () => this.setCfg(sec.key, "provider", p), bg: cfg.provider === p ? "#16161A" : "#fff", color: cfg.provider === p ? "#fff" : "#5A5E6B", border: cfg.provider === p ? "#16161A" : "#E6E7EB" })),
-      fields: sec.fields.map((f: any) => ({ label: f.label, value: cfg[f.k] || "", type: f.pw ? "password" : "text", full: f.full ? "grid-column:1 / -1;" : "", onInput: (e: any) => this.setCfg(sec.key, f.k, e.target.value) })),
+      fields: sec.fields.map((f: any) => ({ label: f.label, value: cfg[f.k] || "", type: f.pw ? "password" : "text", full: f.full ? "grid-column:1 / -1;" : "",
+        // key 字段回显为 •••••• 表示后端已存、留空不改 → 显「沿用原 key」徽标，避免运营误以为换了新 key。
+        masked: !!(f.pw && /•/.test(String(cfg[f.k] || ""))),
+        onInput: (e: any) => this.setCfg(sec.key, f.k, e.target.value) })),
       test: () => this.testApi(sec.key, sec.name), save: () => this.saveApi(sec.name),
     }; });
     const stC: Record<string, any> = { "正常": { c: "#1FA971", b: "rgba(31,169,113,.1)" }, "未配置": { c: "#878B95", b: "#F0F0F3" }, "延迟高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "成本高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "异常": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "备用中": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } };
@@ -750,12 +802,16 @@ export class AdminLogic {
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
       isDashboard: s.section === "dashboard", isUsers: s.section === "users", isChars: s.section === "characters", isVoices: s.section === "voices",
+      // 看板数据来源标识：接了后端有真实 KPI 则隐藏；否则提示「演示数据」，避免运营误把内置数当真。
+      isDemoData: !this.realStats,
+      dataModeLabel: this.realStats ? "实时数据" : "演示数据（未接入后端或加载失败）",
       isCalls: s.section === "calls", isTickets: s.section === "tickets", isOrders: s.section === "orders",
       kpis, trend, trendTitle, dateChips, topChars, topScenes, recentCalls,
       isInvites: s.section === "invites",
       inviteKpis, invitersView, inviteRecordsView,
-      inviteReward: s.inviteReward, onInviteReward: (e: any) => this.setState({ inviteReward: e.target.value }),
-      inviteeReward: s.inviteeReward, onInviteeReward: (e: any) => this.setState({ inviteeReward: e.target.value }),
+      // 后端是对称奖励（reward_minutes 一个值，双方同得）→ 邀请人输入即权威值、被邀请人镜像只读，UI 不再误导成可分别设。
+      inviteReward: s.inviteReward, onInviteReward: (e: any) => this.setState({ inviteReward: e.target.value, inviteeReward: e.target.value }),
+      inviteeReward: s.inviteReward, onInviteeReward: (e: any) => this.setState({ inviteReward: e.target.value, inviteeReward: e.target.value }),
       inviteRuleOn: s.inviteRuleOn, toggleInviteRule: () => this.setState((p) => ({ inviteRuleOn: !p.inviteRuleOn })),
       ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",
       saveInviteRule: () => this.saveInvite(),
@@ -780,7 +836,15 @@ export class AdminLogic {
       dUser, dChar, dCall, dTicket,
       banLabel, banColor, banBg, toggleBan: () => this.toggleBan(d && d.id),
       charBioLen, saveChar: () => this.saveChar(),
-      saveCharLabel: (s.detail && s.detail.id === "__new__") ? "创建角色" : "保存修改",
+      savingChar: !!s.savingChar, saveCharOpacity: s.savingChar ? ".6" : "1",
+      saveCharLabel: s.savingChar ? "保存中…" : ((s.detail && s.detail.id === "__new__") ? "创建角色" : "保存修改"),
+      // 二次确认弹层（删除/封禁等危险写操作）
+      confirmOpen: !!s.confirm, confirmTitle: (s.confirm && s.confirm.title) || "", confirmBody: (s.confirm && s.confirm.body) || "",
+      confirmOkLabel: s.confirmBusy ? "处理中…" : ((s.confirm && s.confirm.okLabel) || "确定"),
+      confirmOkBg: (s.confirm && s.confirm.danger) ? "#E0594F" : "#6E5CFF",
+      confirmOpacity: s.confirmBusy ? ".6" : "1",
+      confirmOk: () => this.confirmOk(), confirmCancel: () => this.confirmCancel(),
+      stop: (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); },   // 阻止点卡片冒泡到遮罩误关
       openNewChar: () => this.openNewChar(), genCharAI: () => this.genCharAI(), delChar: () => this.delChar(),
       isNewChar: !!(s.detail && s.detail.type === "char" && s.detail.id === "__new__"),
       charAiPrompt: s.charAiPrompt || "", onCharAiPrompt: (e: any) => this.setState({ charAiPrompt: e.target.value }),
@@ -802,6 +866,7 @@ export class AdminLogic {
       ceRace: (s.charEdit as any).race || "", onCeRace: (e: any) => this.setCe("race", e.target.value),
       ceHidden: (s.charEdit as any).hidden_layer || "", onCeHidden: (e: any) => this.setCe("hidden_layer", e.target.value),
       ceValues: (s.charEdit as any).values || "", onCeValues: (e: any) => this.setCe("values", e.target.value),
+      cePromptExtra: (s.charEdit as any).prompt_extra || "", onCePromptExtra: (e: any) => this.setCe("prompt_extra", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
       sendReply: async () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; const ok = await replyTicket(id, v); if (!ok && usingBackend()) { this.toastMsg("回复失败，请重试"); return; } const t = this.tickets.find((x) => x.id === id); if (t) { t.reply = v; t.status = "已回复"; } this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },
       toast: s.toast,

@@ -90,6 +90,12 @@
       <!-- DASHBOARD -->
       <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
         <div style="animation:adRise .3s ease;">
+          <sc-if value="{{ isDemoData }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;background:rgba(224,149,79,.1);border:1px solid rgba(224,149,79,.25);border-radius:11px;padding:10px 14px;">
+              <span style="width:7px;height:7px;border-radius:50%;background:#E0954F;flex:none;"></span>
+              <span style="font-size:12.5px;color:#B5762B;font-weight:500;">{{ dataModeLabel }} · 下方为占位数字，接入后端后自动显示真实指标</span>
+            </div>
+          </sc-if>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
             <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
               <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 18px 16px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
@@ -447,7 +453,12 @@
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px;">
                 <sc-for list="{{ a.fields }}" as="f" hint-placeholder-count="4">
                   <div style="display:flex;flex-direction:column;gap:6px;{{ f.full }}">
-                    <span style="font-size:12.5px;font-weight:500;color:#878B95;">{{ f.label }}</span>
+                    <div style="display:flex;align-items:center;gap:7px;">
+                      <span style="font-size:12.5px;font-weight:500;color:#878B95;">{{ f.label }}</span>
+                      <sc-if value="{{ f.masked }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size:10.5px;font-weight:600;color:#1FA971;background:rgba(31,169,113,.1);border-radius:6px;padding:1px 7px;">沿用原 key · 留空不改</span>
+                      </sc-if>
+                    </div>
                     <input value="{{ f.value }}" onInput="{{ f.onInput }}" type="{{ f.type }}" style="border:1px solid #E6E7EB;border-radius:10px;padding:10px 13px;font-size:13px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
                   </div>
                 </sc-for>
@@ -549,9 +560,10 @@
                 <input value="{{ inviteReward }}" onInput="{{ onInviteReward }}" style="border:1px solid #E6E7EB;border-radius:10px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
               </div>
               <div style="display:flex;flex-direction:column;gap:6px;">
-                <span style="font-size:12.5px;font-weight:500;color:#878B95;">被邀请人奖励（分钟）</span>
-                <input value="{{ inviteeReward }}" onInput="{{ onInviteeReward }}" style="border:1px solid #E6E7EB;border-radius:10px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
+                <span style="font-size:12.5px;font-weight:500;color:#878B95;">被邀请人奖励（分钟 · 与邀请人一致）</span>
+                <input value="{{ inviteeReward }}" readonly="readonly" style="border:1px solid #EEE;border-radius:10px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#9A9DA7;outline:none;background:#F2F2F5;cursor:not-allowed;" />
               </div>
+              <div style="font-size:11.5px;color:#A8ABB5;margin-top:7px;line-height:1.5;">当前为对称奖励：双方各得同一时长。设「邀请人奖励」即同步给被邀请人。</div>
               <div onClick="{{ saveInviteRule }}" style="margin-top:18px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:11px;cursor:pointer;box-shadow:0 6px 14px rgba(110,92,255,.26);" style-active="transform:scale(.98)">保存规则</div>
             </div>
             <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
@@ -724,6 +736,10 @@
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">价值观与边界（她的原则，不必迎合用户）</div>
             <textarea value="{{ ceValues }}" onInput="{{ onCeValues }}" placeholder="如 喜欢就靠近，不喜欢就冷下来；不解释、不讨好" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">本角色口吻提示（实时通话用，叠加在全局原则之上，让各角色口吻有别）</div>
+            <textarea value="{{ cePromptExtra }}" onInput="{{ onCePromptExtra }}" placeholder="如 多用短句、偶尔毒舌；称呼用「你」不用「您」；句尾爱带语气词" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+          </div>
         </div>
 
         <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 10px;">数据</div>
@@ -733,7 +749,7 @@
           <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">被收藏</div><div style="font-size:14px;font-weight:600;margin-top:3px;">{{ dChar.favs }} 次</div></div>
         </div>
 
-        <div onClick="{{ saveChar }}" style="margin-top:22px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">{{ saveCharLabel }}</div>
+        <div onClick="{{ saveChar }}" style="margin-top:22px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;opacity:{{ saveCharOpacity }};box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">{{ saveCharLabel }}</div>
         <sc-if value="{{ dChar.notNew }}" hint-placeholder-val="{{ false }}">
           <div onClick="{{ delChar }}" style="margin-top:10px;text-align:center;font-size:13.5px;font-weight:600;color:#E0594F;background:rgba(224,89,79,.08);border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">删除角色</div>
         </sc-if>
@@ -779,6 +795,19 @@
           <div onClick="{{ sendReply }}" style="margin-top:14px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);" style-active="transform:scale(.98)">发送回复</div>
         </sc-if>
       </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ confirmCancel }}" style="position:fixed;inset:0;z-index:50;background:rgba(20,20,28,.42);display:flex;align-items:center;justify-content:center;animation:adFade .15s ease;">
+      <div onClick="{{ stop }}" style="width:340px;max-width:88vw;background:#fff;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:adRise .2s ease;">
+        <div style="font-size:16px;font-weight:700;color:#16161A;">{{ confirmTitle }}</div>
+        <div style="font-size:13.5px;color:#5A5E6B;line-height:1.65;margin-top:10px;text-wrap:pretty;">{{ confirmBody }}</div>
+        <div style="display:flex;gap:10px;margin-top:22px;">
+          <div onClick="{{ confirmCancel }}" style="flex:1;text-align:center;font-size:14px;font-weight:600;color:#5A5E6B;background:#F2F3F5;border-radius:11px;padding:11px;cursor:pointer;" style-active="transform:scale(.98)">取消</div>
+          <div onClick="{{ confirmOk }}" style="flex:1;text-align:center;font-size:14px;font-weight:600;color:#fff;background:{{ confirmOkBg }};border-radius:11px;padding:11px;cursor:pointer;opacity:{{ confirmOpacity }};" style-active="transform:scale(.98)">{{ confirmOkLabel }}</div>
+        </div>
+      </div>
     </div>
   </sc-if>
 

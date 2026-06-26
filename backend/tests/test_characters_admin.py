@@ -72,6 +72,20 @@ class TestCharactersAdmin(unittest.TestCase):
         self.assertIn("18岁", sysmsg)
         self.assertIn("身高156cm", sysmsg)
 
+    def test_prompt_extra_persists_and_reaches_prompt(self):
+        # 「本角色口吻提示」此前前端完全没接（admin/src 0 引用）；现已接通 state+表单+save。
+        # 验证后端写入 → runtime_overrides.realtime_prompt_extra → 真正落进通话系统提示词。
+        ca.write_character_from_admin({"id": "lin_wan", "prompt_extra": "多用短句，偶尔毒舌"})
+        eff = ca.effective_specs()["lin_wan"]
+        self.assertEqual(eff["runtime_overrides"]["realtime_prompt_extra"], "多用短句，偶尔毒舌")
+        lw = next(r for r in ca.read_characters_for_admin() if r["id"] == "lin_wan")
+        self.assertEqual(lw["prompt_extra"], "多用短句，偶尔毒舌")   # 后台列表回显
+        from micall.context import CharacterRuntime, ContextAssembler
+        char = CharacterRuntime.from_spec(eff)
+        sysmsg = ContextAssembler(char).build(
+            character_id="lin_wan", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("多用短句，偶尔毒舌", sysmsg)
+
     def test_write_rejects_unknown_id(self):
         with self.assertRaises(ValueError):
             ca.write_character_from_admin({"id": "nope", "name": "x"})
