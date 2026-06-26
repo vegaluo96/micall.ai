@@ -363,3 +363,67 @@ VITE_ICE_SERVERS=[{"urls":"stun:zsky.com:3478"},{"urls":"turn:zsky.com:3478","us
 已据此判定，无需手改代码）。真机若某些网络连不上会自动回退 WS；可用 `?rtc=0` 强制走 WS 做对比。
 > 注：把长期 TURN 密码放进前端会暴露给客户端。要更安全用 coturn 的 `use-auth-secret` + 后端发临时凭据，
 > 那需要再加个发凭据的接口；先用长期密码跑通，安全加固作为后续。
+
+### ⭐ TURN-over-TLS/443（大陆手机不开 VPN 也能稳连 = 真全双工打断的正解）
+
+**为什么必须 443**：3478 的 UDP/TCP 在大陆移动网络常被运营商挡 → RTC 连不上 → 退回 Web Audio 半双工
+→ 没有原生回声消除 → AI 的声音回灌麦克风被当成「你插话」→「说一半就停 / 把自己的话当我说的」。
+把 coturn 的 **TURN-over-TLS 监听在 443**，流量看起来就是普通 HTTPS、几乎不被封；手机连上中继后，
+AI 音频经 WebRTC 轨用 `<audio>` 播 → 浏览器原生 AEC 生效 → 边说边打断不再自我打断（iOS Safari 的 AEC 尤其好）。
+
+**443 端口冲突**：nginx 已占 443（zsky.com/admin.zsky.com）。同一 IP 上 443 只能一个服务，三选一（按省心排）：
+
+- **方案①（最省心、零风险，推荐）**：单开一台最小 ECS 只跑 coturn，给它独立 EIP，coturn 独占 443，完全不动现有 web 机。
+- **方案②（不新增实例）**：现有 ECS 加第二个 EIP（→第二内网 IP），coturn 监听该内网 IP:443，并把 nginx 改成
+  只监听原 IP（`listen <原内网IP>:443 ssl;`，否则 `0.0.0.0` 会抢占第二 IP 的 443）。
+- **方案③（不花钱、改动最大、谨慎）**：nginx `stream`+`ssl_preread` 按 SNI 分流 443：`turn.zsky.com`→coturn(本地5349)、
+  其余→现有 https(挪到内网端口)。最容易把站点配挂，不熟勿用。
+
+下面以「coturn 用独立域名 `turn.zsky.com`、独占 443」为例（方案①/②通用）：
+
+```bash
+# 1) 给 coturn 域名签证书（先把 turn.zsky.com 解析到 coturn 所在公网 IP；签证时临时空出 80）
+sudo certbot certonly --standalone -d turn.zsky.com
+# 证书：/etc/letsencrypt/live/turn.zsky.com/{fullchain.pem,privkey.pem}
+# 让 coturn 进程能读私钥（coturn 默认以 turnserver 用户跑）：
+sudo chgrp -R turnserver /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
+sudo chmod -R g+rX /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
+
+# 2) /etc/turnserver.conf 增加 TLS/443（在原 3478 基础上加这几行）
+listening-port=3478
+tls-listening-port=443
+fingerprint
+lt-cred-mech
+user=micall:<强密码>
+realm=zsky.com
+external-ip=<coturn公网IP>/<coturn内网IP>
+min-port=49152
+max-port=65535
+cert=/etc/letsencrypt/live/turn.zsky.com/fullchain.pem
+pkey=/etc/letsencrypt/live/turn.zsky.com/privkey.pem
+no-cli
+
+sudo systemctl restart coturn
+
+# 3) 证书续期后自动重启 coturn（certbot 续期钩子）
+echo 'systemctl restart coturn' | sudo tee /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh
+sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh
+
+# 4) 安全组放行：443 TCP（TURN-over-TLS）+ 3478 UDP/TCP + 49152-65535 UDP
+```
+
+接进来（`turns:` 走 443 优先、`turn:` 3478 兜底；两端同一套，前端要重 build）：
+```bash
+# 后端 micall.env（重启服务生效）
+MICALL_ICE_SERVERS='[{"urls":"turns:turn.zsky.com:443?transport=tcp","username":"micall","credential":"<密码>"},{"urls":"turn:turn.zsky.com:3478","username":"micall","credential":"<密码>"}]'
+# 前端 frontend/.env.production（需重 build）
+VITE_ICE_SERVERS=[{"urls":"turns:turn.zsky.com:443?transport=tcp","username":"micall","credential":"<密码>"},{"urls":"turn:turn.zsky.com:3478","username":"micall","credential":"<密码>"}]
+```
+
+**验证（关键，别跳过）**：浏览器开 <https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/>，
+填 `turns:turn.zsky.com:443?transport=tcp` + 用户名 `micall` + 密码，点 **Gather candidates** →
+出现 **`relay`** 类型候选 = 443 中继通了。**用手机（蜂窝网，别连 WiFi）开同一页面测一次**最有说服力。
+relay 通后，手机拨号即走真全双工、原生 AEC，回声/自我打断消失。
+
+> iOS 补充：iOS Safari 切后台/锁屏会暂停 WebRTC 音频、AEC 自适应被重置，回前台头一两秒可能有回声——
+> 属系统行为，影响小；如要更稳可在「页面 visibilitychange 回前台」时briefly 静音 AI 半秒让 AEC 重新收敛（后续可加）。
