@@ -46,6 +46,47 @@ def _is_laughter(s: str) -> bool:
     return len(nt) >= 2 and all(ch in _LAUGH_CHARS for ch in nt)
 
 
+# ASR 在静音/噪声/回声上会「幻听」出训练语料里的高频套话（尤其英文字幕水印："Thank you." "Yes."
+# "Thank you for watching." "Please subscribe."；中文则常见点赞订阅类水印），用户根本没说。
+# 这些纯属噪声，绝不能触发一轮（实测：凭空冒出「Thank you.YesYes.」，用户没开口）。
+_HALLUCINATION_WORDS = {
+    "thank", "thanks", "thankyou", "you", "your", "yes", "yeah", "yep", "ya", "bye", "goodbye",
+    "please", "subscribe", "subscribing", "subscription", "watching", "watch", "video", "channel",
+    "like", "comment", "share", "hmm", "mm", "mhm", "uh", "um", "oh", "okay", "ok",
+    "amara", "org", "www", "com", "music", "applause", "foryou", "for", "next", "time", "see",
+}
+_HALLUCINATION_PHRASES = {  # 整句套话（去标点空白后比对，覆盖中英水印）
+    "请不吝点赞订阅转发打赏支持明镜与点点栏目", "请不吝点赞订阅转发打赏",
+    "谢谢观看", "谢谢大家观看", "谢谢大家", "下期再见", "感谢观看", "明镜需要您的支持",
+    "字幕志愿者", "字幕由amaraorg社区提供", "字幕由社区提供",
+}
+
+
+def _is_asr_hallucination(s: str) -> bool:
+    """ASR 静音/噪声幻听（英文字幕水印 / 点赞订阅类）→ True，整条丢弃。
+    含中文则交给常规过滤（中文水印已在 phrases 里挡），不按英文词表误伤真中文。"""
+    raw = (s or "").strip()
+    if not raw:
+        return True
+    norm = re.sub(r"[\W_]+", "", raw).lower()
+    if norm in _HALLUCINATION_PHRASES:
+        return True
+    if re.search(r"[一-鿿]", raw):
+        return False  # 有中文：不按英文幻听词表判（避免误伤），由 _is_filler / 门槛等处理
+    words = re.findall(r"[a-z]+", raw.lower())
+    if not words:
+        return False
+    # 每个词都是已知幻听填充词（含重复拼接，如 yesyes=yes×2、thankyou）才判幻听；只要有一个实词就放行。
+    def _junk(w: str) -> bool:
+        if w in _HALLUCINATION_WORDS:
+            return True
+        for base in ("thankyou", "thank", "yes", "bye", "you", "haha"):
+            if len(w) >= 2 * len(base) and len(w) % len(base) == 0 and w == base * (len(w) // len(base)):
+                return True
+        return False
+    return all(_junk(w) for w in words)
+
+
 _ACTIONS = re.compile(r"（[^）]*）|\([^)]*\)|【[^】]*】|\*[^*]*\*")
 
 
@@ -283,6 +324,9 @@ class CallSession:
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
                     continue  # 纯语气词「嗯/啊/哦…」（多为回声/呼吸误识）：不打断、不触发轮次、不上字幕
+                if _is_asr_hallucination(t):
+                    log.info("丢弃 ASR 幻听：%r", t)
+                    continue  # ASR 静音/噪声幻听（Thank you./Yes./点赞订阅水印）：用户没说，整条丢弃
                 # 灵敏度门槛：AI 外放(扬声器全双工)时，麦克风会录回 AI 自己的声音，经 AEC/ASR 变成短碎片
                 # （如「林管。」）；AI 不在播时，环境噪声/呼吸也常被误识成一两个字。短文本多是噪声，长文本才像真说话。
                 # 故 partial（回显/预停播）按是否外放分别用较高门槛；final（真触发一轮）保留较低门槛以容纳「好的」等短回复。

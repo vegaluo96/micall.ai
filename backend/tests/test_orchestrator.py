@@ -52,6 +52,20 @@ class TestLaughter(unittest.TestCase):
             self.assertFalse(_is_laughter(x), x)
 
 
+class TestAsrHallucination(unittest.TestCase):
+    def test_drops_phantom_keeps_real(self):
+        from micall.session.orchestrator import _is_asr_hallucination as h
+        # ASR 静音/噪声幻听（英文字幕水印 + 中文点赞订阅水印）→ 丢弃（用户根本没说）。
+        for x in ("Thank you.YesYes.", "Thank you.", "Yes.", "you", "Bye.",
+                  "Thank you for watching.", "Please subscribe.", "YesYes", "hmm uh um",
+                  "请不吝点赞、订阅、转发、打赏，支持明镜与点点栏目", "谢谢观看", "  "):
+            self.assertTrue(h(x), x)
+        # 真说话（中文，或含实词的英文）→ 放行，不误伤。
+        for x in ("你听过大海这首歌吗", "好的", "广告电话", "我没事",
+                  "yes I think so is great", "ok let's go to the park tomorrow", "谢谢"):
+            self.assertFalse(h(x), x)
+
+
 class TestEchoGuard(unittest.TestCase):
     """AI 自己的声音回灌麦克风 → 不该被当成用户说话（防自己断/凭空冒话/重复『你好』）。"""
 
