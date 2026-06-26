@@ -170,6 +170,55 @@ class TestOrchestrator(unittest.TestCase):
         for p in ("thinking", "speaking", "listening"):
             self.assertIn(p, states)
 
+    def test_proactive_opening_speaks_first(self):
+        """接通后不等用户：AI 主动先说一句开场白（emit ai 字幕），且不伪造 user 字幕、不把指令写进 history。"""
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        holder: dict = {}
+
+        async def run():
+            s = _make_session(emit)
+            holder["s"] = s
+            await s.start()
+            if s._greet_task:        # 开场是 create_task 异步触发 → 等它跑完再断言
+                await s._greet_task
+            await s.end()
+
+        asyncio.run(run())
+        s = holder["s"]
+        ai = [e for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        user_subs = [e for e in events if e["type"] == "subtitle" and e["role"] == "user"]
+        self.assertGreaterEqual(len(ai), 1)          # AI 主动开了口（无需用户先说）
+        self.assertEqual(user_subs, [])              # 开场不是用户说的 → 不伪造用户字幕
+        # 开场指令只临时喂 LLM、不入 history（不污染后续上下文）：history 里没有 user，只有 AI 开场回复。
+        self.assertTrue(all(m["role"] != "user" for m in s.history))
+        self.assertTrue(any(m["role"] == "assistant" for m in s.history))
+
+    def test_opening_yields_when_user_speaks_first(self):
+        """用户抢先开口：开场让位，不插一条多余的开场轮（靠 history/phase 守卫）。"""
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            s = _make_session(emit)
+            await s.start()
+            await s.on_user_text("我先说")       # 抢在开场任务前拿到 _turn_lock
+            if s._greet_task:
+                await s._greet_task             # 开场任务此时应因 history 非空而直接返回
+            await s.end()
+            return s
+
+        s = asyncio.run(run())
+        # 只应有一轮（用户那轮）：恰好一条 user 字幕；history 第一条是 user（不是 AI 开场）。
+        user_subs = [e for e in events if e["type"] == "subtitle" and e["role"] == "user"]
+        self.assertEqual(len(user_subs), 1)
+        self.assertEqual(s.history[0]["role"], "user")
+
     def test_per_sentence_emotion_and_clean_subtitle(self):
         # 逐句不同情绪 + 拟声：每句一条对应情绪事件；字幕是纯人话（拟声/标签不漏给用户）。
         events: list[dict] = []

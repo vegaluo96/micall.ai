@@ -195,6 +195,7 @@ class CallSession:
         self._billing_task: asyncio.Task | None = None
         self._listen_task: asyncio.Task | None = None    # task A：ASR 感知常驻协程
         self._current_turn: asyncio.Task | None = None   # 语音模式下当前一轮（可被打断）
+        self._greet_task: asyncio.Task | None = None     # 接通后主动开场白（异步，不阻塞 start；挂断时取消）
         # 上行麦克风帧：有界（≈1–1.5s）。无界时 ASR/网络一慢，帧就积压，ASR 永远在嚼过期音频
         # → 越聊越延迟、还容易把旧片段重判（与"一句被当五遍"同源）。满则丢最旧、永远喂最新（见 push_audio）。
         self._mic_q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=64)
@@ -248,6 +249,12 @@ class CallSession:
         #   embed_timeout_s —— 嵌入墙钟上限，超时即退关键词（不拖累实时接话）。
         self._embed_min_chars = int(turn.get("embed_min_chars", 4))
         self._embed_timeout_s = float(turn.get("embed_timeout_s", 0.6))
+        # 接通后【主动开口】：不等用户先说，AI 先说一句针对 TA 的开场白——填掉「接通到用户开口」的冷场，
+        # 个性化素材（关系/上次聊到什么/隔了多久/上次心情/节日）assembler 在开场轮已组装。默认开。
+        self._greet_on_start = bool(turn.get("greet_on_start", True))
+        self._opening_directive = str(turn.get("opening_directive",
+            "（来电刚接通，请你先开口说第一句话。结合你对 TA 的了解和上次的情形自然地招呼，"
+            "别等 TA 先开口、别像查档案、别太长，一两句即可。）"))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:
@@ -272,6 +279,10 @@ class CallSession:
         # task A 感知：有实时 ASR 才起（语音模式）；否则纯文字模式由 on_user_text 驱动。
         if self._asr_rt is not None:
             self._listen_task = asyncio.create_task(self._listen_loop())
+        # 接通即主动开口（异步，不阻塞计费/麦克风起步）：用「针对 TA 的开场白」填掉接通后的冷场。
+        # 用户抢先说话则让位（见 _run_opening 内的 history/phase 守卫）；用户也能随时打断这句开场。
+        if self._greet_on_start and getattr(self, "llm", None) is not None:
+            self._greet_task = asyncio.create_task(self._run_opening())
 
     # ── 上行音频：server 收到二进制帧 → 入队，喂给 task A 的 ASR 流 ──
     def push_audio(self, frame: bytes) -> None:
@@ -419,6 +430,20 @@ class CallSession:
         async with self._turn_lock:
             await self._generate_turn(text)
 
+    async def _run_opening(self) -> None:
+        """接通后主动说开场白：仅在「还没有任何一轮、仍处 LISTENING」时插入——用户抢先开口（history 非空）
+        或已不在可对话态则让位。走 _turn_lock 与用户首轮串行，绝不并发；这句开场用户可随时打断
+        （_generate_turn 全程尊重 self._interrupt）。失败静默忽略，照常等用户开口。"""
+        try:
+            async with self._turn_lock:
+                if self.history or self.sm.phase != Phase.LISTENING:
+                    return
+                await self._generate_turn(self._opening_directive, opening=True)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            log.warning("开场白生成失败（忽略，照常等用户开口）：%r", e)
+
     async def _embed_query(self, text: str) -> list[float] | None:
         """把本轮用户话向量化用于情节记忆余弦召回。仅配了 Embedding 且库里有可检索记忆时才嵌入，
         否则纯属给实时路径白加一次网络往返（开场/新会话尤其明显，对话发钝）。带紧超时兜底。"""
@@ -437,22 +462,28 @@ class CallSession:
             log.warning("query 向量化跳过（超时/失败），退关键词召回：%r", e)
             return None
 
-    async def _generate_turn(self, user_text: str) -> None:
+    async def _generate_turn(self, user_text: str, *, opening: bool = False) -> None:
         self._interrupt.clear()
         # 注意：回声基准 _ai_said 不在此清空——上一轮 AI 的音频可能还在前端缓冲播放，
         # 思考阶段(THINKING)仍要靠它拦住拖尾回声；等真正开口(open_speak)再以本轮文本重置。
-        await self._emit(ServerEvent.subtitle("user", user_text))
-        self.history.append({"role": "user", "content": user_text})
+        # opening=主动开场：没有用户话，不上「user 字幕」、不把指令写进 history（避免污染上下文）。
+        if not opening:
+            await self._emit(ServerEvent.subtitle("user", user_text))
+            self.history.append({"role": "user", "content": user_text})
 
         self.sm.to(Phase.THINKING)
         await self._emit(ServerEvent.state(Phase.THINKING.value))
 
         _t0 = time.monotonic()   # ⏱ 诊断埋点：从「触发本轮」起算各阶段耗时，定位延迟卡在哪一跳
-        qvec = await self._embed_query(user_text)  # 配了 Embedding 节点才算；失败/未配 → None（退关键词）
+        qvec = None if opening else await self._embed_query(user_text)  # 开场无用户话可嵌入；否则配了 Embedding 才算
         messages = self.assembler.build(
             character_id=self.character_id, scenario=self.scenario_prompt, history=self.history,
             query_vector=qvec,
         )
+        if opening:
+            # 开场指令作为临时 user 消息只喂这一次 LLM（不入 history、不上字幕），让 AI 据系统提示里的
+            # 开场上下文（关系/上次/间隔/心情/节日）自然先开口。history 为空 → assembler 已判定为 opening 轮。
+            messages = [*messages, {"role": "user", "content": user_text}]
         log.info("⏱ 召回嵌入 %.0fms", (time.monotonic() - _t0) * 1000)
         self._usage["llm_in_chars"] += sum(len(str(m.get("content", ""))) for m in messages)  # 成本：LLM 输入
         spoke: list[str] = []   # 实际播出的句子（清洗后的人话）→ 进上下文（§1.5）
@@ -724,8 +755,8 @@ class CallSession:
                 pass
             self._mic_q.put_nowait(None)
         # 收掉计费 / task A / 当前一轮（避免它们在挂断后还往已关连接下行）。
-        tasks = [self._billing_task, self._listen_task, self._current_turn]
-        self._billing_task = self._listen_task = self._current_turn = None
+        tasks = [self._billing_task, self._listen_task, self._current_turn, self._greet_task]
+        self._billing_task = self._listen_task = self._current_turn = self._greet_task = None
         for task in tasks:
             if task is None:
                 continue
