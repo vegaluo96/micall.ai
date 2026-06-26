@@ -374,6 +374,11 @@ class CallSession:
             raise
         except Exception as e:  # ASR 断流/协议异常：不拖垮整通电话，退回可由文字驱动
             log.warning("实时 ASR(task A) 退出：%r", e)
+            try:
+                if self.sm.phase not in (Phase.IDLE, Phase.ENDED):
+                    await self._emit(ServerEvent.asr_failed())  # 通知前端：语音输入已断，可改用文字继续
+            except Exception:
+                pass
 
     async def _begin_turn(self, text: str) -> None:
         """语音模式起一轮：先打断上一轮（task A 不被生成阻塞，才能继续听打断），再起新任务。"""

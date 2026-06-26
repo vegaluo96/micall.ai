@@ -32,6 +32,23 @@ def _header_safe(s: str) -> str:
     return "".join(ch for ch in (s or "") if 0x21 <= ord(ch) <= 0x7E)
 
 
+def as_int(v: Any, default: int) -> int:
+    """容错取整：后台/override 写入的数字字段可能是非数字串（如 ""/"abc"）。直接 int() 会 ValueError
+    崩服务，这里失败即回退默认，让坏配置最多无效、绝不致命。"""
+    try:
+        return int(float(str(v).strip()))
+    except (TypeError, ValueError):
+        return default
+
+
+def as_float(v: Any, default: float) -> float:
+    """容错取浮点：同 as_int，失败回退默认。"""
+    try:
+        return float(str(v).strip())
+    except (TypeError, ValueError):
+        return default
+
+
 @dataclass
 class NodeConfig:
     """单个供应商节点（endpoint + key + 其余参数）。"""

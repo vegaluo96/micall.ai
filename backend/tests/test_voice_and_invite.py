@@ -107,6 +107,19 @@ class TestInviteRewardChain(unittest.TestCase):
         saved = json.loads(self.tmp.read_text("utf-8"))
         self.assertEqual(saved["invite"]["reward_minutes"], 0)   # 负数夹到 0（禁用奖励）
 
+    def test_clamps_absurd_upper(self):
+        adminapi.write_invite_from_admin({"reward_minutes": 99999999})
+        saved = json.loads(self.tmp.read_text("utf-8"))
+        self.assertEqual(saved["invite"]["reward_minutes"], 10080)   # 上限 1 周
+
+    def test_cost_clamps_negative_nan_and_huge(self):
+        adminapi.write_cost_from_admin({"tts": -3, "asr": 1e9, "llm_fast": float("nan"), "chars_per_token": 4})
+        saved = json.loads(self.tmp.read_text("utf-8"))["cost"]
+        self.assertEqual(saved["usd_per_1k_chars_tts"], 0.0)             # 负 → 0
+        self.assertEqual(saved["usd_per_minute_asr"], 10.0)             # 1e9 → 上限 10
+        self.assertEqual(saved["usd_per_1k_tokens"]["llm_fast"], 0.0)   # NaN → 默认 0
+        self.assertEqual(saved["chars_per_token"], 4)                   # 合理值原样
+
 
 class TestInviteRewardSeconds(unittest.TestCase):
     def test_reads_config_minutes(self):

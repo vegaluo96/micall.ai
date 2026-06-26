@@ -1,7 +1,22 @@
 import os
 import unittest
 
-from micall.config import NODE_KEYS, NodeConfig, load_config, resolve_runtime, resolve_voice
+from micall.config import NODE_KEYS, NodeConfig, as_float, as_int, load_config, resolve_runtime, resolve_voice
+
+
+class TestSafeCoerce(unittest.TestCase):
+    def test_as_int_parses_and_falls_back(self):
+        self.assertEqual(as_int("16000", 8000), 16000)
+        self.assertEqual(as_int(24000, 8000), 24000)
+        self.assertEqual(as_int("24000.0", 8000), 24000)
+        self.assertEqual(as_int("abc", 8000), 8000)   # 坏配置回退默认而非崩
+        self.assertEqual(as_int("", 8000), 8000)
+        self.assertEqual(as_int(None, 8000), 8000)
+
+    def test_as_float_parses_and_falls_back(self):
+        self.assertAlmostEqual(as_float("0.55", 0.5), 0.55)
+        self.assertAlmostEqual(as_float("x", 0.5), 0.5)
+        self.assertAlmostEqual(as_float(None, 0.5), 0.5)
 
 
 class TestConfig(unittest.TestCase):

@@ -86,6 +86,19 @@ class TestCharactersAdmin(unittest.TestCase):
             character_id="lin_wan", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
         self.assertIn("多用短句，偶尔毒舌", sysmsg)
 
+    def test_nonnumeric_age_is_rejected_not_stored(self):
+        # num() 此前对 "abc" 原样返回 → 会把非数字落进 identity（提示词出现「年龄abc」）。现应跳过、保留出厂值。
+        ca.write_character_from_admin({"id": "lin_wan", "age": "abc", "height": "拾陆"})
+        eff = ca.effective_specs()["lin_wan"]
+        self.assertNotEqual(eff["identity"].get("age"), "abc")
+        self.assertNotEqual((eff["identity"].get("profile") or {}).get("height_cm"), "拾陆")
+
+    def test_long_text_fields_are_capped(self):
+        # 文本字段无上限会撑爆系统提示词；现按字段封顶（background_story 4000）。
+        ca.write_character_from_admin({"id": "lin_wan", "background_story": "床" * 5000})
+        eff = ca.effective_specs()["lin_wan"]
+        self.assertEqual(len(eff["persona"]["background_story"]), 4000)
+
     def test_write_rejects_unknown_id(self):
         with self.assertRaises(ValueError):
             ca.write_character_from_admin({"id": "nope", "name": "x"})

@@ -52,6 +52,11 @@ class ServerEvent:
         return {"type": "out_of_minutes"}
 
     @staticmethod
+    def asr_failed() -> dict[str, Any]:
+        # 实时语音识别中断（断流/协议异常）：前端据此提示「语音中断，可用文字继续」并保持可发文字，不静默失声。
+        return {"type": "asr_failed"}
+
+    @staticmethod
     def call_failed(reason: str) -> dict[str, Any]:
         return {"type": "call_failed", "reason": reason}
 
@@ -65,7 +70,7 @@ class ServerEvent:
 # 计入枚举以便校验/测试覆盖 WebRTC 路径（前端 signaling.ts ServerEvent 含这两个）。
 SERVER_EVENT_TYPES = frozenset(
     {"connected", "state", "interrupted", "subtitle", "emotion", "billing",
-     "low_minutes", "out_of_minutes", "call_failed", "ended",
+     "low_minutes", "out_of_minutes", "asr_failed", "call_failed", "ended",
      "rtc_answer", "rtc_unavailable"}
 )
 

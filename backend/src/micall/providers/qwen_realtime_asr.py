@@ -18,7 +18,7 @@ import base64
 import json
 from typing import AsyncIterator, Callable
 
-from ..config import NodeConfig
+from ..config import NodeConfig, as_float, as_int
 from .base import ASRProvider
 from .bailian_asr import _collapse_repeat
 from .realtime_asr import region_ws_base
@@ -31,13 +31,13 @@ class QwenRealtimeASR(ASRProvider):
         self.api_key = node.api_key
         self.ws_url = node.params.get("ws_endpoint") or (region_ws_base(node.endpoint) + "/api-ws/v1/realtime")
         self.model = node.params.get("realtime_model", "qwen3-asr-flash-realtime")
-        self.sample_rate = int(node.params.get("sample_rate", 16000))
+        self.sample_rate = as_int(node.params.get("sample_rate"), 16000)   # 坏配置不崩，回退默认
         # 端点检测（判定「你说完了」）。silence_ms 越小，说完后 AI 接话越快——治「说完卡很久 / 一直正在聆听」；
         # threshold 越高越能滤外放回授/噪声，但太高会识别不到说话→「一直聆听卡住」。0.55 是验证可用的稳定值：
         # 灵敏度↔可靠是同一道阈值的两端，不宜盲调；要更稳的抗噪用耳机/半双工（物理）。可在 asr 节点 params 微调。
-        self.vad_threshold = float(node.params.get("vad_threshold", 0.55))
-        self.vad_prefix_ms = int(node.params.get("vad_prefix_padding_ms", 250))
-        self.vad_silence_ms = int(node.params.get("vad_silence_ms", 550))
+        self.vad_threshold = as_float(node.params.get("vad_threshold"), 0.55)
+        self.vad_prefix_ms = as_int(node.params.get("vad_prefix_padding_ms"), 250)
+        self.vad_silence_ms = as_int(node.params.get("vad_silence_ms"), 550)
         self._on_event = on_event
 
     async def stream(
@@ -96,7 +96,15 @@ class QwenRealtimeASR(ASRProvider):
             text = ""
             try:
                 async for raw in ws:
-                    evt = json.loads(raw) if isinstance(raw, (str, bytes, bytearray)) else raw
+                    if isinstance(raw, (str, bytes, bytearray)):
+                        try:
+                            evt = json.loads(raw)
+                        except (ValueError, TypeError):
+                            continue   # 非 JSON 帧（心跳/畸形）跳过，别让整条 ASR 流崩掉
+                    else:
+                        evt = raw
+                    if not isinstance(evt, dict):
+                        continue
                     if self._on_event:
                         self._on_event(evt)
                     et = evt.get("type", "")

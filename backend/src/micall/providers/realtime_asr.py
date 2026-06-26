@@ -22,7 +22,7 @@ import json
 import uuid
 from typing import AsyncIterator, Callable
 
-from ..config import NodeConfig
+from ..config import NodeConfig, as_int
 from .base import ASRProvider
 
 DEFAULT_WS_INTL = "wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference/"
@@ -50,10 +50,10 @@ class RealtimeBailianASR(ASRProvider):
         # 业务空间专属域名 ws-xxxx.ap-southeast-1.maas.aliyuncs.com，key 绑该主机）。
         self.ws_url = node.params.get("ws_endpoint") or self._derive_ws(node.endpoint)
         self.model = node.params.get("realtime_model", "paraformer-realtime-v2")
-        self.sample_rate = int(node.params.get("sample_rate", 16000))
+        self.sample_rate = as_int(node.params.get("sample_rate"), 16000)        # 坏配置不崩，回退默认
         self.audio_format = node.params.get("audio_format", "pcm")
         self.language_hints = node.params.get("language_hints", ["zh", "en"])
-        self.max_sentence_silence = int(node.params.get("max_sentence_silence", 800))
+        self.max_sentence_silence = as_int(node.params.get("max_sentence_silence"), 800)
         self._on_event = on_event  # 调试钩子：每个原始服务端事件回调一次（联调锁协议用）
 
     @staticmethod
@@ -111,7 +111,15 @@ class RealtimeBailianASR(ASRProvider):
             try:
                 while True:
                     raw = await ws.recv()
-                    evt = json.loads(raw) if isinstance(raw, (str, bytes, bytearray)) else raw
+                    if isinstance(raw, (str, bytes, bytearray)):
+                        try:
+                            evt = json.loads(raw)
+                        except (ValueError, TypeError):
+                            continue   # 非 JSON 帧（心跳/畸形）跳过，别让整条 ASR 流崩掉
+                    else:
+                        evt = raw
+                    if not isinstance(evt, dict):
+                        continue
                     if self._on_event:
                         self._on_event(evt)
                     ev = (evt.get("header") or {}).get("event")

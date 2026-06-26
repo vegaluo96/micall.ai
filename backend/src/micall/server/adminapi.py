@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import os
 import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from ..config import NodeConfig, _REPO_DEFAULT, _header_safe, load_config
+
+log = logging.getLogger("micall.admin")
 
 OVERRIDES_PATH = _REPO_DEFAULT.parent / "admin_overrides.json"
 
@@ -191,8 +194,12 @@ def test_section(section: str, sec: dict) -> dict:
         if node_key == "embedding":
             return asyncio.run(_ping_embed(node))
         return {"ok": True, "note": "已填 endpoint/key（ASR 未做真实连通）"}
-    except Exception as e:  # 鉴权/网络/模型名等，原样回带便于排错
-        return {"ok": False, "error": str(e)[:300]}
+    except Exception as e:  # 鉴权/网络/模型名等：回带便于排错，但抹掉可能回显的 key，完整详情仅记服务端日志
+        msg = str(e)[:300]
+        if key and key.strip():
+            msg = msg.replace(key.strip(), "•••")
+        log.warning("连通性测试失败 section=%s node=%s：%s", section, node_key, str(e)[:500])
+        return {"ok": False, "error": msg}
 
 
 # ── 计费单价（成本估算）读写：存 admin_overrides.json 的 cost 段，改完下一通即生效 ──
@@ -211,10 +218,14 @@ def read_cost_for_admin() -> dict:
 
 def write_cost_from_admin(payload: dict) -> None:
     def num(v, d):
+        # 单价钳到 [0,10]：挡住负数/NaN/1e9 这类离谱值撑坏成本估算（实际单价都远小于 1）。
         try:
-            return float(v)
+            x = float(v)
         except (TypeError, ValueError):
             return d
+        if x != x:   # NaN
+            return d
+        return max(0.0, min(10.0, x))
     existing: dict = {}
     if OVERRIDES_PATH.exists():
         try:
@@ -250,7 +261,7 @@ def write_invite_from_admin(payload: dict) -> None:
         except (ValueError, OSError):
             existing = {}
     try:
-        m = max(0, int((payload or {}).get("reward_minutes", 60) or 60))
+        m = max(0, min(10080, int((payload or {}).get("reward_minutes", 60) or 60)))   # 钳到 [0, 1 周]
     except (TypeError, ValueError):
         m = 60
     existing["invite"] = {"reward_minutes": m}
@@ -499,8 +510,14 @@ class _Handler(BaseHTTPRequestHandler):
             b = self._body()
             import secrets
             code = (b.get("code") or "").strip().upper() or ("MC-" + secrets.token_hex(3).upper())
-            minutes = max(1, int(b.get("minutes", 60) or 60))
-            max_uses = max(1, min(100000, int(b.get("max_uses", 1) or 1)))
+            try:
+                minutes = max(1, min(525600, int(b.get("minutes", 60) or 60)))   # 钳到 [1 分钟, 1 年]
+            except (TypeError, ValueError):
+                minutes = 60
+            try:
+                max_uses = max(1, min(100000, int(b.get("max_uses", 1) or 1)))
+            except (TypeError, ValueError):
+                max_uses = 1
             ok, msg = _REPO.create_redeem_code(code, minutes * 60, max_uses)
             return self._json(200, {"ok": ok, "code": code if ok else "", "error": None if ok else msg})
         if route == "/admin/redeem-codes/delete":   # 删除兑换码

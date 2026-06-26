@@ -65,7 +65,7 @@ def make_realtime_asr(node: NodeConfig, *, on_event=None):
       • 其它（paraformer-realtime-*，主要北京区）→ DashScope run-task 协议（/api-ws/v1/inference）
     WS 主机按区域从 ASR 的 HTTP endpoint 推断（通用区域端点，非专属域名）。
     """
-    model = node.params.get("realtime_model", "qwen3-asr-flash-realtime")
+    model = str(node.params.get("realtime_model", "qwen3-asr-flash-realtime") or "")
     if model.startswith("qwen"):
         from .qwen_realtime_asr import QwenRealtimeASR
 

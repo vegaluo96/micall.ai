@@ -175,38 +175,43 @@ def write_character_from_admin(payload: dict) -> None:
     def s(v) -> str:
         return str(v).strip()
 
+    def cap(v, limit: int) -> str:
+        # 文本字段上限：防超大文本撑爆系统提示词（撑高每轮 token、拖慢/拉高成本，甚至越界）。
+        return s(v)[:limit]
+
     def num(v):
-        """年龄/身高/体重：纯数字存成数字（_identity_line 才好用），非数字（如空）则跳过。"""
+        """年龄/身高/体重：纯数字存成数字（_identity_line 才好用），非数字（空/"abc"）→ None 跳过，
+        绝不把非数字串落进 identity（否则提示词里出现「年龄abc」）。"""
         t = s(v)
         if t == "":
             return None
         try:
             return int(float(t))
         except ValueError:
-            return t
+            return None
 
-    if "name" in p:            ident["name"] = s(p["name"])
-    if "tagline" in p:         ident["tagline"] = s(p["tagline"])
+    if "name" in p:            ident["name"] = cap(p["name"], 60)
+    if "tagline" in p:         ident["tagline"] = cap(p["tagline"], 200)
     # 基础资料：身份字段写回 identity（profile 子块放身高/体重/生日/种族），让后台改的年龄等真正进通话提示词。
-    if "gender" in p:          ident["gender"] = s(p["gender"])
+    if "gender" in p:          ident["gender"] = cap(p["gender"], 20)
     if "age" in p and num(p["age"]) is not None:        ident["age"] = num(p["age"])
-    if "nationality" in p:     ident["nationality"] = s(p["nationality"])
-    if "appearance" in p:      ident["appearance"] = s(p["appearance"])
+    if "nationality" in p:     ident["nationality"] = cap(p["nationality"], 60)
+    if "appearance" in p:      ident["appearance"] = cap(p["appearance"], 1000)
     if any(k in p for k in ("height", "weight", "birthday", "race")):
         prof = ident.setdefault("profile", {})
         if "height" in p and num(p["height"]) is not None:  prof["height_cm"] = num(p["height"])
         if "weight" in p and num(p["weight"]) is not None:  prof["weight_kg"] = num(p["weight"])
-        if "birthday" in p:    prof["birthday"] = s(p["birthday"])
-        if "race" in p:        prof["race"] = s(p["race"])
-    if "traits" in p:          persona["core_traits"] = _split(p["traits"])
-    if "speaking_style" in p:  persona["speaking_style"] = s(p["speaking_style"])
-    if "background_story" in p: persona["background_story"] = s(p["background_story"])
-    if "hidden_layer" in p:    persona["hidden_layer"] = s(p["hidden_layer"])
-    if "values" in p:          persona["values_and_boundaries"] = s(p["values"])
-    if "likes" in p:           persona["likes"] = _split(p["likes"])
-    if "dislikes" in p:        persona["dislikes"] = _split(p["dislikes"])
-    if "voice_id" in p:        voice["voice_id"] = s(p["voice_id"])
-    if "prompt_extra" in p:    ro["realtime_prompt_extra"] = s(p["prompt_extra"])
+        if "birthday" in p:    prof["birthday"] = cap(p["birthday"], 60)
+        if "race" in p:        prof["race"] = cap(p["race"], 60)
+    if "traits" in p:          persona["core_traits"] = _split(p["traits"])[:30]
+    if "speaking_style" in p:  persona["speaking_style"] = cap(p["speaking_style"], 1000)
+    if "background_story" in p: persona["background_story"] = cap(p["background_story"], 4000)
+    if "hidden_layer" in p:    persona["hidden_layer"] = cap(p["hidden_layer"], 2000)
+    if "values" in p:          persona["values_and_boundaries"] = cap(p["values"], 2000)
+    if "likes" in p:           persona["likes"] = _split(p["likes"])[:30]
+    if "dislikes" in p:        persona["dislikes"] = _split(p["dislikes"])[:30]
+    if "voice_id" in p:        voice["voice_id"] = cap(p["voice_id"], 200)
+    if "prompt_extra" in p:    ro["realtime_prompt_extra"] = cap(p["prompt_extra"], 2000)
 
     tmp = CHAR_OVERRIDES_PATH.with_name(CHAR_OVERRIDES_PATH.name + ".tmp")
     tmp.write_text(json.dumps(ov, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -225,7 +230,7 @@ def _spec_from_flat(cid: str, p: dict) -> dict:
         try:
             return int(float(t))
         except ValueError:
-            return t
+            return ""   # 非数字 → 空（不把 "abc" 落进数值字段）
 
     prof = {k: v for k, v in (
         ("height_cm", n(p.get("height"))), ("weight_kg", n(p.get("weight"))),

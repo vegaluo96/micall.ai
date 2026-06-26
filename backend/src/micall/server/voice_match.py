@@ -61,10 +61,18 @@ def _heuristic_match(desc: str) -> dict:
     return {**best, "by": "heuristic"}
 
 
+def _sanitize_desc(desc: str) -> str:
+    """收紧用户描述再拼进 prompt：折叠换行/控制字符为空格（防用户用换行伪造「system:」行做提示注入），
+    并限长。注意：即便注入，输出仍只经 _extract_id 白名单回到库内 voice_id，影响仅限「挑哪个免费音色」。"""
+    d = re.sub(r"\s+", " ", (desc or "")).strip()
+    return d[:200]
+
+
 async def _match_llm(desc: str) -> dict:
     from ..config import load_config
     from ..providers import make_llm
 
+    desc = _sanitize_desc(desc)
     llm = make_llm(load_config().node("llm_fast"))
     sys = (
         "你是音色匹配助手。下面是一个固定的【免费音色库】。用户用一句话描述想要的声音，"
@@ -93,7 +101,8 @@ def match_voice(desc: str) -> dict:
     if not desc:
         return _heuristic_match("")
     try:
-        return asyncio.run(_match_llm(desc))   # 一次性事件循环；apiyi/minimax client 已按 loop 隔离
-    except Exception as e:  # pragma: no cover
-        log.warning("音色 LLM 匹配失败，回退启发式：%r", e)
+        # 一次性事件循环；apiyi/minimax client 已按 loop 隔离。加 8s 超时：LLM 卡住也不长挂 HTTP 工作线程。
+        return asyncio.run(asyncio.wait_for(_match_llm(desc), timeout=8))
+    except Exception as e:  # pragma: no cover  （含超时 TimeoutError）
+        log.warning("音色 LLM 匹配失败/超时，回退启发式：%r", e)
         return _heuristic_match(desc)

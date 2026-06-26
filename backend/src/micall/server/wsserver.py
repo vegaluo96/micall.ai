@@ -372,23 +372,33 @@ class SignalingServer:
                     if session:
                         await session.end(emit_ended=False)
                     self._reload_config()  # 拾取后台「接口配置」最新改动（无需重启）
-                    session = self._make_session(
-                        emit=emit, audio_emit=audio_emit,
-                        character_id=msg.character_id, scenario=msg.scenario,
-                        scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
-                    )
-                    await session.start()
+                    try:
+                        session = self._make_session(
+                            emit=emit, audio_emit=audio_emit,
+                            character_id=msg.character_id, scenario=msg.scenario,
+                            scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
+                        )
+                        await session.start()
+                    except Exception as e:  # 建会话失败（配置/provider 异常）不能让连接半死：发 call_failed 让前端可重试
+                        log.warning("建立通话失败：%r", e)
+                        session = None
+                        await emit(ServerEvent.call_failed("server_error"))
                 elif msg.type == "switch_character":
                     if session:
                         await session.end(emit_ended=False)  # 切角色 = 结束 + 新建（docs/03 §3）
                         self._on_call_end(user_id, session, client_ip)
                     self._reload_config()
-                    session = self._make_session(
-                        emit=emit, audio_emit=audio_emit,
-                        character_id=msg.character_id, scenario=msg.scenario,
-                        scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
-                    )
-                    await session.start()
+                    try:
+                        session = self._make_session(
+                            emit=emit, audio_emit=audio_emit,
+                            character_id=msg.character_id, scenario=msg.scenario,
+                            scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
+                        )
+                        await session.start()
+                    except Exception as e:
+                        log.warning("切换角色建会话失败：%r", e)
+                        session = None
+                        await emit(ServerEvent.call_failed("server_error"))
                 elif msg.type == "end_call":
                     if session:
                         await session.end()
