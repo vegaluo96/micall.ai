@@ -41,6 +41,17 @@ class TestFiller(unittest.TestCase):
             self.assertFalse(_is_filler(x), x)
 
 
+class TestLaughter(unittest.TestCase):
+    def test_laughter_detection(self):
+        from micall.session.orchestrator import _is_laughter
+        # 纯笑声（≥2 字，含重复/标点）→ True：AI 说话时用户笑一声是捧场，不该打断她。
+        for x in ("哈哈", "哈哈哈", "嘻嘻", "嘿嘿", "呵呵", "哈哈！", "  嘻嘻 "):
+            self.assertTrue(_is_laughter(x), x)
+        # 单字「哈」不算笑（太短，可能是噪声碎片）；带实义词不是纯笑。
+        for x in ("哈", "哈哈不错", "你太逗了", "笑死我了", ""):
+            self.assertFalse(_is_laughter(x), x)
+
+
 class TestEchoGuard(unittest.TestCase):
     """AI 自己的声音回灌麦克风 → 不该被当成用户说话（防自己断/凭空冒话/重复『你好』）。"""
 

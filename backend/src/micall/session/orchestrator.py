@@ -37,6 +37,15 @@ def _is_filler(s: str) -> bool:
     return not nt or all(ch in _FILLER_CHARS for ch in nt)
 
 
+_LAUGH_CHARS = set("哈嘻嘿呵")
+
+
+def _is_laughter(s: str) -> bool:
+    """纯笑声（哈哈/嘻嘻/嘿嘿…）→ True。AI 说话时用户笑一声是附和、不是插话，不该打断她（让她说完）。"""
+    nt = _norm(s)
+    return len(nt) >= 2 and all(ch in _LAUGH_CHARS for ch in nt)
+
+
 _ACTIONS = re.compile(r"（[^）]*）|\([^)]*\)|【[^】]*】|\*[^*]*\*")
 
 
@@ -278,6 +287,8 @@ class CallSession:
                 # （如「林管。」）；AI 不在播时，环境噪声/呼吸也常被误识成一两个字。短文本多是噪声，长文本才像真说话。
                 # 故 partial（回显/预停播）按是否外放分别用较高门槛；final（真触发一轮）保留较低门槛以容纳「好的」等短回复。
                 ai_playing = time.monotonic() <= self._audio_until
+                if ai_playing and _is_laughter(t):
+                    continue  # AI 说话时你笑一声/附和（哈哈/嘻嘻）：是捧场不是插话，不打断、不另起一轮，让她说完
                 # 有硬件 AEC（全双工 RTC）时打断门槛降到 2，短插话即刻生效；无 AEC 沿用稳值（挡回授碎片）。
                 bargein_min = self._bargein_min_chars_aec if self._full_duplex_aec else self._bargein_min_chars
                 partial_min = bargein_min if ai_playing else self._partial_min_chars
