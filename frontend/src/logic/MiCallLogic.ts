@@ -485,6 +485,14 @@ export class MiCallLogic {
   private callActive(): boolean {
     return ["calling", "listening", "thinking", "speaking"].includes(this.state.phase);
   }
+  /** 从「正在接通」loading 转入「可对话」。RTC 开启时，等 RTC 真连上(或回退)才调——让 loading 真正盖住
+   *  建连过程，loading 一结束就是已就绪。只在还卡在 calling 时转（防迟到/重复）。 */
+  private goLive() {
+    if (this.state.phase !== "calling") return;
+    this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
+    this.armAutoHangup();      // 进入可对话才开始静默计时
+    this.maybeEarphoneTip();   // 首通一次性提示：戴耳机打断更灵
+  }
   private armAutoHangup() {
     if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; }
     const mins = Number(this.state.autoHangupMin) || 0;
@@ -734,7 +742,7 @@ export class MiCallLogic {
       };
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
-        if (st === "connected") { if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; } }
+        if (st === "connected") { if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; } this.goLive(); }
         else if (st === "failed" || st === "closed") this.rtcFallback();
       };
       const offer = await pc.createOffer();
@@ -756,8 +764,9 @@ export class MiCallLogic {
     if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
     this.teardownRtc();
     try { this.ensureSignaling().sendRaw?.({ type: "rtc_close" }); } catch { /* noop */ }
-    if (this.state.phase === "listening" || this.state.phase === "thinking" || this.state.phase === "speaking") {
-      this.startMicUplink();   // 仅在通话中才起 WS 上行（挂断后不需要）
+    if (this.callActive()) {
+      this.startMicUplink();   // 接通中/通话中回退 → 起 WS 上行麦克风
+      this.goLive();           // 若还卡在「正在接通」（RTC 没连上就回退）→ 转入可对话、结束 loading
     }
   }
 
@@ -775,11 +784,10 @@ export class MiCallLogic {
     if (inCall && !this.callActive()) return;
     switch (ev.type) {
       case "connected":
-        this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
-        if (this.rtcEnabled) void this.startRtc();   // 实验：WebRTC 媒体面（真全双工）
-        else this.startMicUplink();                  // 默认：WS 上行麦克风音频
-        this.armAutoHangup();                        // 接通即开始静默计时
-        this.maybeEarphoneTip();                     // 首通一次性提示：戴耳机打断更灵、无回声
+        // RTC 开启：保持「正在接通」loading，直到 RTC 真连上(或回退)才 goLive——让 loading 真正盖住建连过程，
+        // loading 结束 = 已就绪、立刻能对话（而不是显示就绪了 RTC 还在后台连）。不开 RTC：WS 已就绪，立即 goLive。
+        if (this.rtcEnabled) { void this.startRtc(); }
+        else { this.startMicUplink(); this.goLive(); }
         break;
       case "rtc_answer":
         if (this.pc && (ev as { sdp?: string }).sdp) {
