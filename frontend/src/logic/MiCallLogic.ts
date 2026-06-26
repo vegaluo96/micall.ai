@@ -39,6 +39,11 @@ type Timer = ReturnType<typeof setTimeout>;
 // 太短：1~2s 小抖动就误拆 RTC（丢硬件 AEC，本通退 WS 半双工）；太长：用户干等死寂会挂断重拨。
 const RTC_DISCONNECT_GRACE_MS = 4000;
 
+// 接通看门狗：建连多久还没 connected 就回退 WS。线上日志实测：大陆→香港经 443 TLS 中继，远端 relay 候选
+// ~+2s 才到、DTLS/ICE 再 ~+1s 完成 = 压在 3s 线上 → 旧的 3s 看门狗常在握手将成的瞬间误杀、被迫退 WS 半双工
+// （没硬件 AEC → 自我打断「说一半停」）。放宽到 5s 让多数中继握手做完落到 RTC；期间下行已走 WS，不影响开口。
+const RTC_CONNECT_WATCHDOG_MS = 5000;
+
 interface Char {
   name: string;
   hue: number;
@@ -837,9 +842,9 @@ export class MiCallLogic {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
-      // 看门狗 3s：大陆→香港 coturn 实测要 ~2s 才连上（别砍太短误杀 RTC=丢了打断）。开场音频已不等 RTC
-      // （连接期间走 WS，见后端 audio_emit），所以这里给足时间让 RTC 连上、拿到全双工打断；真连不上才退 WS。
-      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 3000);
+      // 接通看门狗（见 RTC_CONNECT_WATCHDOG_MS）：开场音频已不等 RTC（连接期间走 WS，见后端 audio_emit），
+      // 给足时间让 443 中继握手做完落到 RTC（拿全双工硬件 AEC），真连不上才退 WS。
+      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, RTC_CONNECT_WATCHDOG_MS);
     } catch {
       this.rtcFallback();   // 建不起来 → 回退 WS
     }
