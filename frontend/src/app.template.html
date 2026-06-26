@@ -1040,10 +1040,21 @@
     </div>
   </div>
   <div class="deskside" data-theme="{{ theme }}" style="--fz:1;">
-    <div style="font-size:20px;font-weight:600;padding:0 10px 14px;flex:none;">通话记录</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 10px 14px;flex:none;">
+      <span style="font-size:20px;font-weight:600;">通话记录</span>
+      <sc-if value="{{ histShowSelect }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ enterHistSel }}" style="font-size:13.5px;font-weight:500;color:#E0594F;cursor:pointer;padding:4px 6px;" style-active="opacity:.6">删除</span>
+      </sc-if>
+      <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
+        <span onClick="{{ exitHistSel }}" style="font-size:13.5px;font-weight:500;color:rgba(0,0,0,.45);cursor:pointer;padding:4px 6px;" style-active="opacity:.6">取消</span>
+      </sc-if>
+    </div>
     <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;">
       <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="6">
-        <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)">
+        <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:14px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)">
+          <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
+          </div>
           <div style="width:38px;height:38px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};"></div>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
             <span style="font-size:15px;font-weight:500;">{{ h.name }}</span>
@@ -1053,5 +1064,13 @@
         </div>
       </sc-for>
     </div>
+    <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;padding-top:10px;margin-top:6px;border-top:1px solid rgba(0,0,0,.07);">
+        <div onClick="{{ histDelAsk }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:14px;background:{{ histDelBtnBg }};color:{{ histDelBtnColor }};font-size:15px;font-weight:600;cursor:pointer;transition:background .15s ease,color .15s ease;" style-active="transform:scale(.98)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          <span>{{ histDelBtnText }}</span>
+        </div>
+      </div>
+    </sc-if>
   </div>
 </div>
