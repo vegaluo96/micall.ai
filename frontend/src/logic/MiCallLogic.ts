@@ -1403,9 +1403,11 @@ export class MiCallLogic {
       })),
       langCurrent: this.state.lang,
       langClose: () => this.setState({ langOpen: false }),
-      orbAnim: connected ? "none" : orbAnim,            // 拨号时仍呼吸（有生气），仅真正通话中(listening/speaking)才静止
+      // 首页(idle)球与光晕固定住、不缩放（用户嫌「一会大一会小」）；色场仍 spin（只旋转、不改大小=有生气不变形）。
+      // 拨号(calling)仍呼吸有生气；真正通话中(connected)本就静止。
+      orbAnim: (connected || p === "idle") ? "none" : orbAnim,
       fieldAnim: connected ? "none" : `spin ${fieldDur}s linear infinite`,
-      haloAnim: connected ? "none" : `haloPulse ${haloDur}s ease-in-out infinite`,
+      haloAnim: (connected || p === "idle") ? "none" : `haloPulse ${haloDur}s ease-in-out infinite`,
       orbBg: `radial-gradient(circle at 38% 33%, rgba(255,255,255,.97), ${this.hexA(tint, .62)} 38%, ${this.hexA(tint, .20)} 64%, ${this.hexA(tint, .03)} 82%)`,
       orbShadow: `0 0 50px 4px ${this.hexA(tint, .28)}, 0 0 100px 22px rgba(110,92,255,.16)`,
       haloBg: `radial-gradient(circle, ${this.hexA(tint, .26)}, rgba(255,79,160,.10) 45%, transparent 72%)`,
