@@ -825,7 +825,7 @@ export class MiCallLogic {
         if (st === "connected") {
           if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
           if (this.rtcDiscoTimer) { clearTimeout(this.rtcDiscoTimer); this.rtcDiscoTimer = null; }  // 自愈成功 → 撤销宽限回退，保住 RTC（硬件 AEC 全双工）
-          this.stopMicUplink();   // RTC 接管上行（mic 轨已 addTrack 进 pc）→ 停 WS 上行，避免 WS+RTC 双上行把 ASR 搞乱
+          this.stopMicUplink();   // 防御：RTC 接管上行（mic 轨已 addTrack 进 pc）→ 确保无 WS 上行残留（如 disconnected 自愈后）
           this.goLive();          // 已在 listening 时为 no-op（phase 守卫），不会清空转写
         } else if (st === "disconnected") {
           // 中继瞬断：下行 RTC 轨不再吐帧 → AI 声音僵住。先给 ~4s 宽限让 ICE 自愈（多数瞬断会自己回 connected）；
@@ -881,12 +881,13 @@ export class MiCallLogic {
     if (inCall && !this.callActive()) return;
     switch (ev.type) {
       case "connected":
-        // 接通即用 WS 起通话：立刻 goLive + 起 WS 上行麦克风 → 启动快、马上能听能说（开场音频本就走 WS）。
-        // RTC 开启时再在后台连，连上了无缝升级到全双工硬件 AEC（见 onconnectionstatechange:connected → stopMicUplink
-        // 把 WS 上行让位给 RTC 轨，避免双上行）。如此看门狗可放宽（提高 RTC 命中率）又不拖慢启动。
-        this.startMicUplink();
+        // 接通即 goLive：UI 立刻就绪、开场音频走 WS 即时出声 = 启动快（不等 RTC，见上一版解耦）。
+        // 但【RTC 开启时不在连接窗口就起 WS 上行】——WS 无硬件 AEC，开场外放会回灌麦克风被当成插话 → 打断
+        // 「开场刚说一句就没声」。上行交给：RTC 连上→RTC 轨（全双工 AEC，见 onconnectionstatechange）；连不上
+        // →rtcFallback 再起 WS。开场那几秒在听 AI、本不需上行。不开 RTC：直接起 WS 上行。
         this.goLive();
         if (this.rtcEnabled) void this.startRtc();
+        else this.startMicUplink();
         break;
       case "rtc_answer":
         if (this.pc && (ev as { sdp?: string }).sdp) {
