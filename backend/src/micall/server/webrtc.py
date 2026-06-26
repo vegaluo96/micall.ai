@@ -180,6 +180,7 @@ class RTCVoiceTransport:
             # disconnected 可能瞬断后自愈，不翻转 connected（留给后续状态）。
             if st == "connected":
                 self.connected = True
+                self._log_selected_candidates()   # 诊断：连上后打印选中候选，判断是否走 443 TLS 中继
             elif st in ("failed", "closed"):
                 self.connected = False
             if self._on_connected is not None:
@@ -187,6 +188,43 @@ class RTCVoiceTransport:
                     self._on_connected(True)
                 elif st in ("failed", "closed"):
                     self._on_connected(False)
+
+    @staticmethod
+    def _cand_desc(c) -> str:
+        """候选简述：类型(host/srflx/relay)/协议(udp/tcp) 地址:端口。兼容 aiortc RTCIceCandidate（.ip/.protocol）
+        与 aioice Candidate（.host/.transport）两种对象，取不到的字段填 ?。"""
+        if c is None:
+            return "?"
+        typ = getattr(c, "type", "?")
+        proto = getattr(c, "protocol", None) or getattr(c, "transport", "?")
+        addr = getattr(c, "ip", None) or getattr(c, "host", "?")
+        port = getattr(c, "port", "?")
+        return f"{typ}/{proto} {addr}:{port}"
+
+    def _log_selected_candidates(self) -> None:
+        """诊断（纯日志，整体 try/except，绝不影响连接）：连上后打印本端/远端选中的 ICE 候选，
+        用来判断这通到底走没走 443 TLS 中继（remote=relay 说明经 coturn 中继）。aiortc 的 getStats 不含
+        candidate-pair，故下钻 DTLS→ICE→aioice Connection 取选中对；版本差异时尽量多试几种属性形状。"""
+        try:
+            for tr in self.pc.getTransceivers():
+                dtls = getattr(tr.sender, "transport", None) or getattr(tr.receiver, "transport", None)
+                conn = getattr(getattr(dtls, "transport", None), "_connection", None)
+                if conn is None:
+                    continue
+                local = getattr(conn, "local_candidate", None)
+                remote = getattr(conn, "remote_candidate", None)
+                if local is None and remote is None:
+                    nominated = getattr(conn, "_nominated", None)   # {component: CandidatePair}
+                    if isinstance(nominated, dict) and nominated:
+                        pair = next(iter(nominated.values()))
+                        local = getattr(pair, "local_candidate", None) or getattr(pair, "local", None)
+                        remote = getattr(pair, "remote_candidate", None) or getattr(pair, "remote", None)
+                if local is not None or remote is not None:
+                    log.info("WebRTC 选中候选：本端=%s 远端=%s", self._cand_desc(local), self._cand_desc(remote))
+                    return
+            log.info("WebRTC 选中候选：<未取到（aiortc 版本/时序）>")
+        except Exception as e:
+            log.info("WebRTC 选中候选：<读取失败 %r>", e)
 
     async def _consume(self, track) -> None:
         """读上行音轨 → 重采样到 16k → 回调喂 ASR。"""
@@ -218,6 +256,7 @@ class RTCVoiceTransport:
             cand.sdpMid = payload.get("sdpMid")
             cand.sdpMLineIndex = payload.get("sdpMLineIndex")
             await self.pc.addIceCandidate(cand)
+            log.info("WebRTC 远端候选 %s", self._cand_desc(cand))   # 诊断：看浏览器是否提供 443 relay 候选
         except Exception as e:
             log.warning("addIceCandidate 失败：%r", e)
 

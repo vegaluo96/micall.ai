@@ -412,13 +412,17 @@ sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh
 # 4) 安全组放行：443 TCP（TURN-over-TLS）+ 3478 UDP/TCP + 49152-65535 UDP
 ```
 
-接进来（`turns:` 走 443 优先、`turn:` 3478 兜底；两端同一套，前端要重 build）：
+接进来（**只留 443 TLS 一条中继**，两端同一套，前端要重 build）：
 ```bash
 # 后端 micall.env（重启服务生效）
-MICALL_ICE_SERVERS='[{"urls":"turns:turn.zsky.com:443?transport=tcp","username":"micall","credential":"<密码>"},{"urls":"turn:turn.zsky.com:3478","username":"micall","credential":"<密码>"}]'
+MICALL_ICE_SERVERS='[{"urls":"turns:turn.zsky.com:443?transport=tcp","username":"micall","credential":"<密码>"}]'
 # 前端 frontend/.env.production（需重 build）
-VITE_ICE_SERVERS=[{"urls":"turns:turn.zsky.com:443?transport=tcp","username":"micall","credential":"<密码>"},{"urls":"turn:turn.zsky.com:3478","username":"micall","credential":"<密码>"}]
+VITE_ICE_SERVERS=[{"urls":"turns:turn.zsky.com:443?transport=tcp","username":"micall","credential":"<密码>"}]
 ```
+> **不要再并列 `turn:...:3478` 那条 UDP 中继。** `iceTransportPolicy:"relay"` 会从两条中继都收候选，一旦
+> 选中 3478（大陆常被运营商限速的 UDP），通话中途就会「说一半卡住」（下行 RTC 轨不再吐帧、AI 声音僵住）。
+> 只留 443 TLS 把限速路径从候选里彻底拿掉。前端另有兜底：中途链路瞬断(`disconnected`)给 ~4s 自愈机会，
+> 仍不通则自动回退 WS 续上声音（见 `MiCallLogic.onconnectionstatechange`），不再干等到挂断重拨。
 
 **验证（关键，别跳过）**：浏览器开 <https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/>，
 填 `turns:turn.zsky.com:443?transport=tcp` + 用户名 `micall` + 密码，点 **Gather candidates** →
@@ -427,3 +431,40 @@ relay 通后，手机拨号即走真全双工、原生 AEC，回声/自我打断
 
 > iOS 补充：iOS Safari 切后台/锁屏会暂停 WebRTC 音频、AEC 自适应被重置，回前台头一两秒可能有回声——
 > 属系统行为，影响小；如要更稳可在「页面 visibilitychange 回前台」时briefly 静音 AI 半秒让 AEC 重新收敛（后续可加）。
+
+#### 方案③实配：单机 nginx `stream` SNI 分流 443（本项目线上即此方案）
+
+只有一台机（如阿里云轻量 SWAS，单公网 IP、加不了第二 EIP），web 和 coturn 都要 443 → 用 nginx `stream`+
+`ssl_preread` 按 SNI 不解密分流：`turn.zsky.com` → coturn(本地 5349 TLS)，其余 → web(挪到本地 8443)。
+
+```nginx
+# /etc/nginx/nginx.conf 顶层（与 http{} 同级）追加：
+stream {
+    map $ssl_preread_server_name $micall_up {
+        turn.zsky.com  127.0.0.1:5349;   # coturn TLS：直连，不注 PROXY 头（coturn 不认）
+        default        127.0.0.1:9443;   # web：走下面的 PROXY 注入器（不是直指 8443）
+    }
+    server { listen 443; listen [::]:443; ssl_preread on; proxy_pass $micall_up; }
+    # 仅 web 这一支经此 server 注入 PROXY 协议头，好让后端 nginx 还原真实客户端 IP：
+    server { listen 127.0.0.1:9443; proxy_protocol on; proxy_pass 127.0.0.1:8443; }
+}
+```
+对应 coturn 把 TLS 监听挪到 5349（避开 443 给 nginx）：`turnserver.conf` 用 `tls-listening-port=5349`。
+
+web 的两个 server 块（zsky.com / admin.zsky.com）从 `listen 443 ssl` 改为接收 PROXY 头的本地 8443：
+```nginx
+server {
+    listen 127.0.0.1:8443 ssl proxy_protocol;   # 只收 9443 注入器转来的、带 PROXY 头的连接
+    set_real_ip_from 127.0.0.1;                 # 还原真实客户端 IP（否则 $remote_addr 永远是 127.0.0.1）
+    real_ip_header proxy_protocol;              # → X-Real-IP/X-Forwarded-For 带真实 IP → 后端访客额度/限流按真实 IP
+    server_name zsky.com;   # admin 块同理，server_name admin.zsky.com
+    ssl_certificate ...; ssl_certificate_key ...;
+    # location / 等照旧；proxy_set_header X-Real-IP $remote_addr / X-Forwarded-For $proxy_add_x_forwarded_for 不变
+}
+```
+> **为什么要 9443 中转**：`proxy_protocol on` 是 stream server 级开关，若直接加在分流那个 443 server 上，会给
+> coturn(5349) 也注 PROXY 头 → coturn 不认 → TURN 全挂。故 coturn 走 `default→5349` 直连、web 走 `default→9443`
+> 单独注入。**8443 加了 `proxy_protocol` 后，任何直连 8443 的来源都必须带 PROXY 头**（确认无本机健康检查直连 8443）。
+
+验证：`sudo nginx -t && sudo systemctl reload nginx`；trickle-ice 仍出 `relay`（coturn 未受影响）；
+`curl -sI https://zsky.com`=200、`https://admin.zsky.com`=401；后端日志 `⇆ 新连接 <真实IP>` 不再是 127.0.0.1。

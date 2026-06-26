@@ -35,6 +35,10 @@ export interface MiCallProps {
 type State = Record<string, any>;
 type Timer = ReturnType<typeof setTimeout>;
 
+// 中途 RTC 链路瞬断（connectionState=disconnected）后，给 ICE 多久自愈机会再主动回退 WS。
+// 太短：1~2s 小抖动就误拆 RTC（丢硬件 AEC，本通退 WS 半双工）；太长：用户干等死寂会挂断重拨。
+const RTC_DISCONNECT_GRACE_MS = 4000;
+
 interface Char {
   name: string;
   hue: number;
@@ -83,6 +87,7 @@ export class MiCallLogic {
   private pc: RTCPeerConnection | null = null;     // WebRTC 媒体连接（仅 rtc 模式）
   private rtcAudioEl: HTMLAudioElement | null = null;  // 播远端 AI 语音轨（标准 WebRTC 远端音频，浏览器解码 Opus）
   private rtcWatchdog: ReturnType<typeof setTimeout> | null = null;  // 连不通就回退 WS 的看门狗
+  private rtcDiscoTimer: ReturnType<typeof setTimeout> | null = null;  // 中途 disconnected 宽限计时器：到点仍未自愈才回退 WS
   private rtcFellBack = false;                     // 本通是否已回退（防重复回退）
   private _authBusy = false;                        // 登录/注册请求进行中（防快速双击发两次）
 
@@ -811,8 +816,23 @@ export class MiCallLogic {
       };
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
-        if (st === "connected") { if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; } this.goLive(); }
-        else if (st === "failed" || st === "closed") this.rtcFallback();
+        if (st === "connected") {
+          if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
+          if (this.rtcDiscoTimer) { clearTimeout(this.rtcDiscoTimer); this.rtcDiscoTimer = null; }  // 自愈成功 → 撤销宽限回退，保住 RTC（硬件 AEC 全双工）
+          this.goLive();
+        } else if (st === "disconnected") {
+          // 中继瞬断：下行 RTC 轨不再吐帧 → AI 声音僵住。先给 ~4s 宽限让 ICE 自愈（多数瞬断会自己回 connected）；
+          // 到点仍没回来就主动 rtcFallback（发 rtc_close → 后端下行切回 WS，声音续上），而不是干等浏览器默认
+          // 15~30s 才转 failed —— 那段死寂正是「说一半卡住、只能挂断重拨」的来源。
+          if (!this.rtcDiscoTimer) {
+            this.rtcDiscoTimer = setTimeout(() => {
+              this.rtcDiscoTimer = null;
+              if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback();
+            }, RTC_DISCONNECT_GRACE_MS);
+          }
+        } else if (st === "failed" || st === "closed") {
+          this.rtcFallback();
+        }
       };
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -841,6 +861,7 @@ export class MiCallLogic {
 
   private teardownRtc() {
     if (this.rtcWatchdog) { clearTimeout(this.rtcWatchdog); this.rtcWatchdog = null; }
+    if (this.rtcDiscoTimer) { clearTimeout(this.rtcDiscoTimer); this.rtcDiscoTimer = null; }
     if (this.pc) { try { this.pc.onconnectionstatechange = null; this.pc.close(); } catch { /* noop */ } this.pc = null; }
     if (this.rtcAudioEl) { try { this.rtcAudioEl.pause(); this.rtcAudioEl.srcObject = null; this.rtcAudioEl.remove(); } catch { /* noop */ } this.rtcAudioEl = null; }
   }
@@ -994,7 +1015,9 @@ export class MiCallLogic {
       const isUser = m && m.role === "user";
       return {
         text: typeof m === "string" ? m : m.text,   // 兼容旧的纯字符串
-        align: isUser ? "flex-end" : "flex-start",   // 我说的右对齐、TA 说的左对齐
+        align: isUser ? "flex-end" : "flex-start",   // 块靠右/靠左（align-self）
+        // 文字本身也右排：长句换行时末行才会贴右边缘，否则块虽靠右但文字左排 → 看着像没对齐（用户反馈）。
+        textAlign: isUser ? "right" : "left",
         color: isUser ? "#6E5CFF" : (idx === arr.length - 1 ? "var(--fg)" : "var(--dim)"),
       };
     });
