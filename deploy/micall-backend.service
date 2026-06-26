@@ -25,6 +25,8 @@ Environment=PYTHONPATH=/home/admin/micall.ai/backend/src
 #   MICALL_TTS_API_KEY=...   等。文件缺失也不报错（前缀 -）。
 EnvironmentFile=-/home/admin/micall.ai/backend/config/micall.env
 # 用自定位启动脚本，彻底免除 PYTHONPATH/cwd 导致的 No module named 'micall'。
+# ⚠️ 需 Python ≥ 3.11（代码用了 contextlib.aclosing）。/usr/bin/python3 若低于 3.11，
+#    改成具体路径，如 /usr/bin/python3.11（先 `python3.11 --version` 确认已安装）。
 ExecStart=/usr/bin/python3 /home/admin/micall.ai/backend/run_server.py
 Restart=on-failure
 RestartSec=3

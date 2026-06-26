@@ -32,9 +32,9 @@ src/micall/
 
 ## 运行
 
-核心逻辑测试（零依赖，任何环境直接跑）：
+核心逻辑测试（无三方依赖，但需 **Python ≥ 3.11**——用了 `contextlib.aclosing` 等，3.9 会 import 失败）：
 ```bash
-cd backend && python3 -m tests
+cd backend && python3 -m tests   # python3 须为 3.11+
 ```
 
 端到端冒烟（真起 WS 服务器 + 客户端走一遍协议；需 `pip install -r requirements.txt`）：

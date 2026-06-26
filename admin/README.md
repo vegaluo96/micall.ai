@@ -29,10 +29,11 @@ endpoint+key 可配）· 成本与限流 · 权限管理。
 >   `micall-admin`），可被绕过，不要当作真防护。
 
 - **配了 `VITE_API_BASE`（生产）**：登录走后端 `POST /admin/login` 校验、发 token，
-  存 sessionStorage，后续管理 API 带 `Authorization: Bearer`——这才是真鉴权，此时可
-  撤掉 nginx Basic Auth。
+  存 sessionStorage，后续管理 API 带 `Authorization: Bearer`——这才是真鉴权。后端已
+  **fail closed**：必须设强 `MICALL_ADMIN_PASSWORD` + 长随机 `MICALL_ADMIN_TOKEN`，
+  否则 `/admin/login` 返回 503、其余 `/admin/*` 返回 401（见 deploy/README.md）。
 - **没配（本地/演示）**：用 `VITE_ADMIN_PASSWORD` 软门禁（默认账号 `admin` / 密码
-  `luoweijia`，可改）；**线上请保留 nginx Basic Auth**。
+  `micall-admin`，可改），仅本地 dev、可被绕过；**线上请保留 nginx Basic Auth**。
 
 左下角有「退出」浮层按钮；sessionStorage 关页即登出。
 

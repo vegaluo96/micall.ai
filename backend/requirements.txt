@@ -1,7 +1,8 @@
 # MiCall 后端依赖。
 #
-# 骨架的核心逻辑（config/protocol/session/context/memory/emotion/billing）零三方依赖，
-# 单元测试（python3 -m tests）在任何环境直接跑。以下是「运行服务 / 接真实供应商」所需：
+# 运行时要求：Python >= 3.11（代码用了 contextlib.aclosing 等；3.9/3.10 不支持）。
+# 骨架的核心逻辑（config/protocol/session/context/memory/emotion/billing）无三方依赖，
+# 单元测试（python3 -m tests）在 Python 3.11+ 直接跑。以下是「运行服务 / 接真实供应商」所需：
 
 # 信令服务器（WebSocket）。骨架的 server 层用它。
 websockets>=12.0

@@ -21,7 +21,7 @@ assert("starts unauthenticated", isAuthed() === false);
 const bad = await login("admin", "wrong");
 assert("wrong password rejected", bad.ok === false && !isAuthed());
 
-const ok = await login("admin", "luoweijia"); // default VITE_ADMIN_PASSWORD
+const ok = await login("admin", "micall-admin"); // default VITE_ADMIN_PASSWORD（仅本地无后端时的 dev 软门禁）
 assert("default password accepted", ok.ok === true);
 assert("authed after login", isAuthed() === true);
 
