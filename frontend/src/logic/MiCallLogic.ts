@@ -199,6 +199,7 @@ export class MiCallLogic {
     this.loadCharacters();   // 从后端拉角色（含运营新建、剔除已删除）；失败保留内置 5 个
     this.loadInviteReward(); // 后台配置的邀请奖励（公开接口）：登录与否都显示真实值，不再写死 60
     this.loadVoices();       // 真实音色库 + 我已选音色（角色详情「音色」区据此选/试听，账号级生效）
+    this.prewarmSignaling(); // 提前接好信令长连接 → 点拨号即用、开头不卡握手（弱网/大陆→香港尤其明显）
   }
 
   /** 拉真实可选音色库 + 我每个角色的已选音色。失败则库空（音色区只显「原本音色」，不崩）。 */
@@ -542,6 +543,11 @@ export class MiCallLogic {
   }
 
   private ensureSignaling(): SignalingClient {
+    // 预热的连接若闲置被掐断（CLOSING/CLOSED）→ 丢弃重建，避免点拨号把 start_call 发进死连接、拨不出。
+    if (this.sig && this.sig.isDead?.()) {
+      try { this.sig.close(); } catch { /* noop */ }
+      this.sig = null;
+    }
     if (!this.sig) {
       this.sig = createSignaling(
         (ev) => this.onServerEvent(ev),
@@ -550,6 +556,14 @@ export class MiCallLogic {
       );
     }
     return this.sig;
+  }
+
+  /** 预热信令连接：停留在拨号页时就提前把 WebSocket 接好（接通后它持久复用，不随挂断关闭）。点拨号即用
+   *  已建好的长连接，省掉开头的 TCP+TLS+WS 握手卡顿（大陆→香港弱网下尤其明显）。预热失败/闲置被掐也无所谓，
+   *  拨号时 ensureSignaling 会自动重建，绝不影响功能。 */
+  private prewarmSignaling(): void {
+    if (this.usingMockSignaling()) return;   // mock 无需预热
+    try { this.ensureSignaling(); } catch { /* 预热失败：拨号时再建 */ }
   }
 
   /** 通话接通后启动麦克风上行：每帧 PCM 经信令二进制帧发给后端 ASR。 */
@@ -718,9 +732,9 @@ export class MiCallLogic {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       sig.sendRaw?.({ type: "rtc_offer", sdp: offer.sdp });
-      // 看门狗：4.5s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 回退 WS。服务端已去掉境内连不通的
-      // STUN（开场不再卡 ~5s），正常 1~2s 即连上；连不上的快速退回 WS，把"一上来很慢"的尾巴也压短。
-      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 2500);
+      // 看门狗：1.2s 内没连上（对称 NAT / UDP 封 / 没收到 answer）→ 立刻回退 WS。网好时 RTC 通常 <1s 连上；
+      // 连不上的（手机弱网 / 大陆→香港 coturn 慢）早退回 WS，开场那句问候不再卡在 RTC 协商上干等（原 2.5s）。
+      this.rtcWatchdog = setTimeout(() => { if (this.pc && this.pc.connectionState !== "connected") this.rtcFallback(); }, 1200);
     } catch {
       this.rtcFallback();   // 建不起来 → 回退 WS
     }

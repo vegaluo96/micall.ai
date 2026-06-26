@@ -51,6 +51,8 @@ export interface SignalingClient {
   sendAudio(frame: ArrayBufferLike): void;
   /** 发任意 JSON 控制帧（WebRTC 信令 rtc_offer/rtc_ice）。Mock 不支持。 */
   sendRaw?(obj: unknown): void;
+  /** 连接是否已断（CLOSING/CLOSED）。用于预热连接闲置被掐后、拨号前判断是否需要重建。Mock 永不为死。 */
+  isDead?(): boolean;
   close(): void;
 }
 
@@ -110,6 +112,10 @@ class WebSocketSignalingClient implements SignalingClient {
   sendRaw(obj: unknown): void {
     if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(obj));
     else this.queue.push(obj as ClientMessage);   // 入队，open 后随其它控制帧一起发
+  }
+
+  isDead(): boolean {
+    return this.ws.readyState === WebSocket.CLOSING || this.ws.readyState === WebSocket.CLOSED;
   }
 
   close(): void {
