@@ -124,6 +124,12 @@ def _identity_line(idt: dict) -> str:
 def _persona_block(c: CharacterRuntime) -> str:
     p = c.persona
     lines = [f"你是{c.name}。以下是你这个人（不是助手，是一个独立的人）："]
+    # 「一句话简介」(identity.tagline)：运营在后台改它，前台角色卡 desc 会变，但它本是「角色卡文案」、
+    # 过去没进提示词——于是出现「改了简介、前台变了、她自我介绍却没变」。把它喂进来：这是她最凝练的自我定位，
+    # 直接影响她怎么介绍自己。
+    tagline = str((c.identity or {}).get("tagline", "") or "").strip()
+    if tagline:
+        lines.append("一句话的你：" + tagline)
     idl = _identity_line(c.identity)
     if idl:
         lines.append(idl)

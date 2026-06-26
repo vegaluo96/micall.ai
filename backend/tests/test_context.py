@@ -92,6 +92,17 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("2003-09-30", sysmsg)
         self.assertIn("齐肩微卷发", sysmsg)
 
+    def test_tagline_injected_into_persona(self):
+        # 运营在后台改「一句话简介」(identity.tagline)：前台角色卡 desc 会变，但过去它没进提示词，
+        # 于是「改了简介、前台变了、她自我介绍却没变」。简介是她最凝练的自我定位，必须喂进 LLM。
+        char = CharacterRuntime.from_spec({
+            "identity": {"character_id": "x", "name": "苏窈", "tagline": "深夜电台主播，专治失眠"},
+            "persona": {"core_traits": ["温柔"]},
+        })
+        a = ContextAssembler(char)
+        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "介绍下你自己"}])[0]["content"]
+        self.assertIn("深夜电台主播，专治失眠", sysmsg)
+
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]
