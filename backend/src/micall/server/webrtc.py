@@ -146,11 +146,13 @@ class RTCVoiceTransport:
     """一通电话的 WebRTC 媒体面。emit：把 rtc_answer 等控制帧异步发给前端；on_audio：上行 16k PCM
     回调（→ CallSession.push_audio）。下行用 feed_tts(24k PCM)；打断用 flush_tts()。"""
 
-    def __init__(self, emit: Callable[[dict], Awaitable[None]], on_audio: Callable[[bytes], None]) -> None:
+    def __init__(self, emit: Callable[[dict], Awaitable[None]], on_audio: Callable[[bytes], None],
+                 on_connected: "Callable[[bool], None] | None" = None) -> None:
         if not _OK:  # pragma: no cover
             raise RuntimeError(f"aiortc 未安装，WebRTC 不可用：{_IMPORT_ERR!r}")
         self._emit = emit
         self._on_audio = on_audio
+        self._on_connected = on_connected   # 真连上/断开回调（→ 标记全双工硬件 AEC，放开服务端回声判定）
         self.pc = RTCPeerConnection(RTCConfiguration(iceServers=_ice_servers_from_env()))
         self.tts = _TTSTrack()
         self.pc.addTrack(self.tts)
@@ -165,7 +167,14 @@ class RTCVoiceTransport:
 
         @self.pc.on("connectionstatechange")
         async def _on_state():
-            log.info("WebRTC 连接状态 → %s", self.pc.connectionState)
+            st = self.pc.connectionState
+            log.info("WebRTC 连接状态 → %s", st)
+            # 真连上=全双工硬件 AEC 生效；failed/closed=退回 WS。disconnected 可能瞬断后自愈，不翻转（留给后续状态）。
+            if self._on_connected is not None:
+                if st == "connected":
+                    self._on_connected(True)
+                elif st in ("failed", "closed"):
+                    self._on_connected(False)
 
     async def _consume(self, track) -> None:
         """读上行音轨 → 重采样到 16k → 回调喂 ASR。"""

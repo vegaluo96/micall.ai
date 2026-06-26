@@ -316,6 +316,8 @@ class SignalingServer:
                         if rtc is not None:
                             await rtc.close()
                             rtc = None
+                        if session is not None:
+                            session.set_full_duplex(False)   # 退回 WS：恢复严格回声判定（无硬件 AEC）
                         continue
                     if not webrtc.available():
                         await emit({"type": "rtc_unavailable"})   # 后端没装 aiortc → 前端回退 WS
@@ -325,6 +327,8 @@ class SignalingServer:
                             rtc = webrtc.RTCVoiceTransport(
                                 emit=emit,
                                 on_audio=lambda pcm: session.push_audio(pcm) if session else None,
+                                # 真连上(connected)才放开回声判定/降打断门槛；连不上回退 WS 时自动复位（见 _on_state）。
+                                on_connected=lambda ok: session.set_full_duplex(ok) if session else None,
                             )
                         await rtc.handle_offer(d.get("sdp", ""))
                     elif rtc is not None:   # rtc_ice

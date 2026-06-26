@@ -176,6 +176,12 @@ class CallSession:
         self._bargein_min_chars = int(turn.get("bargein_min_chars", 4))
         self._partial_min_chars = int(turn.get("partial_min_chars", 2))
         self._turn_min_chars = int(turn.get("turn_min_chars", 2))
+        # 全双工 RTC（浏览器硬件 AEC）连上后，麦克风不再录到 AI 自己的声音 → 回声从源头没了：
+        #   ① 服务端回声判定可放开（不再把"播放中的真插话"误当回声拦掉）；
+        #   ② 打断门槛可降到 2（"等等/不对/停"这种短插话也即刻生效）。
+        # 仅在 set_full_duplex(True) 期间生效；退回 WS（无 AEC）自动恢复严格判定，绝不让"自言自语"回潮。
+        self._full_duplex_aec = False
+        self._bargein_min_chars_aec = int(turn.get("bargein_min_chars_aec", 2))
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
@@ -247,8 +253,10 @@ class CallSession:
             return False
         said = _norm(self._ai_said)
         if nt in said:
-            return True
-        if now <= self._audio_until:        # 音频还在播：模糊重叠也判回声
+            return True                     # AI 原话被原样转写回来：任何模式都判回声（高置信）
+        if self._full_duplex_aec:
+            return False                    # 硬件 AEC：麦克风听不到 AI，模糊重叠多是真插话 → 不再当回声拦
+        if now <= self._audio_until:        # 无 AEC 且音频还在播：模糊重叠也判回声
             chars = set(nt)
             overlap = sum(1 for ch in chars if ch in said) / len(chars)
             return overlap >= self._echo_overlap
@@ -271,7 +279,9 @@ class CallSession:
                 # （如「林管。」）；AI 不在播时，环境噪声/呼吸也常被误识成一两个字。短文本多是噪声，长文本才像真说话。
                 # 故 partial（回显/预停播）按是否外放分别用较高门槛；final（真触发一轮）保留较低门槛以容纳「好的」等短回复。
                 ai_playing = time.monotonic() <= self._audio_until
-                partial_min = self._bargein_min_chars if ai_playing else self._partial_min_chars
+                # 有硬件 AEC（全双工 RTC）时打断门槛降到 2，短插话即刻生效；无 AEC 沿用稳值（挡回授碎片）。
+                bargein_min = self._bargein_min_chars_aec if self._full_duplex_aec else self._bargein_min_chars
+                partial_min = bargein_min if ai_playing else self._partial_min_chars
                 if not is_final:
                     # 用户开口（实质中间结果）→ 打断：停后端生成 + 让前端停播。
                     # 后端可能已把整句音频发完、状态回 listening 但前端还在播缓冲，故即便不在 speaking
@@ -290,7 +300,7 @@ class CallSession:
                 nt = _norm(t)   # 归一化（去标点/空白）做去重键：「你好」「你好。」「你 好」视为同句，挡住变体重复
                 recent = {k: ts for k, ts in recent.items() if now - ts < 10.0}  # 只看近 10 秒
                 # final 门槛：外放时沿用较高的 bargein 门槛（挡回授碎片触发的假轮次）；不在播时用 turn 门槛（容纳短回复）。
-                final_min = self._bargein_min_chars if ai_playing else self._turn_min_chars
+                final_min = bargein_min if ai_playing else self._turn_min_chars
                 # 最终结果门控：太短（噪声/静音误识别/外放回授碎片）或 10 秒内重复出现的同句（回声/幻听/重判）
                 # → 丢弃，否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
                 if len(nt) < final_min or nt in recent:
@@ -590,6 +600,16 @@ class CallSession:
     def set_scene(self, scene: str) -> None:
         # 切场景：更新喂 LLM 的情境（assembler 下轮读取）；记录标签 self.scenario 不动（统计稳定）。画面不变（固定背景）。
         self.scenario_prompt = scene
+
+    def set_full_duplex(self, on: bool) -> None:
+        """RTC 媒体面连上/断开 → 标记是否处于全双工硬件 AEC。
+        连上(on=True)：浏览器把 AI 音频从麦克风消掉，麦克风听不到 AI 自己 → 放开服务端回声判定、
+        打断门槛降到 2，让外放也能灵敏打断。退回 WS(on=False)：恢复严格判定，防"自言自语"回潮。"""
+        if on != self._full_duplex_aec:
+            log.info("全双工硬件 AEC → %s（回声判定%s，打断门槛=%d）",
+                     "on" if on else "off", "放开" if on else "严格",
+                     self._bargein_min_chars_aec if on else self._bargein_min_chars)
+        self._full_duplex_aec = bool(on)
 
     def cost_breakdown(self) -> list[tuple[str, int, int]]:
         """按整通实际用量×config.cost 估算成本，返回 [(node, units, cost_micros)]（micros=微美元）。
