@@ -231,6 +231,12 @@ class CallSession:
         # ——不放开模糊重叠，否则漏进来的 AI 余音会被当插话「说到一半自我打断」(实测踩坑)。退回 WS 即回门槛 4。
         self._full_duplex_aec = False
         self._bargein_min_chars_aec = int(turn.get("bargein_min_chars_aec", 3))
+        # AEC 热身：RTC 全双工刚连上时，浏览器回声消除的自适应滤波器要 ~1-2s 才收敛；这段里 AI 在外放时
+        # 麦克风录到的多是「没消干净的余音」→ 被识别成错字（开头几句对不上）。故连上后给一个热身窗口：
+        # 窗口内【AI 正在播】时一律丢弃 ASR（不触发回合、不打断、不上字幕），等收敛了再正常全双工。
+        # AI 不在播时用户真说话照常处理（不丢真话）。可在 turn.aec_warmup_s 调。
+        self._aec_warmup_s = float(turn.get("aec_warmup_s", 1.8))
+        self._aec_warmup_until = 0.0
         # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
         self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
@@ -337,6 +343,10 @@ class CallSession:
                 # （如「林管。」）；AI 不在播时，环境噪声/呼吸也常被误识成一两个字。短文本多是噪声，长文本才像真说话。
                 # 故 partial（回显/预停播）按是否外放分别用较高门槛；final（真触发一轮）保留较低门槛以容纳「好的」等短回复。
                 ai_playing = time.monotonic() <= self._audio_until
+                # AEC 热身窗内 + AI 正在播：浏览器回声消除还没收敛，此刻录到的多是没消干净的 AI 余音，
+                # 整条丢弃（不上字幕、不打断、不触发回合）→ 治「一上来几句识别成错字」。AI 不在播时照常处理（不丢真话）。
+                if ai_playing and self._full_duplex_aec and time.monotonic() < self._aec_warmup_until:
+                    continue
                 if ai_playing and _is_laughter(t):
                     continue  # AI 说话时你笑一声/附和（哈哈/嘻嘻）：是捧场不是插话，不打断、不另起一轮，让她说完
                 # 有硬件 AEC（全双工 RTC）时打断门槛降到 2，短插话即刻生效；无 AEC 沿用稳值（挡回授碎片）。
@@ -678,6 +688,9 @@ class CallSession:
             log.info("全双工硬件 AEC → %s（打断门槛=%d，回声判定始终保留防自我打断）",
                      "on" if on else "off",
                      self._bargein_min_chars_aec if on else self._bargein_min_chars)
+            if on:
+                # 刚连上 → 开热身窗：这 ~1.8s 内 AEC 在收敛，AI 在播时录到的余音不靠谱，先不当用户说话。
+                self._aec_warmup_until = time.monotonic() + self._aec_warmup_s
         self._full_duplex_aec = bool(on)
 
     def cost_breakdown(self) -> list[tuple[str, int, int]]:
