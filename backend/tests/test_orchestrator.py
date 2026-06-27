@@ -375,5 +375,28 @@ class TestScenarioPrompt(unittest.TestCase):
         self.assertEqual(s.scenario, "heart")                        # 记录标签不动（统计稳定）
 
 
+class TestInCallWindowAndReplyCap(unittest.TestCase):
+    """通话内滑窗与回复上限：长聊提速（越聊越卡的修复）——窗口由 incall_max_turns 控、可调；回复上限收成语音级。"""
+
+    async def _emit(self, ev):
+        pass
+
+    def test_trim_honors_incall_max_turns(self):
+        s = _make_session(self._emit)
+        s._incall_max_turns = 6                                   # 旋钮可调
+        s.history = [{"role": "user", "content": str(i)} for i in range(50)]
+        s._trim_history()
+        self.assertEqual(len(s.history), 6)                      # 收到窗口大小
+        self.assertEqual(s.history[-1]["content"], "49")        # 保留最近的
+        self.assertEqual(s.history[0]["content"], "44")
+
+    def test_defaults_are_voice_sane(self):
+        # 锁定默认值的「意图」而非具体数字：窗口不再是 30（长聊会卡）、回复上限不再是 2048（会长篇大论）。
+        s = _make_session(self._emit)
+        self.assertLessEqual(s._incall_max_turns, 24)
+        self.assertGreaterEqual(s._incall_max_turns, 2)
+        self.assertLessEqual(s._reply_max_tokens, 600)
+
+
 if __name__ == "__main__":
     unittest.main()

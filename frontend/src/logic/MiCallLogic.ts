@@ -734,7 +734,9 @@ export class MiCallLogic {
       this.sig = createSignaling(
         (ev) => this.onServerEvent(ev),
         // 下行 TTS PCM → 播放。RTC 已连通时 AI 音频走 <audio> 远端轨，这里丢弃 WS 音频，杜绝两路双播/回声。
-        (frame) => { if (this.pc && this.pc.connectionState === "connected") return; this.player.play(frame); },
+        // 挂断/结束后必须丢弃在途音频帧：WS 不随挂断关闭，后端取消生成有几十~上百毫秒延迟，期间已发出的
+        // 帧若仍喂进 player 会被排进抖动缓冲继续播 → 「挂断后角色还把没说完的话说完」。仅在通话存活时收音。
+        (frame) => { if (!this.callActive()) return; if (this.pc && this.pc.connectionState === "connected") return; this.player.play(frame); },
       );
     }
     return this.sig;

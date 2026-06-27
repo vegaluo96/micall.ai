@@ -240,8 +240,12 @@ class CallSession:
         # AI 不在播时用户真说话照常处理（不丢真话）。可在 turn.aec_warmup_s 调。
         self._aec_warmup_s = float(turn.get("aec_warmup_s", 1.8))
         self._aec_warmup_until = 0.0
-        # 安全上限（防跑飞）而非长短控制——长短交给提示里的「一两句」。设得足够高，正常回复绝不触顶被截断。
-        self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 2048))
+        # 安全上限（防跑飞）兼顾不长篇：语音单轮该短，2048 会让模型偶尔长篇大论→越聊越卡。默认 400 留足
+        # 正常回复（1~3 句）余量、只砍异常长篇；想更短/更长改 global_defaults.reply_max_tokens。
+        self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 400))
+        # 通话内历史滑窗条数：长聊时每轮喂快脑的历史越短→首字越快、不越聊越慢。默认 20 条(10 轮)，更久远
+        # 上下文交给 L3 记忆召回兜底。想更连贯调大、想更快调小（global_defaults.incall_max_turns）。
+        self._incall_max_turns = max(2, int(config.global_defaults.get("incall_max_turns", 20)))
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
         # 表现为"一直在思考/突然卡死"。只卡首 token（宽松，不误杀慢而有效的长回复）。
         self._llm_first_token_timeout = float(turn.get("llm_first_token_timeout_s", 8.0))
@@ -811,8 +815,10 @@ class CallSession:
         # 真实：触发离线理解引擎 worker（§3.3）回写事实层 + 更新画像。接入点：
         #   schedule_offline_understanding(self.character_id, user_id, self.history)
 
-    def _trim_history(self, max_turns: int = 30) -> None:
-        # 通话内滑窗。12 条（6 轮）太短，长通话里会忘掉前面聊的 → 越聊越没头绪；放到 30 条（约 15 轮），
-        # 配合 system 前缀缓存，多出的历史多走缓存价，连贯性明显好。assembler 还会按 budget_chars 再裁。
-        if len(self.history) > max_turns:
-            self.history = self.history[-max_turns:]
+    def _trim_history(self, max_turns: int | None = None) -> None:
+        # 通话内滑窗（条数）。太短(12/6 轮)长聊会忘事；太长(30/15 轮)长聊每轮喂快脑的历史越堆越大→首字越慢、
+        # 「越聊越卡」。默认收到 20 条(10 轮)平衡连贯与提速，更久远上下文交给 L3 记忆召回兜底；可经
+        # global_defaults.incall_max_turns 调。assembler 还会按 budget_chars 再裁一道。
+        cap = self._incall_max_turns if max_turns is None else max_turns
+        if len(self.history) > cap:
+            self.history = self.history[-cap:]
