@@ -72,28 +72,6 @@ export function hueFromId(id: string): number {
   return h;
 }
 
-// ── 上行麦克风「静音抑制」（VAD）参数 ──────────────────────────────────────────
-// 背景：上行是【未压缩 16kHz PCM16 = 256kbps】，原来在「聆听」阶段不分有没有人说话、每帧都发。
-// 大陆→香港的不稳定移动上行被这股恒定流灌满 → 上行缓冲膨胀(bufferbloat) → 下行 AI 语音被挤得忽快忽慢
-// (卡卡的) + 心跳 pong 迟到被判死(掉线)。改为只在「真的在说话」时才上行，静音期把带宽降到 ~1/8。
-// 保真三件套：① 预存(preroll)——门一开先补发开口前几帧，不吃第一个字；② 拖尾(hangover)——能量掉下后
-// 继续发一小段真静音，让云端 ASR 据尾静音断句(不被切碎)；③ 保活(keepalive)——长静音仍稀疏漏帧，保持
-// ASR 流与连接热、不超时。
-const MIC_VAD_ON = 0.01;            // RMS(0~1) 开门阈值：高于即判为在说话（保守偏低，宁可多送也不吃字）
-const MIC_VAD_HANGOVER_MS = 1000;   // 能量掉下后仍上行的尾巴(ms)：≥ 云端 ASR 端点静音窗，保证它据真静音断句
-const MIC_VAD_PREROLL = 4;          // 门一开先补发的预存帧数(~340ms)：保住开口的第一个字
-const MIC_VAD_KEEPALIVE_MS = 700;   // 长静音期仍每隔此时长漏一帧保活：ASR 流/连接不掉，带宽却降到 ~1/8
-
-/** 一帧 PCM16 的 RMS 能量（归一化 0~1）。用于上行 VAD：判断这帧是「在说话」还是「静音/底噪」。 */
-function rms16(buf: ArrayBuffer): number {
-  const n = buf.byteLength >> 1;
-  if (!n) return 0;
-  const pcm = new Int16Array(buf, 0, n);
-  let sum = 0;
-  for (let i = 0; i < n; i++) { const s = pcm[i] / 32768; sum += s * s; }
-  return Math.sqrt(sum / n);
-}
-
 export class MiCallLogic {
   props: MiCallProps;
   /** Called by setState to ask the React host to re-render. */
@@ -752,11 +730,6 @@ export class MiCallLogic {
   private startMicUplink() {
     if (this.micCapture || !this.micStream) return;
     const sig = this.ensureSignaling();
-    // 上行静音抑制（VAD）的逐帧状态——闭包私有，随每次起麦重置：
-    let vadOpen = false;                 // 当前是否处在「在说话」区间（含 hangover 尾巴）
-    let hangoverUntil = 0;               // 能量掉下后仍上行到此刻（给 ASR 尾静音断句）
-    let lastSentAt = 0;                  // 上次真正上行的时刻（长静音保活节流用）
-    const preroll: ArrayBuffer[] = [];   // 最近几帧（多为开口前的低能量）：门一开先补发，不吃第一个字
     this.micCapture = new MicCapture(this.micStream, (pcm) => {
       if (this.state.mute) return;                       // 静音：不上行（本地已禁音轨）
       // WS 路径【恒半双工】：AI 在说话期间一律不上行——这条路没有硬件 AEC，全程开麦必把外放的 AI 声音回灌
@@ -765,21 +738,7 @@ export class MiCallLogic {
       // 门控两条都要：① 音频在外放（含 600ms 拖尾，盖喇叭输出延迟）；② AI 这一轮还在进行（thinking/speaking）——
       // 后者堵住「句与句之间音频短暂停顿、playhead 已追上」的缝（那一瞬麦克风若开，正好录到 AI 的话）。
       if (this.player.isPlaying() || this.state.phase === "thinking" || this.state.phase === "speaking") return;
-      // —— 静音抑制：只在真的有人说话时上行，静音期把 256kbps 降到 ~1/8（治不稳定网络下的卡顿/掉线）——
-      const now = performance.now();
-      if (rms16(pcm) >= MIC_VAD_ON) {
-        // 检测到说话：刚从静音转入 → 先补发预存的开口前几帧（保住第一个字），再发本帧。
-        if (!vadOpen) { for (const f of preroll) sig.sendAudio(f); preroll.length = 0; }
-        vadOpen = true;
-        hangoverUntil = now + MIC_VAD_HANGOVER_MS;
-        sig.sendAudio(pcm); lastSentAt = now;
-        return;
-      }
-      // 能量低（静音/底噪）：
-      if (vadOpen && now < hangoverUntil) { sig.sendAudio(pcm); lastSentAt = now; return; }  // hangover 尾巴：续发真静音供 ASR 断句
-      vadOpen = false;
-      preroll.push(pcm); if (preroll.length > MIC_VAD_PREROLL) preroll.shift();               // 维护开口前预存环
-      if (now - lastSentAt >= MIC_VAD_KEEPALIVE_MS) { sig.sendAudio(pcm); lastSentAt = now; } // 长静音稀疏保活
+      sig.sendAudio(pcm);
     });
     try { this.micCapture.start(); } catch { /* 不支持音频采集时静默降级 */ }
   }
