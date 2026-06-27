@@ -152,6 +152,25 @@ class TestSentenceEmotion(unittest.TestCase):
         # 时间形态 [8:30] 仍不误伤（数字开头不当标签）。
         self.assertEqual(clean_for_subtitle("[8:30]该起床了"), "[8:30]该起床了")
 
+    def test_multiline_fullwidth_paren_stage_direction(self):
+        from micall.session.emotion import clean_for_subtitle, clean_for_tts
+        from micall.session.orchestrator import _take_first_sentence
+        # 实测 bug（截图）：「（轻笑了声，身体往后靠了靠，手指在桌上无意识地敲了两下。）莫比乌斯环……有意思。」
+        # 全角括号旁白内含句号 → 旧切句器把它拦腰切成两句、各自括号不配对、漏进字幕/被念。
+        full = "（轻笑了声，身体往后靠了靠，手指在桌上无意识地敲了两下。）莫比乌斯环……有意思。"
+        # ① 切句器括号感知：整段旁白随后面正经话在闭括号后才一起切，旁白不被句号断开。
+        head, rest = _take_first_sentence(full)
+        self.assertEqual(rest, "")
+        self.assertEqual(clean_for_subtitle(head), "莫比乌斯环……有意思。")
+        # ② 整串直接清洗（配对全角旁白）也对。
+        self.assertEqual(clean_for_subtitle(full), "莫比乌斯环……有意思。")
+        # ③ 即便仍被切碎成两半，清洗兜底：未闭合开符删到尾、孤立闭符清掉。
+        self.assertEqual(clean_for_subtitle("（轻笑了声，身体往后靠了靠，手指在桌上无意识地敲了两下。"), "")
+        self.assertEqual(clean_for_subtitle("）莫比乌斯环……有意思。"), "莫比乌斯环……有意思。")
+        self.assertEqual(clean_for_tts("）莫比乌斯环……有意思。"), "莫比乌斯环……有意思。")
+        # ④ 配对全角旁白照常全去（字幕 + TTS）。
+        self.assertEqual(clean_for_subtitle("你好。（停顿）在吗？"), "你好。在吗？")
+
     def test_humanize_text_to_real_sounds(self):
         from micall.session.emotion import humanize_for_tts
         # 正向情绪：文字「哈哈」→ (laughs)（让 TTS 真笑）。

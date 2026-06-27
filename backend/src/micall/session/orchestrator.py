@@ -129,12 +129,30 @@ def _split_sentences(s: str) -> list[str]:
     return out
 
 
+_ACTION_OPEN = "（【"      # 中文舞台说明/旁白的开符（全角）：其内部的句末标点不该切句
+_ACTION_CLOSE = "）】"
+
+
 def _take_first_sentence(buf: str, minlen: int = 6) -> tuple[str, str]:
     """从已生成文本切出第一个完整句子（到句末标点，含连续标点），返回 (句子, 剩余)；无完整句 → ("", buf)。
     用于「首句抢跑」：第一句一成形就立刻合成发声，把首字延迟从「整段 LLM 生成」降到「首句 LLM 生成」。
-    minlen：太短的首句（如「嗯。」「好的。」）并入下一句再抢跑，少一个 TTS 接缝、更丝滑。"""
+    minlen：太短的首句（如「嗯。」「好的。」）并入下一句再抢跑，少一个 TTS 接缝、更丝滑。
+    括号感知：在未闭合的中文旁白/动作（（…）/【…】/*…*）里遇到句末标点不切——否则像
+    「（轻笑了声，…敲了两下。）正经话」会被 。 拦腰切成两句，各自括号不配对、清洗漏掉 → 旁白漏进字幕/被念。"""
+    depth = 0
+    star = False
     for i, ch in enumerate(buf):
-        if ch in _SENTENCE_END:
+        if ch in _ACTION_OPEN:
+            depth += 1
+            continue
+        if ch in _ACTION_CLOSE:
+            if depth > 0:
+                depth -= 1
+            continue
+        if ch == "*":
+            star = not star
+            continue
+        if ch in _SENTENCE_END and depth == 0 and not star:
             j = i + 1
             while j < len(buf) and buf[j] in _SENTENCE_END:
                 j += 1
