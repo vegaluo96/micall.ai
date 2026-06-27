@@ -351,9 +351,11 @@ class CallSession:
                 t = (text or "").strip()
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
-                # 开场白播放期：不再整段丢 ASR（那样你连开场白都打不断）。只挡开场白【自己的回声】
-                # （与开场文本明显重叠=没消干净的回声，用更激进阈值）；你真开口（用词不同）则放行 → 可打断开场白。
-                if self._opening_active and self._looks_like_echo(t, overlap_threshold=self._aec_warmup_echo_overlap):
+                # 开场白播放期：整段丢 ASR（不打断/不触发轮次/不上字幕）。开场白头一两秒 AEC 还没收敛、
+                # 它自己的回声会漏回麦克风被当成「你插话」→ 若不挡死，开场白会被自己的回声切断（实测「讲到嗯/
+                # 第二杯就停」）。这一两秒分不清乱码回声和你的真话，故宁可让开场白完整说完——你想插话等它说完即可
+                # （开场白之后 warmup=0，随时能打断）。这是「AI 绝不自我切断」与「能打断开场白」的取舍，取前者。
+                if self._opening_active:
                     continue
                 if self._looks_like_echo(t):
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
