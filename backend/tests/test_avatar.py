@@ -73,6 +73,13 @@ class TestExtractImage(unittest.TestCase):
             _extract_image({"choices": [{"message": {"content": "sorry, I cannot do that"}}]})
 
 
+class TestShrink(unittest.TestCase):
+    def test_bad_image_returned_as_is(self):
+        # 坏图/非图字节：原样返回，绝不抛错（无 Pillow 时同样原样返回）。
+        from micall.server.characters_admin import _shrink_avatar
+        self.assertEqual(_shrink_avatar(b"not-an-image"), b"not-an-image")
+
+
 class TestImageNode(unittest.TestCase):
     def test_image_node_exists(self):
         # 加了 'image' 到 NODE_KEYS：config.node('image') 不再 KeyError（未配置时为空节点）。

@@ -359,6 +359,21 @@ export async function generateAvatar(id: string): Promise<{ ok: boolean; avatar?
   }
 }
 
+/** 上传图片替代 AI 生成，存为该角色头像。返回 {ok, avatar, error}。 */
+export async function uploadAvatar(id: string, file: Blob): Promise<{ ok: boolean; avatar?: string; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  try {
+    const h = authHeaders();   // 不设 Content-Type：发原始图片字节，后端按 Content-Length 读
+    const r = await fetch(`${b}/admin/upload-avatar?c=${encodeURIComponent(id)}`, { method: "POST", headers: h, credentials: "include", body: file });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d && d.ok) return d;
+    return { ok: false, error: (d && d.error) || ("HTTP " + r.status) };
+  } catch (e: any) {
+    return { ok: false, error: String(e && e.message || e).slice(0, 200) };
+  }
+}
+
 /** 后台头像的同域 URL（admin nginx 反代 /admin/ → adminapi 的 /admin/avatar）。
  *  bust=true 加时间戳强制取最新（生成/重生后预览用）；列表里用 bust=false 的稳定 URL，避免每次渲染都重拉。 */
 export function adminAvatarUrl(cid: string, bust = false): string {

@@ -17,7 +17,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, cloneVoice,
-         generateAvatar, adminAvatarUrl } from "./configService";
+         generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
   [k: string]: unknown;
@@ -596,6 +596,21 @@ export class AdminLogic {
     this.toastMsg("头像已生成");
   }
 
+  /** 上传图片替代 AI 生成 → 存为该角色头像（后端会自动缩放压缩），就地预览。 */
+  async onAvatarPick(file: File) {
+    const d = this.state.detail;
+    if (!d || d.type !== "char") return;
+    if (d.id === "__new__") { this.toastMsg("请先创建并保存角色，再上传头像"); return; }
+    if (this.state.avatarBusy) return;
+    const cid = (this.chars.find((x) => x.id === d.id) as any)?.cid || d.id;
+    this.setState({ avatarBusy: true, avatarStatus: "上传中…" });
+    const res = await uploadAvatar(cid, file);
+    if (!res.ok) { this.setState({ avatarBusy: false, avatarStatus: "上传失败：" + (res.error || "未知错误") }); return; }
+    this.chars.forEach((x) => { if ((x.cid || x.id) === cid) x.has_avatar = true; });
+    this.setState({ avatarBusy: false, avatarStatus: "已上传（全站下一通/刷新即用）", avatarPreview: adminAvatarUrl(cid, true) });
+    this.toastMsg("头像已上传");
+  }
+
   /** 删除当前角色：二次确认后执行（自定义直删 / 出厂隐藏，不可撤销）。 */
   delChar() {
     const d = this.state.detail;
@@ -991,6 +1006,8 @@ export class AdminLogic {
       avatarBtnOpacity: s.avatarBusy ? ".5" : "1",
       avatarStatus: s.avatarStatus || "",
       avatarPreview: s.avatarPreview || "", hasAvatarPreview: !!s.avatarPreview, noAvatarPreview: !s.avatarPreview,
+      avatarPreviewDisplay: s.avatarPreview ? "block" : "none",
+      onAvatarPick: (e: any) => { const f = e.target.files && e.target.files[0]; if (f) this.onAvatarPick(f); },
       avatarIsNew: !!(s.detail && s.detail.id === "__new__"),
       ceBio: (s.charEdit as any).background_story || "", onCeBio: (e: any) => this.setCe("background_story", e.target.value),
       ceGender: (s.charEdit as any).gender || "", onCeGender: (e: any) => this.setCe("gender", e.target.value),

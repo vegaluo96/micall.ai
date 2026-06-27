@@ -588,6 +588,20 @@ class _Handler(BaseHTTPRequestHandler):
             from .avatar_gen import generate_for_character
             res = generate_for_character((self._body().get("id") or "").strip())
             return self._json(200 if res.get("ok") else 400, res)
+        if route == "/admin/upload-avatar":   # 上传图片替代 AI 生成，存为该角色头像（原始字节，绕过 _body 的 JSON 限制）
+            cid = self._query("c")
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            if n <= 0 or n > 15 * 1024 * 1024:
+                return self._json(400, {"ok": False, "error": "图片为空或过大（≤15MB）"})
+            data = self.rfile.read(n)
+            if not cid:
+                return self._json(400, {"ok": False, "error": "缺少角色 id"})
+            try:
+                from .characters_admin import avatar_url, save_avatar
+                save_avatar(cid, data)   # save_avatar 内部会缩放+压缩
+                return self._json(200, {"ok": True, "avatar": avatar_url(cid)})
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if route == "/admin/voice-clone":   # 上传一段人声 → MiniMax 复刻 → 设为指定角色音色
             n = int(self.headers.get("Content-Length", 0) or 0)
             if n <= 0 or n > 20 * 1024 * 1024:   # 原始音频体，绕过 _body 的 256KB/JSON 限制

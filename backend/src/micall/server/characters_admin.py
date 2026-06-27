@@ -398,19 +398,54 @@ def avatar_file(cid: str):
     return AVATARS_DIR / f"{(cid or '').strip()}.png"
 
 
+def _shrink_avatar(data: bytes, max_side: int = 640, quality: int = 85) -> bytes:
+    """把生成的大图（常是 1024px PNG、1–3MB）缩到 ≤640px 并转 JPEG（~50–80KB）。
+    圆圈展示（大球 288 / 列表 ≤96）绰绰有余，体积却降 ~30× → 加载快、且不再和通话音频抢带宽
+    （弱网下大图下载会挤占 WS 音频，是通话卡顿的元凶之一）。无 Pillow 时原样返回，不阻断功能。"""
+    try:
+        import io
+
+        from PIL import Image
+    except Exception:
+        return data
+    try:
+        im = Image.open(io.BytesIO(data)).convert("RGB")   # 转 RGB：JPEG 无 alpha，头像本就不透明
+        w, h = im.size
+        if max(w, h) > max_side:
+            s = max_side / float(max(w, h))
+            im = im.resize((max(1, round(w * s)), max(1, round(h * s))), Image.LANCZOS)
+        out = io.BytesIO()
+        im.save(out, format="JPEG", quality=quality, optimize=True)
+        return out.getvalue()
+    except Exception:
+        return data   # 坏图/解码失败：原样存，绝不因压缩崩掉生成流程
+
+
 def save_avatar(cid: str, data: bytes) -> None:
-    """保存生成的头像（原始字节，统一存为 {cid}.png；下发时按魔数嗅探真实类型）。"""
+    """保存生成的头像：先缩小+转 JPEG（见 _shrink_avatar），再存为 {cid}.png（下发按魔数嗅探真实类型）。"""
     AVATARS_DIR.mkdir(parents=True, exist_ok=True)
-    avatar_file(cid).write_bytes(data)
+    avatar_file(cid).write_bytes(_shrink_avatar(data))
 
 
 def load_avatar(cid: str) -> bytes | None:
-    """读取该角色头像字节；无则 None。"""
+    """读取该角色头像字节；无则 None。存量大图（压缩功能上线前生成的 1–3MB PNG）首次取用时
+    懒压缩并回写，之后即小图——无需重新生成即可享受加载提速。"""
     p = avatar_file(cid)
     try:
-        return p.read_bytes() if p.exists() else None
+        if not p.exists():
+            return None
+        data = p.read_bytes()
     except OSError:
         return None
+    if len(data) > 200_000:   # 仅对大图触发；压缩成功且确实更小才回写（只发生一次）
+        small = _shrink_avatar(data)
+        if 0 < len(small) < len(data):
+            try:
+                p.write_bytes(small)
+            except OSError:
+                pass
+            return small
+    return data
 
 
 def avatar_url(cid: str) -> str:

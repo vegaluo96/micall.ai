@@ -826,7 +826,7 @@
               <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
               </div>
-              <div style="width:42px;height:42px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};box-shadow:0 4px 10px rgba(0,0,0,.14);"></div>
+              <div style="width:42px;height:42px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.14);"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};"></div><img src="{{ h.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ h.avatarDisplay }};background:#0b0b11;" /></div>
               <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
                 <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ h.name }}</span>
                 <span style="font-size:12.5px;color:var(--faint);">{{ h.when }}</span>
@@ -1096,7 +1096,7 @@
           <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
           </div>
-          <div style="width:38px;height:38px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};"></div>
+          <div style="width:38px;height:38px;border-radius:50%;flex:none;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 46%,#FF4FA0 100%);filter:{{ h.hueFilter }};"></div><img src="{{ h.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ h.avatarDisplay }};background:#0b0b11;" /></div>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
             <span style="font-size:15px;font-weight:500;">{{ h.name }}</span>
             <span style="font-size:12px;color:rgba(0,0,0,.4);">{{ h.when }}</span>

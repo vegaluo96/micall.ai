@@ -466,7 +466,7 @@ export class MiCallLogic {
     if (!calls) { this.realHistory = []; this.notify(); return; }
     this.realHistory = calls.map((c, i) => {
       const idx = this.idxForCharId(c.character_id), ch = this.chars[idx];
-      return { id: c.id != null ? c.id : (i + 1), name: ch?.name || "TA", hue: ch?.hue ?? 0, idx, sceneKey: c.scenario || "chat",
+      return { id: c.id != null ? c.id : (i + 1), name: ch?.name || "TA", hue: ch?.hue ?? 0, avatar: ch?.avatar || "", idx, sceneKey: c.scenario || "chat",
                scene: this.sceneNameOf(c.scenario), dur: this.fmtDur(c.duration_seconds || 0),
                when: this.fmtWhen(c.started_at) };
     });
@@ -1441,6 +1441,7 @@ export class MiCallLogic {
         return (this.realHistory ?? this.history).map((h) => {
           const picked = sel.includes(h.id);
           return { name: h.name, scene: h.scene, dur: h.dur, when: h.when, hueFilter: `hue-rotate(${h.hue}deg)`,
+            avatar: h.avatar || "", avatarDisplay: h.avatar ? "block" : "none",
             selDisplay: selMode ? "flex" : "none", picked,
             checkOpacity: picked ? 1 : 0, checkBg: picked ? "#6E5CFF" : "transparent", checkBorder: picked ? "#6E5CFF" : "var(--faint)",
             pick: () => { if (this.state.histSelMode) this.toggleHistSel(h.id); else this.switchTo(h.idx, h.sceneKey); } };
