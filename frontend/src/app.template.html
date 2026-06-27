@@ -164,11 +164,11 @@
             </div>
           </sc-if>
           <sc-if value="{{ showUnderOrb }}" hint-placeholder-val="{{ false }}">
-            <div style="font-size:18px;font-weight:400;color:var(--fg);letter-spacing:.4px;text-align:center;max-width:300px;line-height:1.45;opacity:{{ underOpacity }};transition:opacity .55s cubic-bezier(.25,.46,.45,.94);">{{ underOrb }}</div>
+            <div style="font-size:18px;font-weight:400;color:var(--fg);letter-spacing:-.3px;text-align:center;max-width:300px;line-height:1.45;opacity:{{ underOpacity }};transition:opacity .55s cubic-bezier(.25,.46,.45,.94);">{{ underOrb }}</div>
           </sc-if>
           <sc-if value="{{ phaseCalling }}" hint-placeholder-val="{{ false }}">
             <div style="display:inline-flex;align-items:center;gap:6px;font-size:18px;font-weight:400;color:var(--fg);letter-spacing:.4px;">
-              <span style="opacity:.85;">正在为你接通</span>
+              <span style="opacity:.85;letter-spacing:-.2px;">正在为你接通</span>
               <span style="display:inline-flex;align-items:flex-end;gap:5px;padding-bottom:2px;">
                 <span style="width:6px;height:6px;border-radius:50%;background:currentColor;animation:dotPulse 1.3s ease-in-out infinite;"></span>
                 <span style="width:6px;height:6px;border-radius:50%;background:currentColor;animation:dotPulse 1.3s ease-in-out .18s infinite;"></span>
@@ -242,13 +242,13 @@
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">文字</span>
               </div>
               <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div onClick="{{ moreToggle }}" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.9)">
+                <div onClick="{{ moreToggle }}" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
                 </div>
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">更多</span>
               </div>
             </div>
-            <div onClick="{{ actionTap }}" style="width:70px;height:70px;border-radius:50%;background:#F2554E;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(242,85,78,.40);transition:transform .18s ease;" style-active="transform:scale(.93)">
+            <div onClick="{{ actionTap }}" style="width:70px;height:70px;border-radius:50%;background:#F2554E;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 12px 28px rgba(242,85,78,.40);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.93)">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" style="transform:rotate(135deg);"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.21z"/></svg>
             </div>
           </div>
@@ -258,7 +258,7 @@
             <sc-if value="{{ notRated }}" hint-placeholder-val="{{ true }}">
             <div style="display:flex;gap:13px;">
               <sc-for list="{{ stars }}" as="s" hint-placeholder-count="5">
-                <div onClick="{{ s.set }}" style="cursor:pointer;line-height:0;" style-active="transform:scale(.85)">
+                <div onClick="{{ s.set }}" style="cursor:pointer;line-height:0;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.85)">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="{{ s.fill }}" style="transition:fill .25s ease;"><path d="M12 2l2.9 6.26 6.85.7-5.12 4.57 1.43 6.74L12 17.77 6.94 20.27l1.43-6.74L3.25 8.96l6.85-.7z"/></svg>
                 </div>
               </sc-for>
@@ -274,7 +274,7 @@
             </sc-if>
             <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:2px;">
               <sc-if value="{{ rated }}" hint-placeholder-val="{{ false }}">
-                <div onClick="{{ finishRating }}" style="font-size:15px;font-weight:600;letter-spacing:.5px;color:#2E7BFF;background:rgba(46,123,255,.10);cursor:pointer;padding:10px 46px;border-radius:16px;transition:transform .15s ease;" style-active="transform:scale(.96)">完成</div>
+                <div onClick="{{ finishRating }}" style="font-size:15px;font-weight:600;letter-spacing:.5px;color:#2E7BFF;background:rgba(46,123,255,.10);cursor:pointer;padding:10px 46px;border-radius:16px;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">完成</div>
               </sc-if>
               <sc-if value="{{ notRated }}" hint-placeholder-val="{{ true }}">
                 <div onClick="{{ finishRating }}" style="font-size:14px;color:var(--dim);cursor:pointer;padding:10px 20px;">跳过</div>
@@ -286,7 +286,7 @@
 
       <sc-if value="{{ favOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ favClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.22);backdrop-filter:blur(9px) saturate(1.08);-webkit-backdrop-filter:blur(9px) saturate(1.08);z-index:10;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;"></div>
           <div style="padding:6px 14px 10px;font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;">我的收藏</div>
           <sc-if value="{{ hasFavs }}" hint-placeholder-val="{{ true }}">
@@ -295,7 +295,7 @@
                 <div style="width:40px;height:40px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.14);"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
                 <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                   <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ c.name }}</span>
-                  <span style="font-size:12.5px;color:var(--dim);">{{ c.desc }}</span>
+                  <span style="font-size:12.5px;color:var(--faint);">{{ c.desc }}</span>
                 </div>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF4F7B" stroke="#FF4F7B" stroke-width="1.8" style="flex:none;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
               </div>
@@ -315,16 +315,16 @@
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h12l2 2v18l-3-2-3 2-3-2-3 2V4z"/><line x1="8" y1="8" x2="14" y2="8"/><line x1="8" y1="12" x2="14" y2="12"/></svg>
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">账单</span>
           </div>
-          <div onClick="{{ inviteFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+          <div onClick="{{ inviteFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:14px;cursor:pointer;">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">邀请好友</span>
           </div>
-          <div onClick="{{ themeToggle }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+          <div onClick="{{ themeToggle }}" style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:14px;cursor:pointer;">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">深色模式</span>
             <span style="font-size:13px;color:var(--dim);">{{ themeLabel }}</span>
           </div>
-          <div onClick="{{ contactFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:14px;cursor:pointer;">
+          <div onClick="{{ contactFromMenu }}" style="display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:14px;cursor:pointer;">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
             <span style="flex:1;font-size:15px;font-weight:500;color:var(--fg);">联系我们</span>
           </div>
@@ -353,11 +353,11 @@
 
       <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ langClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">语言</div>
           <sc-for list="{{ langs }}" as="lg" hint-placeholder-count="6">
-            <div onClick="{{ lg.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:18px;cursor:pointer;background:{{ lg.bg }};border:{{ lg.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+            <div onClick="{{ lg.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:18px;cursor:pointer;background:{{ lg.bg }};border:{{ lg.border }};transition:all .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">
               <div style="width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:none;font-size:28px;">{{ lg.flag }}</div>
               <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                 <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ lg.name }}</span>
@@ -371,11 +371,11 @@
 
       <sc-if value="{{ autoHangupOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ autoHangupClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;">自动挂断</div>
           <sc-for list="{{ autoHangupOpts }}" as="ah" hint-placeholder-count="6">
-            <div onClick="{{ ah.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:8px;border-radius:16px;cursor:pointer;background:{{ ah.bg }};border:{{ ah.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+            <div onClick="{{ ah.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 16px;margin-bottom:8px;border-radius:16px;cursor:pointer;background:{{ ah.bg }};border:{{ ah.border }};transition:all .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">
               <span style="flex:1;font-size:16px;font-weight:500;color:{{ ah.color }};letter-spacing:.2px;">{{ ah.name }}</span>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ ah.check }};"><path d="M5 13l4 4L19 7"/></svg>
             </div>
@@ -386,17 +386,17 @@
       <!-- 状态：TA 当下的心情/近况/精力 -->
       <sc-if value="{{ statusOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ closeStatus }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:16px;">{{ statusView.name }} 现在</div>
           <sc-if value="{{ statusView.loading }}" hint-placeholder-val="{{ false }}">
             <div style="text-align:center;color:var(--faint);padding:22px 0;font-size:14px;">读取中…</div>
           </sc-if>
           <sc-if value="{{ statusView.empty }}" hint-placeholder-val="{{ false }}">
-            <div style="text-align:center;color:var(--dim);padding:18px 10px 8px;font-size:14.5px;line-height:1.7;">{{ statusView.emptyText }}</div>
+            <div style="text-align:center;color:var(--faint);padding:18px 10px 8px;font-size:14.5px;line-height:1.7;">{{ statusView.emptyText }}</div>
           </sc-if>
           <sc-for list="{{ statusView.items }}" as="it" hint-placeholder-count="3">
-            <div style="padding:12px 16px;margin-bottom:9px;border-radius:16px;background:var(--ctrl);">
+            <div style="padding:12px 16px;margin-bottom:8px;border-radius:16px;background:var(--ctrl);">
               <div style="font-size:12px;color:var(--faint);margin-bottom:4px;">{{ it.label }}</div>
               <div style="font-size:15px;font-weight:500;color:var(--fg);line-height:1.6;">{{ it.value }}</div>
             </div>
@@ -407,7 +407,7 @@
       <!-- 回忆：你和这个角色之间的关系/聊过的事 -->
       <sc-if value="{{ memoryOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ closeMemory }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:16px;">和 {{ memoryView.name }} 的回忆</div>
           <sc-if value="{{ memoryView.loading }}" hint-placeholder-val="{{ false }}">
@@ -417,7 +417,7 @@
             <div style="text-align:center;color:var(--dim);padding:18px 10px 8px;font-size:14.5px;line-height:1.7;">{{ memoryView.emptyText }}</div>
           </sc-if>
           <sc-for list="{{ memoryView.items }}" as="it" hint-placeholder-count="3">
-            <div style="padding:12px 16px;margin-bottom:9px;border-radius:16px;background:var(--ctrl);">
+            <div style="padding:12px 16px;margin-bottom:8px;border-radius:16px;background:var(--ctrl);">
               <div style="font-size:12px;color:var(--faint);margin-bottom:4px;">{{ it.label }}</div>
               <div style="font-size:15px;font-weight:500;color:var(--fg);line-height:1.6;">{{ it.value }}</div>
             </div>
@@ -425,7 +425,7 @@
           <sc-if value="{{ memoryView.hasFacts }}" hint-placeholder-val="{{ false }}">
             <div style="font-size:12px;color:var(--faint);margin:14px 2px 8px;letter-spacing:.3px;">她还记得的一些事</div>
             <sc-for list="{{ memoryView.facts }}" as="f" hint-placeholder-count="3">
-              <div style="padding:10px 15px;margin-bottom:7px;border-radius:14px;background:var(--ctrl);font-size:14px;color:var(--fg);line-height:1.6;">{{ f }}</div>
+              <div style="padding:10px 15px;margin-bottom:8px;border-radius:14px;background:var(--ctrl);font-size:14px;color:var(--fg);line-height:1.6;">{{ f }}</div>
             </sc-for>
           </sc-if>
         </div>
@@ -433,38 +433,38 @@
 
       <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ settingsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.2px;text-align:center;padding-bottom:14px;">设置</div>
           <div style="display:flex;flex-direction:column;gap:2px;">
-            <div onClick="{{ autoHangupOpenSheet }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+            <div onClick="{{ autoHangupOpenSheet }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">自动挂断</span>
               <span style="font-size:13px;color:var(--dim);">{{ autoHangupLabel }}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
-            <div onClick="{{ langFromSettings }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+            <div onClick="{{ langFromSettings }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">语言</span>
               <span style="font-size:13px;color:var(--dim);">{{ langCurrent }}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
-            <div onClick="{{ resetPassword }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+            <div onClick="{{ resetPassword }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">修改密码</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
-            <div onClick="{{ cancelSub }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+            <div onClick="{{ cancelSub }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><rect x="2" y="5" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">取消订阅</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
-            <div onClick="{{ openPrivacy }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;" style-active="opacity:.6">
+            <div onClick="{{ openPrivacy }}" style="display:flex;align-items:center;gap:13px;padding:13px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">隐私政策与用户协议</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
-            <div onClick="{{ settingsClose }}" style="display:flex;align-items:center;gap:13px;padding:14px 6px;cursor:pointer;border-top:1px solid var(--line);margin-top:6px;">
+            <div onClick="{{ settingsClose }}" style="display:flex;align-items:center;gap:13px;padding:14px 6px;cursor:pointer;border-top:1px solid var(--line);margin-top:8px;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">关于 MiCall.ai</span>
               <span style="font-size:13px;color:var(--faint);">v1.0.0</span>
@@ -475,7 +475,7 @@
 
       <sc-if value="{{ charDetailOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ charDetailClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.24);backdrop-filter:blur(9px) saturate(1.08);-webkit-backdrop-filter:blur(9px) saturate(1.08);z-index:10;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 6px;flex:none;"></div>
           <div style="flex:none;padding:0 20px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;">
               <div style="width:96px;height:96px;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.18);"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ charDetail.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ charDetail.avatarDisplay }};background:#0b0b11;" /></div>
@@ -491,12 +491,12 @@
               </div>
             </div>
           <div style="flex:none;height:1px;background:var(--line);margin:0 20px;"></div>
-          <div onClick="{{ charDetail.favToggle }}" style="position:absolute;top:18px;right:20px;z-index:2;line-height:0;cursor:pointer;padding:6px;" style-active="transform:scale(.85)">
+          <div onClick="{{ charDetail.favToggle }}" style="position:absolute;top:18px;right:20px;z-index:2;line-height:0;cursor:pointer;padding:6px;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.85)">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="{{ charDetail.favFill }}" stroke="{{ charDetail.favStroke }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="transition:all .2s ease;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
           </div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 20px 28px;">
             <div style="padding-top:10px;">
-              <div onClick="{{ charDetail.previewVoice }}" style="display:flex;align-items:center;gap:12px;cursor:pointer;" style-active="transform:scale(.99)">
+              <div onClick="{{ charDetail.previewVoice }}" style="display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.99)">
                 <div style="width:40px;height:40px;border-radius:50%;background:rgba(110,92,255,.12);display:flex;align-items:center;justify-content:center;flex:none;">
                   <sc-if value="{{ charDetail.previewing }}" hint-placeholder-val="{{ false }}">
                     <span style="display:inline-flex;align-items:flex-end;gap:2px;height:14px;">
@@ -511,7 +511,7 @@
                 </div>
                 <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                   <span style="font-size:15px;color:var(--fg);">TA 的原声</span>
-                  <span style="font-size:12px;color:var(--faint);">{{ charDetail.previewLabel }}</span>
+                  <span style="font-size:12px;color:var(--dim);">{{ charDetail.previewLabel }}</span>
                 </div>
               </div>
             </div>
@@ -519,22 +519,22 @@
             <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
               <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">音色 · 描述你想要的声音</div>
               <!-- 自定义音色：一句话描述 → LLM 在免费音色库里匹配一个，不用翻一长串列表 -->
-              <div style="display:flex;gap:8px;">
+              <div style="display:flex;gap:10px;">
                 <input value="{{ charDetail.voiceDesc }}" onInput="{{ charDetail.onVoiceDesc }}" placeholder="如：温柔的成熟女声 / 低沉磁性的大叔" style="flex:1;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:13px;padding:10px 14px;font-size:13.5px;font-family:inherit;color:var(--fg);outline:none;background:var(--ctrl);" />
                 <div onClick="{{ charDetail.doMatchVoice }}" style="flex:none;display:inline-flex;align-items:center;font-size:13.5px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:13px;padding:0 16px;cursor:pointer;white-space:nowrap;" style-active="transform:scale(.97)">{{ charDetail.matchLabel }}</div>
               </div>
               <sc-if value="{{ charDetail.hasVoiceMatch }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px 14px;border-radius:13px;background:rgba(110,92,255,.1);">
                   <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:#6E5CFF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">为你匹配到：{{ charDetail.voiceMatchName }}</span>
-                  <div onClick="{{ charDetail.replayMatch }}" style="flex:none;font-size:12.5px;font-weight:600;color:#6E5CFF;cursor:pointer;padding:5px 10px;border-radius:10px;background:rgba(110,92,255,.12);" style-active="transform:scale(.96)">再听</div>
-                  <div onClick="{{ charDetail.useMatchedVoice }}" style="flex:none;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;padding:5px 12px;border-radius:10px;background:#6E5CFF;" style-active="transform:scale(.96)">用这个</div>
+                  <div onClick="{{ charDetail.replayMatch }}" style="flex:none;font-size:12.5px;font-weight:600;color:#6E5CFF;cursor:pointer;padding:5px 10px;border-radius:10px;background:rgba(110,92,255,.12);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">再听</div>
+                  <div onClick="{{ charDetail.useMatchedVoice }}" style="flex:none;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;padding:5px 12px;border-radius:10px;background:#6E5CFF;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">用这个</div>
                 </div>
               </sc-if>
               <div onClick="{{ charDetail.toggleVoiceList }}" style="margin-top:12px;font-size:12.5px;font-weight:500;color:var(--faint);cursor:pointer;" style-active="opacity:.7">{{ charDetail.voiceListLabel }} ›</div>
               <sc-if value="{{ charDetail.voiceListOpen }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
                   <sc-for list="{{ charDetail.voiceChips }}" as="vc" hint-placeholder-count="2">
-                    <div onClick="{{ vc.pick }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:8px 13px;border-radius:13px;cursor:pointer;background:{{ vc.bg }};color:{{ vc.color }};transition:all .2s ease;max-width:100%;box-sizing:border-box;" style-active="transform:scale(.96)">
+                    <div onClick="{{ vc.pick }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:8px 13px;border-radius:13px;cursor:pointer;background:{{ vc.bg }};color:{{ vc.color }};transition:all .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);max-width:100%;box-sizing:border-box;" style-active="transform:scale(.96)">
                       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ vc.name }}</span>
                     </div>
                   </sc-for>
@@ -612,11 +612,11 @@
 
       <sc-if value="{{ charOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ charClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:4px 8px 14px;">
             <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择角色</div>
-            <div style="display:flex;gap:3px;padding:3px;border-radius:11px;background:var(--ctrl);">
+            <div style="display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--ctrl);">
               <div onClick="{{ charTabRec }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ charTabRecBg }};color:{{ charTabRecColor }};box-shadow:{{ charTabRecShadow }};transition:all .2s ease;">推荐</div>
               <div onClick="{{ charTabHot }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ charTabHotBg }};color:{{ charTabHotColor }};box-shadow:{{ charTabHotShadow }};transition:all .2s ease;">热门</div>
               <div onClick="{{ charTabFav }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ charTabFavBg }};color:{{ charTabFavColor }};box-shadow:{{ charTabFavShadow }};transition:all .2s ease;">收藏</div>
@@ -628,11 +628,11 @@
           </div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <sc-for list="{{ charList }}" as="c" hint-placeholder-count="6">
-            <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:18px;cursor:pointer;background:{{ c.bg }};border:{{ c.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
+            <div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:10px;border-radius:16px;cursor:pointer;background:{{ c.bg }};border:{{ c.border }};transition:all .2s ease;" style-active="transform:scale(.98)">
               <div style="width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.12);"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ c.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ c.avatarDisplay }};background:#0b0b11;" /></div>
               <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                 <span style="font-size:16px;font-weight:500;color:var(--fg);letter-spacing:.2px;display:inline-flex;align-items:center;gap:6px;">{{ c.name }}<svg width="13" height="13" viewBox="0 0 24 24" fill="#FF4F7B" stroke="#FF4F7B" stroke-width="1.8" style="opacity:{{ c.favOp }};"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
-                <span style="font-size:12.5px;color:var(--dim);">{{ c.desc }}</span>
+                <span style="font-size:12.5px;color:var(--faint);">{{ c.desc }}</span>
               </div>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#33C376" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:{{ c.check }};"><path d="M5 13l4 4L19 7"/></svg>
             </div>
@@ -646,11 +646,11 @@
 
       <sc-if value="{{ scenarioOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ scenarioClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;flex:none;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:4px 8px 14px;flex:none;">
             <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择场景</div>
-            <div style="display:flex;gap:3px;padding:3px;border-radius:11px;background:var(--ctrl);">
+            <div style="display:flex;gap:2px;padding:3px;border-radius:11px;background:var(--ctrl);">
               <div onClick="{{ sceneTabRec }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ sceneTabRecBg }};color:{{ sceneTabRecColor }};box-shadow:{{ sceneTabRecShadow }};transition:all .2s ease;">推荐</div>
               <div onClick="{{ sceneTabHot }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ sceneTabHotBg }};color:{{ sceneTabHotColor }};box-shadow:{{ sceneTabHotShadow }};transition:all .2s ease;">热门</div>
               <div onClick="{{ sceneTabFav }}" style="font-size:13px;font-weight:500;padding:6px 18px;border-radius:9px;cursor:pointer;background:{{ sceneTabFavBg }};color:{{ sceneTabFavColor }};box-shadow:{{ sceneTabFavShadow }};transition:all .2s ease;">自定义</div>
@@ -661,16 +661,16 @@
             <textarea value="{{ customSceneText }}" onInput="{{ onCustomScene }}" placeholder="描述你想聊的场景，TA 会照着和你聊…" style="width:100%;box-sizing:border-box;min-height:72px;resize:none;border:none;outline:none;background:var(--ctrl);border-radius:16px;padding:14px 16px;font-size:15px;line-height:1.6;color:var(--fg);font-family:inherit;"></textarea>
             <div onClick="{{ applyCustomScene }}" style="margin-top:12px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:13px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">应用场景</div>
             <div style="font-size:12px;color:var(--faint);letter-spacing:1px;padding:18px 2px 10px;">试试这些</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
               <sc-for list="{{ customSuggestions }}" as="s" hint-placeholder-count="4">
-                <div onClick="{{ s.pick }}" style="font-size:13px;color:var(--fg);padding:8px 13px;border-radius:13px;border:1px solid var(--line);cursor:pointer;" style-active="transform:scale(.96)">{{ s.text }}</div>
+                <div onClick="{{ s.pick }}" style="font-size:13px;color:var(--fg);padding:8px 13px;border-radius:13px;border:1px solid var(--line);cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">{{ s.text }}</div>
               </sc-for>
             </div>
             <sc-if value="{{ hasCustomHistory }}" hint-placeholder-val="{{ true }}">
               <div style="font-size:12px;color:var(--faint);letter-spacing:1px;padding:20px 2px 10px;">最近使用</div>
               <div style="display:flex;flex-direction:column;">
                 <sc-for list="{{ customHistory }}" as="h" hint-placeholder-count="3">
-                  <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:11px;padding:12px 2px;cursor:pointer;" style-active="transform:scale(.99)">
+                  <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:11px;padding:12px 2px;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.99)">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3.5 2"/></svg>
                     <span style="flex:1;min-width:0;font-size:14.5px;color:var(--fg);">{{ h.text }}</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
@@ -699,10 +699,10 @@
 
       <sc-if value="{{ billsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ billsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 22px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 22px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;flex:none;">账单</div>
-          <div style="flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:20px;border-radius:20px;background:rgba(110,92,255,.08);border:1px solid var(--line);margin-bottom:22px;">
+          <div style="flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px;border-radius:20px;background:rgba(110,92,255,.08);border:1px solid var(--line);margin-bottom:22px;">
             <div style="display:flex;flex-direction:column;gap:7px;">
               <span style="font-size:13px;color:var(--dim);letter-spacing:.5px;">账户余额</span>
               <div style="display:flex;align-items:baseline;gap:6px;">
@@ -710,7 +710,7 @@
                 <span style="font-size:15px;color:var(--dim);">分钟剩余</span>
               </div>
             </div>
-            <div onClick="{{ billsToRecharge }}" style="font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 22px;border-radius:13px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.3);" style-active="transform:scale(.96)">充值</div>
+            <div onClick="{{ billsToRecharge }}" style="font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 22px;border-radius:13px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">充值</div>
           </div>
           <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding:0 4px 10px;flex:none;">交易记录</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
@@ -721,9 +721,9 @@
                 </div>
                 <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
                   <span style="font-size:15px;font-weight:500;color:var(--fg);letter-spacing:.2px;">{{ b.title }}</span>
-                  <span style="font-size:12px;color:var(--faint);">{{ b.date }}</span>
+                  <span style="font-size:12px;color:var(--dim);">{{ b.date }}</span>
                 </div>
-                <span style="font-size:14px;font-weight:600;color:{{ b.minsColor }};font-variant-numeric:tabular-nums;letter-spacing:.1px;flex:none;">{{ b.mins }}</span>
+                <span style="font-size:14px;font-weight:600;color:{{ b.minsColor }};font-variant-numeric:tabular-nums;letter-spacing:.1px;flex:none;display:inline-block;min-width:2.4em;text-align:right;">{{ b.mins }}</span>
               </div>
             </sc-for>
           </div>
@@ -732,7 +732,7 @@
 
       <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ inviteClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 28px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 28px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
             <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,#FF8FA8,#9277F5);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(146,119,245,.3);">
@@ -742,9 +742,9 @@
             <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">每邀请一位好友,双方各得 <span style="color:#6E5CFF;font-weight:600;">{{ inviteRewardMin }} 分钟</span> 通话时长</div>
             <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;padding:13px 16px;border-radius:15px;background:var(--ctrl);box-sizing:border-box;">
               <span style="flex:1;font-size:16px;font-weight:600;color:var(--fg);letter-spacing:2px;">{{ inviteCode }}</span>
-              <div onClick="{{ copyInvite }}" style="font-size:13px;font-weight:600;color:#6E5CFF;cursor:pointer;" style-active="transform:scale(.95)">复制</div>
+              <div onClick="{{ copyInvite }}" style="font-size:13px;font-weight:600;color:#6E5CFF;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.95)">复制</div>
             </div>
-            <div onClick="{{ shareInvite }}" style="width:100%;box-sizing:border-box;text-align:center;margin-top:6px;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">分享给好友</div>
+            <div onClick="{{ shareInvite }}" style="width:100%;box-sizing:border-box;text-align:center;margin-top:6px;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">分享给好友</div>
             <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:18px;">
               <span style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;">邀请记录</span>
               <span style="font-size:12.5px;color:var(--dim);">已成功 {{ inviteCount }} 位</span>
@@ -755,7 +755,7 @@
                   <div style="width:36px;height:36px;border-radius:50%;flex:none;background:linear-gradient(145deg,#FF8FA8,#9277F5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:600;">{{ iv.initial }}</div>
                   <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                     <span style="font-size:14.5px;font-weight:500;color:var(--fg);">{{ iv.name }}</span>
-                    <span style="font-size:12px;color:{{ iv.statusColor }};">{{ iv.status }} · {{ iv.date }}</span>
+                    <span style="font-size:12px;color:var(--dim);">{{ iv.status }} · {{ iv.date }}</span>
                   </div>
                   <span style="font-size:13.5px;font-weight:600;color:{{ iv.rewardColor }};flex:none;">{{ iv.reward }}</span>
                 </div>
@@ -767,7 +767,7 @@
 
       <sc-if value="{{ rechargeOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ rechargeClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 0;display:flex;flex-direction:column;max-height:82%;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 0;display:flex;flex-direction:column;max-height:82%;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;flex:none;margin-bottom:10px;">充值</div>
           <!-- 会员套餐：可滚动区 -->
@@ -785,7 +785,7 @@
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;width:100%;margin-top:2px;">
               <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
-                <div onClick="{{ p.pick }}" style="display:flex;align-items:center;gap:13px;padding:14px 15px;border-radius:18px;cursor:pointer;background:var(--ctrl);" style-active="transform:scale(.98)">
+                <div onClick="{{ p.pick }}" style="display:flex;align-items:center;gap:13px;padding:14px 15px;border-radius:18px;cursor:pointer;background:var(--ctrl);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">
                   <div style="width:46px;height:46px;border-radius:13px;background:{{ p.tile }};display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 10px rgba(0,0,0,.12);">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ p.iconPath }}"/></svg>
                   </div>
@@ -804,8 +804,8 @@
           <!-- 兑换码：固定底部（当前充值方式）。底距由本块负责（外层 sheet 在移动端被强制 padding-bottom:0）。 -->
           <div style="flex:none;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;padding-bottom:calc(16px + env(safe-area-inset-bottom));">
             <div style="display:flex;gap:8px;width:100%;">
-              <input value="{{ redeemCode }}" onInput="{{ onRedeemCode }}" placeholder="输入兑换码" style="flex:1;min-width:0;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:13px;padding:13px 14px;font-size:14px;color:var(--fg);font-family:inherit;letter-spacing:.6px;" />
-              <div onClick="{{ doRedeem }}" style="flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:0 22px;border-radius:13px;cursor:pointer;box-shadow:0 4px 12px rgba(110,92,255,.28);" style-active="transform:scale(.96)">兑换</div>
+              <input value="{{ redeemCode }}" onInput="{{ onRedeemCode }}" placeholder="输入兑换码" style="flex:1;min-width:0;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:13px 14px;font-size:14px;color:var(--fg);font-family:inherit;letter-spacing:.6px;" />
+              <div onClick="{{ doRedeem }}" style="flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:0 22px;border-radius:13px;cursor:pointer;box-shadow:0 4px 12px rgba(110,92,255,.28);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">兑换</div>
             </div>
           </div>
         </div>
@@ -825,7 +825,7 @@
           </div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="3">
-            <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 16px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
+            <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:13px;padding:10px 16px;border-radius:16px;cursor:pointer;transition:background .15s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="background:var(--ctrl)">
               <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
               </div>
@@ -852,10 +852,10 @@
       <sc-if value="{{ histDelConfirm }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ histDelCancel }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
         <div style="position:absolute;left:34px;right:34px;top:50%;transform:translateY(-50%);z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetInCenter .3s cubic-bezier(.16,1,.3,1);border-radius:24px;box-shadow:0 34px 80px rgba(0,0,0,.32),inset 0 0 0 .5px rgba(255,255,255,.18);padding:26px 22px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">删除选中的 {{ histSelCount }} 条记录？</div>
+          <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-shadow:0 1px 2px rgba(0,0,0,.08);">删除选中的 {{ histSelCount }} 条记录？</div>
           <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ histDelCancel }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
-            <div onClick="{{ histDoDelete }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">删除</div>
+            <div onClick="{{ histDoDelete }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.97)">删除</div>
           </div>
         </div>
       </sc-if>
@@ -866,7 +866,7 @@
           <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">挂断当前通话，切换到「{{ pendingName }}」？</div>
           <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ cancelSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
-            <div onClick="{{ confirmSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">挂断切换</div>
+            <div onClick="{{ confirmSwitch }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.97)">挂断切换</div>
           </div>
         </div>
       </sc-if>
@@ -881,7 +881,7 @@
           <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">网络似乎不太稳定,没能接通。要再试一次吗?</div>
           <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
             <div onClick="{{ dismissFail }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
-            <div onClick="{{ retryDial }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;" style-active="transform:scale(.97)">重试</div>
+            <div onClick="{{ retryDial }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.97)">重试</div>
           </div>
         </div>
       </sc-if>
@@ -892,18 +892,18 @@
           <div style="width:60px;height:60px;border-radius:50%;background:rgba(245,166,35,.14);display:flex;align-items:center;justify-content:center;">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           </div>
-          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;">{{ outTitle }}</div>
+          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;letter-spacing:-.2px;">{{ outTitle }}</div>
           <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">{{ outBody }}</div>
           <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
             <div onClick="{{ dismissOut }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">以后再说</div>
-            <div onClick="{{ outPrimary }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;" style-active="transform:scale(.97)">{{ outPrimaryLabel }}</div>
+            <div onClick="{{ outPrimary }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.97)">{{ outPrimaryLabel }}</div>
           </div>
         </div>
       </sc-if>
 
       <sc-if value="{{ termsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ termsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">用户协议</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
@@ -919,25 +919,25 @@
 
       <sc-if value="{{ contactOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ contactClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:16px;flex:none;">联系我们</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1px;padding-bottom:10px;">问题类型</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;">
             <sc-for list="{{ contactTypes }}" as="ct" hint-placeholder-count="4">
-              <div onClick="{{ ct.pick }}" style="font-size:13px;font-weight:500;padding:8px 14px;border-radius:13px;cursor:pointer;background:{{ ct.bg }};color:{{ ct.color }};transition:all .2s ease;" style-active="transform:scale(.96)">{{ ct.name }}</div>
+              <div onClick="{{ ct.pick }}" style="font-size:13px;font-weight:500;padding:8px 14px;border-radius:13px;cursor:pointer;background:{{ ct.bg }};color:{{ ct.color }};transition:all .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">{{ ct.name }}</div>
             </sc-for>
           </div>
           <textarea value="{{ contactMsg }}" onInput="{{ onContactMsg }}" placeholder="详细描述你的问题或建议…" style="width:100%;box-sizing:border-box;min-height:96px;resize:none;border:none;outline:none;background:var(--ctrl);border-radius:16px;padding:14px 16px;font-size:15px;line-height:1.6;color:var(--fg);font-family:inherit;"></textarea>
-          <div onClick="{{ submitContact }}" style="margin-top:14px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">提交工单</div>
+          <div onClick="{{ submitContact }}" style="margin-top:14px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">提交工单</div>
           <sc-if value="{{ hasTickets }}" hint-placeholder-val="{{ true }}">
             <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1px;padding:24px 0 12px;border-top:1px solid var(--line);margin-top:22px;">我的工单</div>
             <sc-for list="{{ ticketList }}" as="tk" hint-placeholder-count="1">
               <div style="background:var(--ctrl);border-radius:16px;padding:14px;margin-bottom:10px;">
                 <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px;">
                   <span style="font-size:13.5px;font-weight:600;color:var(--fg);">{{ tk.type }}</span>
-                  <span style="font-size:11px;font-weight:600;color:{{ tk.statusColor }};background:{{ tk.statusBg }};padding:2px 8px;border-radius:7px;">{{ tk.status }}</span>
+                  <span style="font-size:11px;font-weight:600;color:{{ tk.statusColor }};background:{{ tk.statusBg }};padding:2px 8px;border-radius:7px;opacity:.9;">{{ tk.status }}</span>
                   <span style="flex:1;"></span>
                   <span style="font-size:11.5px;color:var(--faint);">{{ tk.date }}</span>
                 </div>
@@ -957,7 +957,7 @@
 
       <sc-if value="{{ privacyOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ privacyClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">隐私政策</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
@@ -977,7 +977,7 @@
             <div onClick="{{ openPrivacy }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">隐私政策</div>
             <div onClick="{{ openTerms }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">用户协议</div>
             <div style="flex:1;"></div>
-            <div onClick="{{ acceptCookie }}" style="flex:none;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 24px;border-radius:13px;cursor:pointer;" style-active="transform:scale(.96)">同意</div>
+            <div onClick="{{ acceptCookie }}" style="flex:none;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 24px;border-radius:13px;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">同意</div>
           </div>
         </div>
       </sc-if>
@@ -995,7 +995,7 @@
 
       <sc-if value="{{ moreOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ moreClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:12;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:13;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 24px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:13;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 24px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div onClick="{{ undoLast }}" style="display:flex;align-items:center;gap:14px;padding:14px 14px;border-radius:16px;cursor:pointer;" style-active="background:var(--ctrl)">
             <div style="width:42px;height:42px;border-radius:50%;background:var(--ctrl);display:flex;align-items:center;justify-content:center;flex:none;color:var(--fg);"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></div>
@@ -1014,7 +1014,7 @@
           <div style="font-size:17px;font-weight:600;color:var(--fg);letter-spacing:.3px;">退出登录？</div>
           <div style="display:flex;gap:10px;margin-top:16px;width:100%;">
             <div onClick="{{ cancelLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">取消</div>
-            <div onClick="{{ confirmLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;" style-active="transform:scale(.97)">退出</div>
+            <div onClick="{{ confirmLogout }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#E0594F;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.97)">退出</div>
           </div>
         </div>
       </sc-if>
@@ -1031,31 +1031,31 @@
       </sc-if>
 
       <sc-if value="{{ regPromptVisible }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;top:88px;left:18px;right:18px;z-index:16;display:flex;align-items:center;gap:12px;padding:13px 14px 13px 16px;border-radius:16px;background:var(--sheet);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 12px 34px rgba(0,0,0,.18),inset 0 0 0 .5px rgba(255,255,255,.2);animation:toastDrop .4s cubic-bezier(.16,1,.3,1);">
+        <div style="position:absolute;top:88px;left:18px;right:18px;z-index:16;display:flex;align-items:center;gap:12px;padding:13px 14px 13px 16px;border-radius:16px;background:var(--sheet);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 8px 20px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.06),inset 0 0 0 .5px rgba(255,255,255,.2);animation:toastDrop .4s cubic-bezier(.16,1,.3,1);">
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
             <span style="font-size:14px;font-weight:600;color:var(--fg);">注册即送 60 分钟</span>
             <span style="font-size:12px;color:var(--dim);">登录后这段对话和时长都会保留</span>
           </div>
-          <div onClick="{{ openRegister }}" style="flex:none;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;padding:8px 16px;border-radius:12px;cursor:pointer;" style-active="transform:scale(.96)">注册</div>
+          <div onClick="{{ openRegister }}" style="flex:none;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;padding:8px 16px;border-radius:12px;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">注册</div>
         </div>
       </sc-if>
 
       <sc-if value="{{ pwResetOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ pwResetClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 16px;"></div>
-          <div style="font-size:20px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:18px;">修改密码</div>
+          <div style="font-size:20px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:18px;letter-spacing:-.2px;">修改密码</div>
           <div style="display:flex;flex-direction:column;gap:11px;">
             <input value="{{ newPw1 }}" onInput="{{ onNewPw1 }}" type="password" placeholder="新密码（至少 6 位）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
             <input value="{{ newPw2 }}" onInput="{{ onNewPw2 }}" type="password" placeholder="确认新密码" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
-            <div onClick="{{ submitNewPw }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">确认修改</div>
+            <div onClick="{{ submitNewPw }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">确认修改</div>
           </div>
         </div>
       </sc-if>
 
       <sc-if value="{{ authOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ authClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.32);backdrop-filter:blur(10px) saturate(1.08);-webkit-backdrop-filter:blur(10px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -12px 50px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 24px 30px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 18px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:20px;">
             <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:baseline;gap:1px;"><span style="color:var(--fg);">MiCall</span><span style="color:#6E5CFF;">.ai</span></div>
@@ -1065,7 +1065,7 @@
           <div style="display:flex;flex-direction:column;gap:11px;">
             <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="邮箱" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
             <input value="{{ authPw }}" onInput="{{ onAuthPw }}" type="password" placeholder="密码（至少 6 位）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
-            <div onClick="{{ submitAuth }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);" style-active="transform:scale(.98)">{{ authSubmitLabel }}</div>
+            <div onClick="{{ submitAuth }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">{{ authSubmitLabel }}</div>
             <div onClick="{{ switchAuthMode }}" style="text-align:center;font-size:13.5px;color:var(--dim);cursor:pointer;padding:8px;">{{ authSwitchLabel }}</div>
           </div>
         </div>
@@ -1095,7 +1095,7 @@
     </div>
     <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;">
       <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="6">
-        <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:14px;cursor:pointer;" style-active="background:rgba(0,0,0,.05)">
+        <div onClick="{{ h.pick }}" style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:14px;cursor:pointer;transition:background .15s ease;" style-active="background:rgba(0,0,0,.05)">
           <div style="display:{{ h.selDisplay }};align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid {{ h.checkBorder }};background:{{ h.checkBg }};flex:none;transition:all .15s ease;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:{{ h.checkOpacity }};"><path d="M5 13l4 4L19 7"/></svg>
           </div>
@@ -1110,7 +1110,7 @@
     </div>
     <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
       <div style="flex:none;padding-top:10px;margin-top:6px;border-top:1px solid rgba(0,0,0,.07);">
-        <div onClick="{{ histDelAsk }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:14px;background:{{ histDelBtnBg }};color:{{ histDelBtnColor }};font-size:15px;font-weight:600;cursor:pointer;transition:background .15s ease,color .15s ease;" style-active="transform:scale(.98)">
+        <div onClick="{{ histDelAsk }}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:14px;background:{{ histDelBtnBg }};color:{{ histDelBtnColor }};font-size:15px;font-weight:600;cursor:pointer;transition:background .15s ease,color .15s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
           <span>{{ histDelBtnText }}</span>
         </div>
