@@ -580,7 +580,29 @@ export class MiCallLogic {
   selectLang(l: string) { this.setState({ lang: l, langOpen: false }); this.savePrefs(); }
   selectChar(i: number) { this.setState({ charIndex: i, charOpen: false }); }
 
-  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } }
+  clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } this._stopReveal(); }
+
+  // ── 字幕逐字揭开：按后端给的这句预估时长(dur 秒)在该时长内把文字揭完，让字幕跟住真实语音，
+  //    而不是整句一下全出来再把后面顶走。无 dur（旧后端）→ 直接显全，优雅降级。 ──
+  private _revealTimer: ReturnType<typeof setInterval> | null = null;
+  _revealText = "";
+  _revealLen = 0;
+  private _startReveal(text: string, durSec: number) {
+    this._stopReveal();
+    this._revealText = text || "";
+    const len = this._revealText.length;
+    if (!durSec || durSec <= 0 || len === 0) { this._revealLen = len; return; }
+    this._revealLen = 0;
+    const start = Date.now();
+    const durMs = durSec * 1000;
+    this._revealTimer = setInterval(() => {
+      const n = Math.min(len, Math.floor((len * (Date.now() - start)) / durMs));
+      this._revealLen = n;
+      if (n >= len) this._stopReveal();
+      this.notify();
+    }, 50);
+  }
+  private _stopReveal() { if (this._revealTimer) { clearInterval(this._revealTimer); this._revealTimer = null; } }
 
   // ── 无人说话自动挂断：通话中持续静默（用户/AI 都无新转写）达 autoHangupMin 分钟则自动结束。
   // 每次有人说话（subtitle / 被打断）就重新计时；设为「关闭」(0) 则不启用。 ──
@@ -956,6 +978,7 @@ export class MiCallLogic {
       case "interrupted":
         // speaking → listening hard jump (skip thinking), keep transcript.
         this.player.flush(); // barge-in：用户开口 → 立刻停掉 AI 正在播的音频（flush 后麦克风自动恢复上行）
+        this._stopReveal();   // 打断：字幕揭字停在当前位置（≈实际说出的部分）
         this.setState({ phase: "listening", subtitle: "" });
         this.armAutoHangup();   // 用户开口打断 → 重新计时
         break;
@@ -963,6 +986,7 @@ export class MiCallLogic {
         this.armAutoHangup();   // 有人说话（用户或 AI）→ 重新计时静默挂断
         if (ev.role === "ai") {
           this.setState((s) => ({ subtitle: ev.text, lines: [...s.lines, { role: "ai", text: ev.text }].slice(-8) }));
+          this._startReveal(ev.text, (ev as any).dur || 0);   // 在这句预估时长内逐字揭开，跟住真实语音
         } else if (ev.role === "user" && !ev.partial) {
           // 文字模式要看到自己说的话：用户最终识别结果也进转写（partial 不进，避免半句刷屏）。
           this.setState((s) => ({ lines: [...s.lines, { role: "user", text: ev.text }].slice(-8) }));
@@ -1073,8 +1097,11 @@ export class MiCallLogic {
     const showTextHint = textHint !== "";
     const displayLines = (this.state.lines || []).map((m: any, idx: number, arr: any[]) => {
       const isUser = m && m.role === "user";
+      const full = typeof m === "string" ? m : m.text;
+      // 仅「最后一句 AI」按 dur 逐字揭开；前面的句子（已说完）一律显全。
+      const animating = idx === arr.length - 1 && !isUser && full === this._revealText && this._revealLen < full.length;
       return {
-        text: typeof m === "string" ? m : m.text,   // 兼容旧的纯字符串
+        text: animating ? full.slice(0, this._revealLen) : full,   // 兼容旧的纯字符串
         align: isUser ? "flex-end" : "flex-start",   // 块靠右/靠左（align-self）
         // 文字本身也右排：长句换行时末行才会贴右边缘，否则块虽靠右但文字左排 → 看着像没对齐（用户反馈）。
         textAlign: isUser ? "right" : "left",

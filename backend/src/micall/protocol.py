@@ -29,10 +29,12 @@ class ServerEvent:
         return {"type": "interrupted"}  # speaking → listening（跳过 thinking）
 
     @staticmethod
-    def subtitle(role: str, text: str, partial: bool = False) -> dict[str, Any]:
+    def subtitle(role: str, text: str, partial: bool = False, dur: float = 0.0) -> dict[str, Any]:
         ev: dict[str, Any] = {"type": "subtitle", "role": role, "text": text}
         if partial:
             ev["partial"] = True  # 前端 partial?: boolean（ASR partial 才带）
+        if dur and dur > 0:
+            ev["dur"] = round(dur, 2)  # 这句预估说出时长(秒)：前端据此在该时长内逐字揭开，让字幕跟住语音
         return ev
 
     @staticmethod

@@ -664,7 +664,10 @@ class CallSession:
         await self._emit(ServerEvent.emotion(job["emotion"]))
         self.emotion_tag = job["emotion"]
         if sub:
-            await self._emit(ServerEvent.subtitle("ai", sub))
+            # 这句的预估说出时长：有预合成音频(后续句)→ 按 PCM 字节算(24kHz s16 mono=48000 B/s)，最准；
+            # 首句是流式抢跑、此刻还没有字节→按字数估(中文约 5 字/秒)。前端据此在该时长内逐字揭开字幕。
+            dur = (len(audio) / 48000.0) if audio else max(0.6, len(sub) * 0.2)
+            await self._emit(ServerEvent.subtitle("ai", sub, dur=dur))
             self._ai_said += sub  # 回声基准（按真正说出的人话，不含拟声/停顿标记）
         if not tts_text:
             if sub:

@@ -20,7 +20,7 @@ export type ServerEvent =
   | { type: "connected" } // calling → listening
   | { type: "state"; phase: CallPhase }
   | { type: "interrupted" } // speaking → listening (skip thinking)
-  | { type: "subtitle"; role: "user" | "ai"; text: string; partial?: boolean }
+  | { type: "subtitle"; role: "user" | "ai"; text: string; partial?: boolean; dur?: number }
   | { type: "emotion"; tag: string } // drives 影像 crossfade
   | { type: "billing"; remaining_seconds: number; elapsed: number }
   | { type: "low_minutes"; remaining_seconds: number }

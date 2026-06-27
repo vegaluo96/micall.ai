@@ -24,6 +24,12 @@ class TestServerEvent(unittest.TestCase):
         self.assertNotIn("partial", ServerEvent.subtitle("ai", "hi"))
         self.assertTrue(ServerEvent.subtitle("user", "hi", partial=True)["partial"])
 
+    def test_subtitle_dur_optional(self):
+        # dur(这句预估说出时长，秒)：给了才带，前端据此逐字揭开字幕跟住语音；0/缺省不带。
+        self.assertNotIn("dur", ServerEvent.subtitle("ai", "hi"))
+        self.assertNotIn("dur", ServerEvent.subtitle("ai", "hi", dur=0))
+        self.assertEqual(ServerEvent.subtitle("ai", "hi", dur=1.234)["dur"], 1.23)
+
     def test_all_factories_in_enum(self):
         for ev in (
             ServerEvent.connected(), ServerEvent.state("speaking"), ServerEvent.interrupted(),
