@@ -174,7 +174,7 @@
              让最新一句贴底显示（聊天式），多出的旧消息向上滚走，绝不溢出盖住下方通话按钮。 -->
         <div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:16px 36px;">
           <sc-for list="{{ lines }}" as="line" hint-placeholder-count="2">
-            <div style="align-self:{{ line.align }};text-align:{{ line.textAlign }};max-width:84%;font-size:21px;line-height:1.5;letter-spacing:.3px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
+            <div style="align-self:{{ line.align }};text-align:{{ line.textAlign }};max-width:86%;font-size:17px;line-height:1.55;letter-spacing:.2px;color:{{ line.color }};transition:color .4s ease;text-wrap:pretty;">{{ line.text }}</div>
           </sc-for>
           <sc-if value="{{ showTextHint }}" hint-placeholder-val="{{ false }}">
             <div style="font-size:16px;color:var(--dim);letter-spacing:.4px;">{{ textHint }}</div>
@@ -549,51 +549,51 @@
             <sc-if value="{{ charDetail.hasAppearance }}" hint-placeholder-val="{{ true }}">
               <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">外貌</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-wrap:pretty;">{{ charDetail.appearance }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.appearance }}</div>
               </div>
             </sc-if>
 
             <sc-if value="{{ charDetail.hasSummary }}" hint-placeholder-val="{{ true }}">
               <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">性子</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-wrap:pretty;">{{ charDetail.summary }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.summary }}</div>
               </div>
             </sc-if>
 
             <sc-if value="{{ charDetail.hasHobbies }}" hint-placeholder-val="{{ true }}">
               <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">兴趣爱好</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.hobbies }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.hobbies }}</div>
               </div>
             </sc-if>
 
             <sc-if value="{{ charDetail.hasCatchphrases }}" hint-placeholder-val="{{ true }}">
               <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">口头禅</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.catchphrases }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.catchphrases }}</div>
               </div>
             </sc-if>
 
             <sc-if value="{{ charDetail.hasQuirks }}" hint-placeholder-val="{{ true }}">
               <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">小习惯</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.quirks }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.quirks }}</div>
               </div>
             </sc-if>
 
             <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;">
               <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:12px;">背景故事</div>
-              <div style="font-size:14.5px;line-height:1.8;color:var(--fg);text-wrap:pretty;">{{ charDetail.bio }}</div>
+              <div style="font-size:14.5px;line-height:1.8;color:var(--fg);text-align:justify;">{{ charDetail.bio }}</div>
             </div>
 
             <div style="border-top:1px solid var(--line);margin-top:18px;padding-top:16px;display:flex;flex-direction:column;gap:14px;">
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:8px;">喜欢</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.likes }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.likes }}</div>
               </div>
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--faint);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:8px;">不喜欢</div>
-                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);">{{ charDetail.dislikes }}</div>
+                <div style="font-size:14.5px;line-height:1.7;color:var(--fg);text-align:justify;">{{ charDetail.dislikes }}</div>
               </div>
             </div>
           </div>

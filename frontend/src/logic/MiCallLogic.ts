@@ -63,6 +63,15 @@ interface ScenarioDef {
   lines: string[];
 }
 
+/** 头像球色相：由角色 id 确定性哈希得到（0-359）。同一角色在用户端/后台/冷启动颜色恒定，
+ *  且不随列表顺序变（旧版用列表下标 i*47%360，换序/默认置顶就整体变色）。后台用同一算法保持一致。 */
+export function hueFromId(id: string): number {
+  let h = 0;
+  const s = id || "";
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+
 export class MiCallLogic {
   props: MiCallProps;
   /** Called by setState to ask the React host to re-render. */
@@ -71,11 +80,11 @@ export class MiCallLogic {
   // ── instance data (ported verbatim) ──────────────────────────────────────
   // 冷启动占位（未接后端/首屏缓存未命中时短暂显示）；接通后由 loadCharacters 用后端真实 36 角色覆盖。
   chars: Char[] = [
-    { name: "沈知微", hue: 250, desc: "把你慢慢听懂的心理咨询师", traits: ["沉稳", "洞察", "温柔"], bio: "临床心理学出身，做咨询十年，相信「被听见」本身就有疗愈的力量。", id: "shen_zhiwei" },
-    { name: "时砚", hue: 200, desc: "靠谱可信赖的急诊科医生", traits: ["可靠", "温和", "责任感强"], bio: "急诊科的年轻骨干，见过最暗的夜也救过最险的人，话不多却让人安心。", id: "shi_yan" },
-    { name: "苏糖", hue: 330, desc: "把日子过成糖的元气少女", traits: ["元气", "爱幻想", "共情强"], bio: "美术生大一，画画是从小的梦，喜欢把生活里的小确幸画下来。", id: "su_tang" },
-    { name: "慕廷舟", hue: 30, desc: "霸道却反差宠人的少爷", traits: ["霸道", "骄矜", "反差宠"], bio: "家族集团的独子，骄矜难搞是真，认定了人把全世界宠给你也是真。", id: "mu_tingzhou" },
-    { name: "林九", hue: 145, desc: "开甜品店的温柔治愈系", traits: ["温柔", "细腻", "慢热"], bio: "辞了城里的工作回苏州开了家小小甜品店，每一份都亲手做。", id: "lin_jiu" },
+    { name: "沈知微", hue: hueFromId("shen_zhiwei"), desc: "把你慢慢听懂的心理咨询师", traits: ["沉稳", "洞察", "温柔"], bio: "临床心理学出身，做咨询十年，相信「被听见」本身就有疗愈的力量。", id: "shen_zhiwei" },
+    { name: "时砚", hue: hueFromId("shi_yan"), desc: "靠谱可信赖的急诊科医生", traits: ["可靠", "温和", "责任感强"], bio: "急诊科的年轻骨干，见过最暗的夜也救过最险的人，话不多却让人安心。", id: "shi_yan" },
+    { name: "苏糖", hue: hueFromId("su_tang"), desc: "把日子过成糖的元气少女", traits: ["元气", "爱幻想", "共情强"], bio: "美术生大一，画画是从小的梦，喜欢把生活里的小确幸画下来。", id: "su_tang" },
+    { name: "慕廷舟", hue: hueFromId("mu_tingzhou"), desc: "霸道却反差宠人的少爷", traits: ["霸道", "骄矜", "反差宠"], bio: "家族集团的独子，骄矜难搞是真，认定了人把全世界宠给你也是真。", id: "mu_tingzhou" },
+    { name: "林九", hue: hueFromId("lin_jiu"), desc: "开甜品店的温柔治愈系", traits: ["温柔", "细腻", "慢热"], bio: "辞了城里的工作回苏州开了家小小甜品店，每一份都亲手做。", id: "lin_jiu" },
   ];
   private _scenesBuilt = false;
 
@@ -233,10 +242,10 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     const list = await authApi.getCharacters();
     if (!list || !list.length) return;
-    this.chars = list.map((c: any, i: number) => ({
+    this.chars = list.map((c: any) => ({
       id: c.id, name: c.name || "TA", desc: c.desc || "",
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
-      hue: (i * 47) % 360,   // 按列表序散开色相，36 个角色卡颜色各异
+      hue: hueFromId(c.id),   // 由 id 确定性哈希：同角色颜色恒定、与后台一致，不随列表顺序变
       // 基础资料/喜好/富化维度从后端真值带过来（缺省留空，profileOf 按需显「—」/隐藏），让角色卡对齐后台设置。
       gender: c.gender || "", age: c.age, height: c.height, weight: c.weight,
       birthday: c.birthday || "", nationality: c.nationality || "", race: c.race || "",
@@ -644,6 +653,14 @@ export class MiCallLogic {
       regPromptShown: false, regPromptDismissed: true, ...extra });
   }
 
+  /** 需要登录才有意义的功能（邀请、账单等账号级数据）：游客 → 关菜单/面板、弹登录/注册并提示，
+   *  绝不打开空壳面板假装有数据；已登录 → 执行 onOk。统一收口，避免「游客点了却是空/坏」的逻辑错。 */
+  private requireAuth(onOk: () => void, toast: string, mode: "login" | "register" = "login") {
+    if (this.state.loggedIn) { onOk(); return; }
+    this.setState({ ...this.sheets(), menuOpen: false, authOpen: true, authMode: mode,
+      regPromptShown: false, regPromptDismissed: true, toast });
+  }
+
   // ── realtime call flow (signaling-driven) ─────────────────────────────────
   private isConnected() {
     return ["listening", "thinking", "speaking"].includes(this.state.phase);
@@ -959,19 +976,16 @@ export class MiCallLogic {
       case "billing":
         // Server-authoritative balance. seconds=elapsed drives the timer text.
         this.setState((s) => {
+          // 游客：让他**完整体验这 1 分钟试用**，通话中不打扰（不弹注册横幅）；试用一结束由
+          // out_of_minutes 的用完弹层引导注册（注册即送 60 分钟）。这才是「先体验、再引导」。
           const next: Partial<State> = { seconds: ev.elapsed, remaining: ev.remaining_seconds };
-          // 游客快用完时（剩 ≤20 秒）提前弹「注册领免费时长」横幅——比原来卡在 elapsed>=60(正好结束)
-          // 早一步给出「快结束了」的提示，且严格早于 out_of_minutes，不再和用完弹层同帧蹦出。
-          if (!s.loggedIn && !s.regPromptShown && !s.regPromptDismissed
-              && ev.remaining_seconds != null && ev.remaining_seconds <= 20) {
-            next.regPromptShown = true;
-          }
           return next;
         });
         break;
       case "low_minutes":
-        this.setState({ lowWarned: true, toast: "时长仅剩 1 分钟" });
-        this.clearToastSoon(2400);
+        // 仅对登录用户提示「快用完了」。游客试用就 1 分钟，阈值=60 秒会在第 1 秒就触发，
+        // 弹「仅剩 1 分钟」反而打断体验、显得催促——游客不提示，让他把 1 分钟用完再由用完弹层引导。
+        if (this.state.loggedIn) { this.setState({ lowWarned: true, toast: "时长仅剩 1 分钟" }); this.clearToastSoon(2400); }
         break;
       case "out_of_minutes":
         this.clearTimers();
@@ -1608,7 +1622,7 @@ export class MiCallLogic {
       settingsOpen: this.state.settingsOpen,
       settingsClose: () => this.setState({ settingsOpen: false }),
       favFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, favOpen: true }),
-      billFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); },
+      billFromMenu: () => this.requireAuth(() => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); }, "登录后查看账单"),
       billsOpen: this.state.billsOpen,
       billsClose: () => this.setState({ billsOpen: false }),
       billsToRecharge: () => { if (this.state.loggedIn) this.setState({ ...this.sheets(), rechargeOpen: true }); else this.goRegister(); },
@@ -1619,7 +1633,7 @@ export class MiCallLogic {
         iconColor: b.type === "sub" ? "#6E5CFF" : (b.type === "invite" ? "#FF4F7B" : "#2E7BFF"),
         iconPath: b.type === "sub" ? "M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M18 12a2 2 0 0 0 0 4h4v-4z" : (b.type === "invite" ? "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6" : "M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24 11.36 11.36 0 0 0 3.57.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.24 1.02l-2.2 2.2z"),
       })),
-      inviteFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }); this.loadInvite(); },
+      inviteFromMenu: () => this.requireAuth(() => { this.setState({ ...this.sheets(), menuOpen: false, inviteOpen: true }); this.loadInvite(); }, "注册后生成你的专属邀请链接，邀请成功双方各得 60 分钟", "register"),
       inviteOpen: this.state.inviteOpen,
       inviteClose: () => this.setState({ inviteOpen: false }),
       // 后台配置的邀请奖励（分钟）：优先登录态拉到的值，其次公开接口值，最后才兜底 60（不写死后台设置）。

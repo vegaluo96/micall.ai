@@ -606,7 +606,7 @@
   <!-- DETAIL DRAWER -->
   <sc-if value="{{ detailOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDetail }}" style="position:fixed;inset:0;background:rgba(20,20,28,.32);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:20;animation:adIn .25s ease;"></div>
-    <div class="scrl" style="position:fixed;top:0;right:0;bottom:0;width:440px;max-width:92vw;background:#fff;z-index:21;box-shadow:-20px 0 60px rgba(0,0,0,.18);animation:adDraw .32s cubic-bezier(.16,1,.3,1);overflow-y:auto;padding:24px 26px 40px;">
+    <div class="scrl" style="position:fixed;top:0;right:0;bottom:0;width:640px;max-width:96vw;background:#fff;z-index:21;box-shadow:-20px 0 60px rgba(0,0,0,.18);animation:adDraw .32s cubic-bezier(.16,1,.3,1);overflow-y:auto;padding:24px 30px 40px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <div style="font-size:16px;font-weight:700;">{{ detailTitle }}</div>
         <div onClick="{{ closeDetail }}" style="width:32px;height:32px;border-radius:9px;background:#F2F3F5;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-active="transform:scale(.92)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A5E6B" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>
