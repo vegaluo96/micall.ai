@@ -179,5 +179,24 @@ class TestAutonomousSeed(unittest.TestCase):
         self.assertEqual(ca.effective_autonomous(repo, "c1").mood, "今天有点闷")  # → 以 DB 为准
 
 
+class TestCallSessionBuildWiring(unittest.TestCase):
+    """回归：通话「建会话」路径必须能跑通——effective_autonomous 曾在 wsserver 漏导入，
+    建会话即 NameError → 用户端一直接通失败，而既有测试都没走真正的 _make_session。"""
+
+    def test_make_session_builds_with_effective_autonomous(self):
+        from micall.config import load_config
+        from micall.memory import InMemoryRepository
+        from micall.server.wsserver import SignalingServer
+        srv = SignalingServer(load_config(), InMemoryRepository())
+        cid = sorted(srv.characters)[0]
+
+        async def emit(_ev):
+            pass
+
+        sess = srv._make_session(emit=emit, character_id=cid, scenario="")  # 不得抛 NameError
+        self.assertIsNotNone(sess)
+        self.assertEqual(sess.character_id, cid)
+
+
 if __name__ == "__main__":
     unittest.main()

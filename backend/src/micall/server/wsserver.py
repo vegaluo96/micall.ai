@@ -264,6 +264,7 @@ class SignalingServer:
             self.config.global_defaults.get("default_voice", ""), char.voice_id, user_voice
         )
         profile = self.repo.get_profile(user_id, char.character_id)
+        from .characters_admin import effective_autonomous
         assembler = ContextAssembler(
             char,
             profile=profile,
