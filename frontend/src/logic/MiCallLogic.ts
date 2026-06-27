@@ -569,9 +569,6 @@ export class MiCallLogic {
     };
   }
 
-  toggleFeedback(tag: string) {
-    this.setState((s) => ({ feedback: s.feedback.includes(tag) ? s.feedback.filter((x: string) => x !== tag) : [...s.feedback, tag] }));
-  }
   selectScenario(key: string) {
     const def = this.scenarioDefs.find((d) => d.key === key);
     const live = this.isConnected();
@@ -1320,8 +1317,6 @@ export class MiCallLogic {
         return { name, loading: false, items, facts, hasFacts: facts.length > 0, empty,
                  emptyText: `你和${name}还没什么回忆，打个电话开始吧～` };
       })(),
-      prevChar: (e: any) => { if (e) e.stopPropagation(); this.setState((s) => ({ charIndex: (s.charIndex - 1 + this.chars.length) % this.chars.length })); },
-      nextChar: (e: any) => { if (e) e.stopPropagation(); this.setState((s) => ({ charIndex: (s.charIndex + 1) % this.chars.length })); },
       subline,
       underOrb,
       underOpacity: underOrb ? 1 : 0,
@@ -1336,13 +1331,6 @@ export class MiCallLogic {
       remainPct: Math.max(4, Math.min(100, Math.round((this.state.remaining || 0) / (this.state.loggedIn ? 3600 : 60) * 100))) + "%",
       orbCursor: "pointer",
       orbTap: () => this.setState((s) => ({ charDetailOpen: !s.charDetailOpen })),
-      onShuffle: (e: any) => {
-        if (e) e.stopPropagation();
-        if (p !== "idle") return;
-        const ci = Math.floor(Math.random() * this.chars.length);
-        const sd = this.scenarioDefs[Math.floor(Math.random() * this.scenarioDefs.length)];
-        this.setState({ charIndex: ci, scenario: sd.key });
-      },
       actionTap: () => {
         if (p === "idle") this.startCall();
         else if (p === "calling") this.resetIdle();
@@ -1356,7 +1344,6 @@ export class MiCallLogic {
       textHint,
       lines: displayLines,
       textToggle: () => this.setState((s) => ({ textMode: !s.textMode })),
-      textToggleColor: textMode ? "var(--fg)" : "var(--faint)",
       phaseIdle, phaseCalling, inCall, showHeaderChrome, phaseEnded,
       bottomH: "208px",
       note: this.state.note,
@@ -1392,20 +1379,16 @@ export class MiCallLogic {
       cancelReset: () => this.setState({ resetOpen: false }),
       toast: this.state.toast,
       showToast: !!this.state.toast,
-      speakerToggle: () => { this.setState((s) => ({ speaker: !s.speaker })); this.savePrefs(); },
       themeToggle: () => { this.setState({ theme: theme === "dark" ? "light" : "dark" }); this.savePrefs(); },
       themeLabel: theme === "dark" ? "深色" : "浅色",
       menuOpen: this.state.menuOpen,
       menuToggle: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
       menuClose: () => this.setState({ menuOpen: false }),
       favCurFill, favCurStroke,
-      favToggleCur: () => this.toggleFav(),
       favList, hasFavs, noFavs,
       favOpen: this.state.favOpen,
-      favOpenToggle: () => this.setState((s) => ({ favOpen: !s.favOpen })),
       favClose: () => this.setState({ favOpen: false }),
       rechargeOpen: this.state.rechargeOpen,
-      rechargeToggle: () => this.setState((s) => ({ rechargeOpen: !s.rechargeOpen })),
       // 空闲态剩余条入口：游客→注册领免费时长（无账号充不了值），登录→充值。
       remainCtaLabel: this.state.loggedIn ? "充值" : "注册领免费时长",
       remainCta: () => { if (this.state.loggedIn) this.setState((s) => ({ rechargeOpen: !s.rechargeOpen })); else this.goRegister(); },
@@ -1414,9 +1397,6 @@ export class MiCallLogic {
       onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
       doRedeem: () => this.doRedeem(),
       billPeriod: this.state.billing,
-      setBillMonth: () => this.setState({ billing: "month" }),
-      setBillQuarter: () => this.setState({ billing: "quarter" }),
-      setBillYear: () => this.setState({ billing: "year" }),
       billOptions: [
         { key: "month", label: "月付", off: "" },
         { key: "quarter", label: "季付", off: "省20%" },
@@ -1490,7 +1470,6 @@ export class MiCallLogic {
       pillLabel,
       scenarios,
       sceneListEmpty,
-      sceneListEmptyText: "这里暂时还没有场景",
       sceneCustomActive,
       sceneListActive,
       customSceneText: this.state.customSceneText,
@@ -1516,8 +1495,6 @@ export class MiCallLogic {
       scenarioClose: () => this.setState({ scenarioOpen: false }),
       langs,
       langOpen: this.state.langOpen,
-      langToggle: () => this.setState((s) => ({ langOpen: !s.langOpen })),
-      langFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, langOpen: true }),
       langFromSettings: () => this.setState({ ...this.sheets(), settingsOpen: false, langOpen: true }),
       // 无人说话自动挂断（设置菜单内，默认 3 分钟，可改）：通话中持续静默达此时长自动结束。
       autoHangupLabel: this.state.autoHangupMin <= 0 ? "关闭" : (this.state.autoHangupMin + " 分钟"),
@@ -1654,10 +1631,8 @@ export class MiCallLogic {
       openTerms: () => this.setState({ settingsOpen: false, termsOpen: true }),
       termsClose: () => this.setState({ termsOpen: false }),
       regPromptVisible: this.state.regPromptShown && !this.state.loggedIn && !this.state.regPromptDismissed,
-      dismissRegPrompt: () => this.setState({ regPromptDismissed: true, regPromptShown: false }),
       settingsOpen: this.state.settingsOpen,
       settingsClose: () => this.setState({ settingsOpen: false }),
-      favFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, favOpen: true }),
       billFromMenu: () => this.requireAuth(() => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); }, "登录后查看账单"),
       billsOpen: this.state.billsOpen,
       billsClose: () => this.setState({ billsOpen: false }),

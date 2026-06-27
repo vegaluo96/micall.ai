@@ -186,8 +186,8 @@
       <div style="flex:none;padding:0 28px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;height:{{ bottomH }};box-sizing:border-box;">
         <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
           <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
-            <!-- 首页控制行：排版与「通话中」控制行一致（54 圆 + 12 标签 + gap:30），首页与通话中对齐。
-                 切换角色已接现成 charToggle（原「换个角色」按钮已并入此处）；回忆/近况先占位（无 onClick），待功能落地再接。 -->
+            <!-- 首页控制行：54 圆钮 + 12 标签 + gap:30。三个入口都是活的：
+                 回忆→openMemory、发现→charToggle(切角色)、状态→openStatus。 -->
             <div style="display:flex;gap:30px;justify-content:center;">
               <!-- 回忆：你和这个角色之间的关系/聊过的事 -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:9px;">
