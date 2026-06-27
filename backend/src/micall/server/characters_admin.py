@@ -206,6 +206,7 @@ def read_characters_for_admin() -> list[dict]:
             "hobbies": _join(persona.get("hobbies")), "catchphrases": _join(persona.get("catchphrases")),
             "quirks": _join(persona.get("quirks")), "soft_spot": persona.get("soft_spot", ""),
             "has_avatar": avatar_file(cid).exists(),   # 后台据此决定编辑时是否预显已有头像
+            "avatar_rev": avatar_rev(cid),             # 头像内容版本号：后台列表 URL 带 &v=rev → 内容不变走缓存、重生才换 URL
             "status": "下架" if cid in offline else "上线",
         })
     return out
@@ -448,15 +449,22 @@ def load_avatar(cid: str) -> bytes | None:
     return data
 
 
-def avatar_url(cid: str) -> str:
-    """该角色头像的下发 URL（带 mtime 版本号做缓存刷新）；无头像则空串。"""
+def avatar_rev(cid: str) -> int:
+    """头像文件的内容版本号（mtime 取整）；无头像则 0。前后台都用它做「内容变了才换 URL」的缓存键。"""
     p = avatar_file(cid)
     if not p.exists():
-        return ""
+        return 0
     try:
-        v = int(p.stat().st_mtime)
+        return int(p.stat().st_mtime)
     except OSError:
-        v = 0
+        return 0
+
+
+def avatar_url(cid: str) -> str:
+    """该角色头像的下发 URL（带 mtime 版本号做缓存刷新）；无头像则空串。"""
+    v = avatar_rev(cid)
+    if not v:
+        return ""
     return f"/api/avatar?c={cid}&v={v}"
 
 

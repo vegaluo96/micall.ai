@@ -190,6 +190,7 @@ export class AdminLogic {
         if ((row as any).soft_spot != null) c.soft_spot = (row as any).soft_spot;
         if ((row as any).status) c.status = (row as any).status;   // 上线 / 下架（后端真值）
         c.has_avatar = !!(row as any).has_avatar;                  // 是否已有生成的头像（编辑时决定是否预显）
+        c.avatar_rev = (row as any).avatar_rev || 0;               // 头像内容版本：列表 URL 带 &v=rev → 缓存命中、刷新不重拉
       }
       // 后端为权威：剔除没在后端列表里的本地占位（否则换了出厂角色后，旧占位会和真实角色并存、还编辑不了）。
       const backendIds = new Set(chars.map((r: any) => r.id));
@@ -697,7 +698,7 @@ export class AdminLogic {
     const s = this.state;
     const planStyle = (p: string) => p === "无限会员" ? { c: "#E0954F", b: "rgba(224,149,79,.12)" } : (p === "畅聊会员" ? { c: "#6E5CFF", b: "rgba(110,92,255,.1)" } : (p === "轻享会员" ? { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } : (p === "已封禁" ? { c: "#E0594F", b: "rgba(224,89,79,.1)" } : { c: "#878B95", b: "#F0F0F3" })));
     // 全站统一：圈里显真实头像（稳定 URL，浏览器按 immutable 缓存，不每帧重拉）；无头像则暗底占位，不再用渐变球。
-    const avatarByName = (name: string) => { const ch = this.chars.find((c: any) => c.name === name); return ch && (ch as any).has_avatar ? adminAvatarUrl((ch as any).cid || ch.id) : ""; };
+    const avatarByName = (name: string) => { const ch = this.chars.find((c: any) => c.name === name); return ch && (ch as any).has_avatar ? adminAvatarUrl((ch as any).cid || ch.id, (ch as any).avatar_rev || 0) : ""; };
 
     const nav = [
       { key: "dashboard", label: "数据概览", icon: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" },
@@ -733,7 +734,7 @@ export class AdminLogic {
           const used: string[] = v.used_by || [];
           const inUse = used.length > 0;
           const ch = this.chars.find((c: any) => used.includes(c.name));
-          const vav = ch && (ch as any).has_avatar ? adminAvatarUrl((ch as any).cid || ch.id) : "";
+          const vav = ch && (ch as any).has_avatar ? adminAvatarUrl((ch as any).cid || ch.id, (ch as any).avatar_rev || 0) : "";
           return { matched: v.voice_id, name: v.name, engine: "MiniMax", engColor: mmStyle.c, engBg: mmStyle.b,
             meta: v.gender + " · " + v.group, char: inUse ? used.join("、") : "—",
             avatar: vav, avatarDisplay: vav ? "block" : "none", hasChar: inUse,
@@ -843,7 +844,7 @@ export class AdminLogic {
     const dateChips = ([["today", "今日"], ["7d", "近 7 日"], ["30d", "近 30 日"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ dateRange: k }), bg: s.dateRange === k ? "#16161A" : "#fff", color: s.dateRange === k ? "#fff" : "#5A5E6B", border: s.dateRange === k ? "#16161A" : "#E6E7EB" }));
     // 热门角色：this.chars 的 calls 在接后端时已是真实通话数（loadRealData 写入），演示时为内置数。
     const topChars = this.chars.slice().sort((a, b) => parseFloat(b.calls) - parseFloat(a.calls)).slice(0, 5)
-      .map((c, i) => ({ rank: i + 1, name: c.name, avatar: (c as any).has_avatar ? adminAvatarUrl((c as any).cid || c.id) : "", avatarDisplay: (c as any).has_avatar ? "block" : "none", calls: this.realStats ? c.calls + " 次" : c.calls }));
+      .map((c, i) => ({ rank: i + 1, name: c.name, avatar: (c as any).has_avatar ? adminAvatarUrl((c as any).cid || c.id, (c as any).avatar_rev || 0) : "", avatarDisplay: (c as any).has_avatar ? "block" : "none", calls: this.realStats ? c.calls + " 次" : c.calls }));
     const SCENE_NAME: Record<string, string> = { heart: "心情树洞", chat: "随便聊聊", interview: "模拟面试", idiom: "成语接龙", english: "英语陪练", study: "陪我学习", sleep: "睡前故事", meditation: "解压冥想", coffee: "咖啡馆", story: "睡前故事" };
     // 热门场景：从 calls.scenario 真实聚合（无数据则空，不再用演示数字）。
     const scEnt = Object.entries((this.realSceneCalls || {}) as Record<string, number>).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -868,7 +869,7 @@ export class AdminLogic {
     const voiceIdMap: Record<string, string> = { c1: "female-shaonv-01", c2: "male-cixing-02", c3: "female-yuanqi-03", c4: "male-chenwen-04", c5: "female-tianmei-05" };
     const charMatched: Record<string, number> = { c1: 230, c2: 96, c3: 142, c4: 61, c5: 58 };
     const charsView = this.chars.filter((c) => !q || (c.name + c.desc + c.bio).toLowerCase().includes(q)).map((c) => ({ ...c, hueFilter: "hue-rotate(" + c.hue + "deg)", genderAge: c.gender + " · " + c.age + "岁", genderColor: genderColor(c.gender),
-      avatar: c.has_avatar ? adminAvatarUrl(c.cid || c.id) : "", avatarDisplay: c.has_avatar ? "block" : "none",   // 卡片有头像就显真实头像（稳定 URL，不每帧重拉），没有则渐变球
+      avatar: c.has_avatar ? adminAvatarUrl(c.cid || c.id, (c as any).avatar_rev || 0) : "", avatarDisplay: c.has_avatar ? "block" : "none",   // 卡片有头像就显真实头像（&v=rev 稳定 URL，浏览器缓存命中、刷新不重拉）
       voiceId: voiceIdMap[c.id] || "default", voiceMatched: this.realStats ? "—" : (charMatched[c.id] || 0) + " 次匹配", playVoice: async (e: any) => { if (e && e.stopPropagation) e.stopPropagation(); if (!usingBackend()) { this.toastMsg("接入后端后可真实试听"); return; } this.toastMsg("正在合成试听…"); const ok = await playVoicePreview({ characterId: c.cid || "" }); this.toastMsg(ok ? "" : "试听失败：请确认 TTS 接口已配置"); },
       // 默认角色：用户端进来先选它。当前为默认显徽标；非默认给「设为默认」按钮。
       isDefault: !!c.cid && c.cid === this.defaultCharId,

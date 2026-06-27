@@ -394,7 +394,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self._cors()
         self.send_header("Content-Type", ct)
-        self.send_header("Cache-Control", "no-store")   # 后台预览总取最新（生成/重生后立刻看到）
+        # 带 &v=<内容版本> 的列表 URL → 内容变才换 URL，可长缓存（刷新不再重拉，和用户端 /api/avatar 一致）；
+        # 预览用 &t=<时间戳> 强刷或无版本的 URL → no-store 总取最新（生成/重生后立刻看到）。
+        if self._query("v"):
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

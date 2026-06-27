@@ -375,9 +375,14 @@ export async function uploadAvatar(id: string, file: Blob): Promise<{ ok: boolea
 }
 
 /** 后台头像的同域 URL（admin nginx 反代 /admin/ → adminapi 的 /admin/avatar）。
- *  bust=true 加时间戳强制取最新（生成/重生后预览用）；列表里用 bust=false 的稳定 URL，避免每次渲染都重拉。 */
-export function adminAvatarUrl(cid: string, bust = false): string {
-  return `${base()}/admin/avatar?c=${encodeURIComponent(cid)}${bust ? "&t=" + Date.now() : ""}`;
+ *  第二参 true → 加时间戳 &t= 强制取最新（生成/重生后预览用，后端 no-store）；
+ *  第二参数字 rev → 加内容版本 &v=rev（后端长缓存 immutable，内容不变走缓存、刷新不重拉，重生 rev 变才换 URL）；
+ *  省略/0 → 裸 URL（后端 no-store 兜底）。 */
+export function adminAvatarUrl(cid: string, bustOrRev: boolean | number = false): string {
+  let suffix = "";
+  if (bustOrRev === true) suffix = "&t=" + Date.now();
+  else if (typeof bustOrRev === "number" && bustOrRev > 0) suffix = "&v=" + bustOrRev;
+  return `${base()}/admin/avatar?c=${encodeURIComponent(cid)}${suffix}`;
 }
 
 /** 删除角色。 */

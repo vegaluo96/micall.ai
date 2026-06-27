@@ -80,6 +80,30 @@ class TestShrink(unittest.TestCase):
         self.assertEqual(_shrink_avatar(b"not-an-image"), b"not-an-image")
 
 
+class TestAvatarRev(unittest.TestCase):
+    def test_rev_and_url_track_content(self):
+        # 头像内容版本：无头像 → rev=0、url=""；写入后 rev>0、url 带 &v=rev；重写换内容 → rev 变 → url 变。
+        import os
+        from micall.server import characters_admin as ca
+        cid = "__test_rev_char__"
+        p = ca.avatar_file(cid)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if p.exists():
+            p.unlink()
+        try:
+            self.assertEqual(ca.avatar_rev(cid), 0)
+            self.assertEqual(ca.avatar_url(cid), "")
+            p.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+            os.utime(p, (1_000_000_000, 1_000_000_000))   # 固定 mtime 便于断言
+            self.assertEqual(ca.avatar_rev(cid), 1_000_000_000)
+            self.assertEqual(ca.avatar_url(cid), f"/api/avatar?c={cid}&v=1000000000")
+            os.utime(p, (1_000_000_009, 1_000_000_009))   # 内容/时间变 → 版本变 → URL 变
+            self.assertEqual(ca.avatar_url(cid), f"/api/avatar?c={cid}&v=1000000009")
+        finally:
+            if p.exists():
+                p.unlink()
+
+
 class TestImageNode(unittest.TestCase):
     def test_image_node_exists(self):
         # 加了 'image' 到 NODE_KEYS：config.node('image') 不再 KeyError（未配置时为空节点）。
