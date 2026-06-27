@@ -78,13 +78,11 @@ export class MiCallLogic {
   private notify: () => void = () => {};
 
   // ── instance data (ported verbatim) ──────────────────────────────────────
-  // 冷启动占位（未接后端/首屏缓存未命中时短暂显示）；接通后由 loadCharacters 用后端真实 36 角色覆盖。
+  // 冷启动占位：**不放任何真实角色名**（旧版放「沈知微」等 → 首屏一闪那个名字再秒切默认角色，
+  // 就是用户说的「代码残留」）。这里只放一个中性空占位；配合 charsReady 门控，首访加载窗口显中性、
+  // 返回访客直接用 micall_chars 缓存的真实默认角色，杜绝任何具体角色名/球色闪一下。
   chars: Char[] = [
-    { name: "沈知微", hue: hueFromId("shen_zhiwei"), desc: "把你慢慢听懂的心理咨询师", traits: ["沉稳", "洞察", "温柔"], bio: "临床心理学出身，做咨询十年，相信「被听见」本身就有疗愈的力量。", id: "shen_zhiwei" },
-    { name: "时砚", hue: hueFromId("shi_yan"), desc: "靠谱可信赖的急诊科医生", traits: ["可靠", "温和", "责任感强"], bio: "急诊科的年轻骨干，见过最暗的夜也救过最险的人，话不多却让人安心。", id: "shi_yan" },
-    { name: "苏糖", hue: hueFromId("su_tang"), desc: "把日子过成糖的元气少女", traits: ["元气", "爱幻想", "共情强"], bio: "美术生大一，画画是从小的梦，喜欢把生活里的小确幸画下来。", id: "su_tang" },
-    { name: "慕廷舟", hue: hueFromId("mu_tingzhou"), desc: "霸道却反差宠人的少爷", traits: ["霸道", "骄矜", "反差宠"], bio: "家族集团的独子，骄矜难搞是真，认定了人把全世界宠给你也是真。", id: "mu_tingzhou" },
-    { name: "林九", hue: hueFromId("lin_jiu"), desc: "开甜品店的温柔治愈系", traits: ["温柔", "细腻", "慢热"], bio: "辞了城里的工作回苏州开了家小小甜品店，每一份都亲手做。", id: "lin_jiu" },
+    { name: "", hue: 0, desc: "", traits: [], bio: "", id: "" },
   ];
   // 角色是否已就绪：有缓存(返回访客)或 loadCharacters 跑完即 true。为 false 时（无痕首访的加载窗口）
   // 头像球与角色名走「中性占位」，杜绝先闪一下占位角色再秒切到真实默认角色那一下「球变色」。
