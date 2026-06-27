@@ -9,11 +9,13 @@
 // 注：曾试过把 TTS 经 MediaStream+<audio> 出声以启用浏览器 AEC 做全双工，但部分机型出现电流声/
 // 卡顿，已撤回直连播放（稳）。真·全双工（边说边随时打断）的可靠方案是服务端 WebRTC，留作后续。
 
+import { HANGUP_TONE_URI } from "./hangupTone";
+
 const MIC_RATE = 16000;
 const TTS_RATE = 24000;
 
 // 接通中（loading 等 RTC 连好）的提示音：柔和、低音量、间歇，像真电话在响——把「正在接通」的等待感做实，
-// 而不是死寂。改 false 即整体关闭。
+// 而不是死寂。改 false 即整体关闭（连同挂断音）。
 const RING_ENABLED = true;
 
 type Ctor = { new (): AudioContext };
@@ -88,6 +90,7 @@ export class AudioPlayer {
   private ringOsc: OscillatorNode | null = null;       // 接通提示音（loading 期）
   private ringGain: GainNode | null = null;
   private ringTimer: ReturnType<typeof setInterval> | null = null;
+  private hangupEl: HTMLAudioElement | null = null;    // 挂断提示音（<audio> 播预编码 WAV，iOS 可靠）
 
   /** 必须在用户手势（点接听）里调一次，iOS 才允许出声。 */
   resume(): void {
@@ -179,35 +182,26 @@ export class AudioPlayer {
     this.ringGain = null;
   }
 
-  /** 挂断提示音：与接通音呼应——同音色(sine)，短促【下行两声 doo-doo↓】示意「通话结束」。
-   *  一次性、振荡器自停，不进 sources（flush 不会误杀它）。RING_ENABLED 关时连同接通音一起静默。
-   *  关键：RTC 通话里 AI 声音走 <audio>、本 ctx 长期闲置常被浏览器挂起(suspended)——必须【先 resume
-   *  再排程】，否则在 suspended 的 ctx 上按 currentTime 排的振荡器不出声（正是「挂断音没听到」）。 */
+  /** 挂断提示音：与接通音呼应——下行两声 doo-doo↓。用 <audio> 播预编码 WAV（HANGUP_TONE_URI），
+   *  不用 Web Audio 振荡器：RTC 通话里 iOS 进「通话音频模式」会压住振荡器输出（接通音能响是因它在 RTC
+   *  连上前、ctx 新鲜时放的），而 <audio> 播放（AI 远端语音同款路径）在 iOS 上可靠；音频会话已在点拨号手势
+   *  里解锁，故挂断这次 play() 能出声。元素懒建复用、挂 DOM。RING_ENABLED 关时静默。 */
   playHangup(): void {
     if (!RING_ENABLED) return;
-    if (!this.ctx) this.ctx = audioCtx();
-    const ctx = this.ctx;
-    const fire = () => {
-      try {
-        const t0 = ctx.currentTime + 0.02;
-        [480, 360].forEach((freq, i) => {   // 两声下行：480→360Hz
-          const t = t0 + i * 0.17;
-          const gain = ctx.createGain();
-          gain.connect(ctx.destination);
-          const osc = ctx.createOscillator();
-          osc.type = "sine";
-          osc.frequency.value = freq;
-          osc.connect(gain);
-          gain.gain.setValueAtTime(0.0001, t);
-          gain.gain.exponentialRampToValueAtTime(0.12, t + 0.03);   // 渐入（音量比接通音高一档，挂断更明确）
-          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); // 渐出
-          osc.start(t);
-          osc.stop(t + 0.26);
-        });
-      } catch { /* noop */ }
-    };
-    if (ctx.state === "suspended") void ctx.resume().then(fire).catch(() => { /* noop */ });
-    else fire();
+    try {
+      if (!this.hangupEl) {
+        const el = document.createElement("audio");
+        el.src = HANGUP_TONE_URI;
+        el.preload = "auto";
+        (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+        el.setAttribute("playsinline", "");
+        el.style.cssText = "position:fixed;width:0;height:0;opacity:0;pointer-events:none;";
+        document.body.appendChild(el);
+        this.hangupEl = el;
+      }
+      this.hangupEl.currentTime = 0;
+      void this.hangupEl.play().catch(() => { /* iOS 偶发 NotAllowedError：忽略 */ });
+    } catch { /* noop */ }
   }
 
   /** 打断/挂断：停掉所有排队中的音频。 */
@@ -220,6 +214,8 @@ export class AudioPlayer {
 
   close(): void {
     this.flush();
+    try { this.hangupEl?.remove(); } catch { /* noop */ }
+    this.hangupEl = null;
     try { void this.ctx?.close(); } catch { /* noop */ }
     this.ctx = null;
   }
