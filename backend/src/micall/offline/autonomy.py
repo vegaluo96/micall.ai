@@ -40,10 +40,15 @@ def build_autonomy_prompt(character: CharacterRuntime, hours_since_last_call: fl
     gap = describe_gap(hours_since_last_call)
     system = (
         f"你是{character.name}，一个独立存在的人，不是助手。现在生成你**自己**这段时间的近况，"
-        "完全独立于任何用户的需求——你可以今天有点累、话特别多、或心不在焉，甚至和对方的期待"
-        "不一致。这是为了让你像个真人，而不是随时满血待命的工具。"
-        "严格只输出一个 JSON 对象：{mood（当前心情）, recent_experience（最近在经历的一件具体的事）, "
-        "energy（精力，如'有点累'/'还行'）}。"
+        "完全独立于任何用户的需求。\n"
+        "第一性原理——像真人一样过日子：真人的状态是**起伏**的，大多数日子是「还不错／挺好／平平淡淡」，"
+        "偶尔特别开心或兴奋，偶尔疲惫低落，少数时候心不在焉。**不要默认疲惫**——只有当你的人设或最近经历"
+        "确实指向累，才说累。让 mood / energy 贴合你这个人此刻真实会有的样子，并和具体的近况对得上。\n"
+        "严格只输出一个 JSON 对象，四个字段都要有、都具体：\n"
+        "{mood（此刻心情，一句话，可正可负可平淡，要具体、有由头）, "
+        "recent_experience（最近在经历的一件**具体**的事，和你的职业/爱好/生活相关，别空泛）, "
+        "energy（精力，从真实区间里选一档：如'精神不错'/'还行'/'有点乏'/'有使不完的劲'等，别总是累）, "
+        "anticipating（你这阵子在期待或惦记的一件小事，给生活一个盼头，具体）}。\n"
         f"距上次和对方通话已过去{gap}，间隔越久，你越可能攒了具体的近况想主动提起。"
     )
     user = f"你的人设：{json.dumps(character.persona, ensure_ascii=False)}"
@@ -56,6 +61,7 @@ def parse_autonomous_state(raw: str) -> AutonomousState:
         mood=str(d.get("mood", "")),
         recent_experience=str(d.get("recent_experience", "")),
         energy=str(d.get("energy", "")),
+        anticipating=str(d.get("anticipating", "")),
     )
 
 

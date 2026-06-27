@@ -39,17 +39,27 @@ class TestPrompt(unittest.TestCase):
         self.assertIn("独立", sys)          # 状态独立于用户需求
         self.assertIn("一周多", sys)         # 间隔粒度注入
 
+    def test_prompt_debiased_and_has_anticipating(self):
+        """第一性原理改写：不再默认疲惫、状态有起伏，并要求 anticipating 维度。"""
+        char = CharacterRuntime("lin_wan", "林晚", {"core_traits": ["温柔"]})
+        sys = build_autonomy_prompt(char, 6)[0]["content"]
+        self.assertIn("不要默认疲惫", sys)   # 去掉「累」锚点
+        self.assertIn("起伏", sys)           # 状态有起伏、多数日子还行
+        self.assertIn("anticipating", sys)   # 新增「在期待的小事」维度
+
 
 class TestParse(unittest.TestCase):
     def test_parse_state(self):
-        s = parse_autonomous_state('{"mood":"有点低落","recent_experience":"搬了家","energy":"有点累"}')
+        s = parse_autonomous_state(
+            '{"mood":"有点低落","recent_experience":"搬了家","energy":"有点累","anticipating":"周末去看海"}')
         self.assertEqual(s.mood, "有点低落")
         self.assertEqual(s.recent_experience, "搬了家")
         self.assertEqual(s.energy, "有点累")
+        self.assertEqual(s.anticipating, "周末去看海")   # 新维度解析
 
     def test_parse_garbage(self):
         s = parse_autonomous_state("没有 JSON")
-        self.assertEqual((s.mood, s.recent_experience, s.energy), ("", "", ""))
+        self.assertEqual((s.mood, s.recent_experience, s.energy, s.anticipating), ("", "", "", ""))
 
 
 class TestEngine(unittest.TestCase):

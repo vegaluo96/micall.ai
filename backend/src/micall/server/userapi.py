@@ -158,10 +158,12 @@ class _Handler(BaseHTTPRequestHandler):
             cid = self._query("c")
             if not cid:
                 return self._json(400, {"ok": False, "error": "缺少角色"})
-            st = _REPO.get_autonomous(cid)
-            has = bool(st.mood or st.recent_experience or st.energy)
+            from .characters_admin import effective_autonomous
+            st = effective_autonomous(_REPO, cid)   # DB 有真实状态用 DB，否则回退出厂初始近况
+            has = bool(st.mood or st.recent_experience or st.energy or st.anticipating)
             return self._json(200, {"ok": True, "status": {
-                "mood": st.mood, "recent": st.recent_experience, "energy": st.energy, "has": has}})
+                "mood": st.mood, "recent": st.recent_experience, "energy": st.energy,
+                "anticipating": st.anticipating, "has": has}})
         if route == "/api/memories":           # 「回忆」——你和这个角色之间的关系/聊过的事（per-user×角色，需登录）
             uid = self._uid()
             if not uid:

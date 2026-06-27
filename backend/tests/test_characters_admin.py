@@ -136,5 +136,29 @@ class TestRuntimePicksUpOverride(unittest.TestCase):
         self.assertEqual(chars["lin_wan"].voice_id, "audiobook_male_2")  # 通话端拿到改后的音色
 
 
+class TestAutonomousSeed(unittest.TestCase):
+    """初始近况预置：DB 无状态时回退 spec 的 autonomous_seed；DB 一旦有真实状态就以 DB 为准。"""
+
+    def setUp(self):
+        self._orig = ca.effective_specs
+        ca.effective_specs = lambda: {"c1": {"autonomous_seed": {
+            "mood": "挺好，刚忙完一阵", "recent_experience": "在排练一首新曲子",
+            "energy": "精神不错", "anticipating": "周末的小型演出"}}}
+
+    def tearDown(self):
+        ca.effective_specs = self._orig
+
+    def test_seed_fallback_then_db_wins(self):
+        from micall.context.models import AutonomousState
+        from micall.memory import InMemoryRepository
+        repo = InMemoryRepository()
+        st = ca.effective_autonomous(repo, "c1")           # DB 空 → 回退出厂种子
+        self.assertEqual(st.mood, "挺好，刚忙完一阵")
+        self.assertEqual(st.anticipating, "周末的小型演出")
+        self.assertEqual(ca.effective_autonomous(repo, "x"), AutonomousState())  # 无种子 → 空
+        repo.save_autonomous("c1", AutonomousState(mood="今天有点闷"))            # DB 有真实状态
+        self.assertEqual(ca.effective_autonomous(repo, "c1").mood, "今天有点闷")  # → 以 DB 为准
+
+
 if __name__ == "__main__":
     unittest.main()

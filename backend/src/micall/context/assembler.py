@@ -305,6 +305,7 @@ def _autonomous_block(s: AutonomousState) -> str:
         f"今天的心情：{s.mood}" if s.mood else "",
         f"你最近在经历：{s.recent_experience}" if s.recent_experience else "",
         f"此刻精力：{s.energy}" if s.energy else "",
+        f"你在期待/惦记着：{s.anticipating}" if s.anticipating else "",
     ) if b]
     if not bits:
         return ""

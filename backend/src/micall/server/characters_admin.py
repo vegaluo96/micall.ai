@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 
 from ..config import _REPO_DEFAULT, _deep_merge
+from ..context.models import AutonomousState
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
@@ -117,6 +118,26 @@ def effective_specs() -> dict[str, dict]:
         ov = overrides.get(cid)
         out[cid] = _deep_merge(spec, ov) if isinstance(ov, dict) else spec
     return out
+
+
+# ── 角色「初始近况」预置（§4.1 自主状态的开局值）──
+# 新角色上线时还没真打过电话、离线推进也没跑过，状态面板会空着。spec 里写一条 autonomous_seed
+# 作为「出厂初始状态」：真实通话后由慢脑推进的 DB 状态一旦生成，就以 DB 为准、不再用种子。
+def autonomous_seed(cid: str) -> dict | None:
+    """取角色 spec 里的初始近况种子（mood/recent_experience/energy/anticipating）。无 → None。"""
+    seed = (effective_specs().get(cid, {}) or {}).get("autonomous_seed")
+    return seed if isinstance(seed, dict) and any(seed.values()) else None
+
+
+def effective_autonomous(repo, cid: str) -> AutonomousState:
+    """生效中的自主状态：DB 有（真实通话后由慢脑推进的）→ 用 DB；否则回退 spec 的出厂种子。"""
+    st = repo.get_autonomous(cid)
+    if st.mood or st.recent_experience or st.energy or st.anticipating:
+        return st
+    seed = autonomous_seed(cid)
+    if seed:
+        return AutonomousState(**{k: str(seed.get(k, "")) for k in AutonomousState.__dataclass_fields__})
+    return st
 
 
 # ── 后台读：把可编辑字段摊平成扁平 dict（列表 join 成串）──
@@ -292,7 +313,7 @@ def load_default_character() -> str:
     cid = d.get("id") if isinstance(d, dict) else ""
     if cid and cid in specs:
         return cid
-    return "lin_wan" if "lin_wan" in specs else next(iter(specs.keys()))  # 未设：回退产品主角林晚，否则第一个在架的
+    return next(iter(specs.keys()))  # 未设/已失效：回退第一个在架角色（spec 按 character_id 排序，flagship 命名靠前即为主角）
 
 
 def set_default_character(cid: str) -> bool:

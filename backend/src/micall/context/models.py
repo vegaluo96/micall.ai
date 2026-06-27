@@ -85,4 +85,5 @@ class AutonomousState:
 
     mood: str = ""               # 当前心情
     recent_experience: str = ""  # 最近"在经历"的事（离线时间推进生成，§4.2）
-    energy: str = ""             # 精力（满血 / 有点累）
+    energy: str = ""             # 精力（满血 / 还行 / 有点累——真人不是恒定一档）
+    anticipating: str = ""       # 在期待/惦记的一件小事（让"她有自己的盼头"，真人感）

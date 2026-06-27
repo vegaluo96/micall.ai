@@ -233,7 +233,7 @@ class SignalingServer:
         # 资产目录为空时的兜底占位角色，保证骨架可独立运行。
         return CharacterRuntime(
             character_id=character_id or "stub",
-            name="林晚",
+            name="小语",
             persona={"core_traits": ["温柔", "会倾听"], "speaking_style": "轻声、慢"},
         )
 
@@ -267,7 +267,7 @@ class SignalingServer:
         assembler = ContextAssembler(
             char,
             profile=profile,
-            autonomous=self.repo.get_autonomous(char.character_id),  # §4.1 TA 今天的状态
+            autonomous=effective_autonomous(self.repo, char.character_id),  # §4.1 TA 今天的状态（无 DB 状态时用出厂初始近况）
             memory=self.repo,
             memory_top_k=int(self.config.global_defaults.get("memory_depth", 5)),
         )
