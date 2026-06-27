@@ -237,9 +237,12 @@ export class MiCallLogic {
       id: c.id, name: c.name || "TA", desc: c.desc || "",
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
       hue: HUE[c.id] ?? ((i * 47) % 360),
-      // 基础资料/喜好从后端真值带过来（缺省留空，profileOf 再按需兜底），让角色卡对齐后台设置。
+      // 基础资料/喜好/富化维度从后端真值带过来（缺省留空，profileOf 按需显「—」/隐藏），让角色卡对齐后台设置。
       gender: c.gender || "", age: c.age, height: c.height, weight: c.weight,
       birthday: c.birthday || "", nationality: c.nationality || "", race: c.race || "",
+      appearance: c.appearance || "", occupation: c.occupation || "", residence: c.residence || "", mbti: c.mbti || "",
+      summary: c.summary || "",
+      hobbies: Array.isArray(c.hobbies) ? c.hobbies : [], catchphrases: Array.isArray(c.catchphrases) ? c.catchphrases : [], quirks: Array.isArray(c.quirks) ? c.quirks : [],
       likes: Array.isArray(c.likes) ? c.likes : [], dislikes: Array.isArray(c.dislikes) ? c.dislikes : [],
     }));
     // 默认角色（运营在后台设、后端把它标 default 并排首位）：进来先选它。
@@ -512,13 +515,28 @@ export class MiCallLogic {
     //  原 slogan 用静态场景文案、还会按 idx%5 多个角色撞同一句，属重复+假数据。）
     const cc: any = c;
     const has = (v: any) => v !== undefined && v !== null && v !== "";
+    const join = (a: any) => (Array.isArray(a) && a.length) ? a.join("、") : "";
     const fmtBirthday = (b: string) => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(b || ""); return m ? `${m[1]}年${+m[2]}月${+m[3]}日` : b; };
+    // 星座按生日算（和后端 _zodiac 同一规则，仅展示用）。md=月*100+日；cuts=每星座末日。
+    const zodiac = (() => {
+      const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(cc?.birthday || "");
+      if (!m) return "";
+      const md = +m[2] * 100 + +m[3];
+      const cuts: [number, string][] = [[119, "摩羯座"], [218, "水瓶座"], [320, "双鱼座"], [419, "白羊座"], [520, "金牛座"], [621, "双子座"], [722, "巨蟹座"], [822, "狮子座"], [922, "处女座"], [1023, "天秤座"], [1122, "天蝎座"], [1221, "射手座"]];
+      for (const [end, n] of cuts) if (md <= end) return n;
+      return "摩羯座";
+    })();
     const dash = "—";
     const g = has(cc?.gender) ? cc.gender : "";
+    const hobbies = join(cc?.hobbies), catchphrases = join(cc?.catchphrases), quirks = join(cc?.quirks);
     return {
       gender: g || dash,
       genderColor: g === "女" ? "#FF6FA5" : (g === "男" ? "#5B8DEF" : "#9A9DA7"),
       age: has(cc?.age) ? cc.age : dash,
+      zodiac: zodiac || dash,
+      mbti: has(cc?.mbti) ? cc.mbti : dash,
+      occupation: has(cc?.occupation) ? cc.occupation : dash,
+      residence: has(cc?.residence) ? cc.residence : dash,
       height: has(cc?.height) ? cc.height : dash,
       weight: has(cc?.weight) ? cc.weight : dash,
       birthday: has(cc?.birthday) ? fmtBirthday(cc.birthday) : dash,
@@ -526,9 +544,14 @@ export class MiCallLogic {
       race: has(cc?.race) ? cc.race : dash,
       nickname: c.name,
       tags: Array.isArray(cc?.traits) ? cc.traits.slice(0, 4) : [],
+      // 富化维度（prose 段，空则前端 sc-if 隐藏，不显空标题）
+      appearance: has(cc?.appearance) ? cc.appearance : "", hasAppearance: has(cc?.appearance),
+      summary: has(cc?.summary) ? cc.summary : "", hasSummary: has(cc?.summary),
+      hobbies, hasHobbies: !!hobbies,
+      catchphrases, hasCatchphrases: !!catchphrases,
+      quirks, hasQuirks: !!quirks,
       likes: (Array.isArray(cc?.likes) && cc.likes.length) ? cc.likes.join("、") : dash,
       dislikes: (Array.isArray(cc?.dislikes) && cc.dislikes.length) ? cc.dislikes.join("、") : dash,
-      personality: (c.traits || []).join("、"),
     };
   }
 
