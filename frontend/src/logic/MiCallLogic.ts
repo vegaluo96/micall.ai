@@ -86,6 +86,9 @@ export class MiCallLogic {
     { name: "慕廷舟", hue: hueFromId("mu_tingzhou"), desc: "霸道却反差宠人的少爷", traits: ["霸道", "骄矜", "反差宠"], bio: "家族集团的独子，骄矜难搞是真，认定了人把全世界宠给你也是真。", id: "mu_tingzhou" },
     { name: "林九", hue: hueFromId("lin_jiu"), desc: "开甜品店的温柔治愈系", traits: ["温柔", "细腻", "慢热"], bio: "辞了城里的工作回苏州开了家小小甜品店，每一份都亲手做。", id: "lin_jiu" },
   ];
+  // 角色是否已就绪：有缓存(返回访客)或 loadCharacters 跑完即 true。为 false 时（无痕首访的加载窗口）
+  // 头像球与角色名走「中性占位」，杜绝先闪一下占位角色再秒切到真实默认角色那一下「球变色」。
+  charsReady = false;
   private _scenesBuilt = false;
 
   state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false };
@@ -145,8 +148,10 @@ export class MiCallLogic {
       if (raw) {
         const c = JSON.parse(raw);
         if (c && Array.isArray(c.chars) && c.chars.length) {
-          this.chars = c.chars;
+          // 缓存里可能存着旧算法的 hue（部署前是按下标算的）→ 一律按 id 现算，杜绝「首屏旧色 → 秒变新色」。
+          this.chars = c.chars.map((ch: any) => ({ ...ch, hue: hueFromId(ch.id) }));
           if (typeof c.idx === "number" && c.idx >= 0 && c.idx < c.chars.length) this.state.charIndex = c.idx;
+          this.charsReady = true;   // 有真实缓存 → 首屏即可显真实角色，不走中性占位
         }
       }
     } catch { /* 缓存坏了就用内置兜底 */ }
@@ -239,9 +244,10 @@ export class MiCallLogic {
 
   /** 接后端则用后端角色列表（运营在后台可新建/删除）；演示或失败时保留内置 5 个真角色。 */
   private async loadCharacters() {
-    if (!authApi.authConfigured()) return;
+    // 任何提前返回都要置就绪：否则无后端/加载失败时头像球会一直停在中性占位。
+    if (!authApi.authConfigured()) { this.charsReady = true; this.notify(); return; }
     const list = await authApi.getCharacters();
-    if (!list || !list.length) return;
+    if (!list || !list.length) { this.charsReady = true; this.notify(); return; }
     this.chars = list.map((c: any) => ({
       id: c.id, name: c.name || "TA", desc: c.desc || "",
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
@@ -261,6 +267,7 @@ export class MiCallLogic {
     // 缓存真实角色 + 默认下标：下次刷新首屏直接显真实数据（不再闪内置占位名）。
     try { localStorage.setItem("micall_chars", JSON.stringify({ chars: this.chars, idx: this.state.charIndex })); } catch { /* noop */ }
     this.state.favorites = this.loadFavs();   // 角色换序后按 id 重新映射收藏下标
+    this.charsReady = true;   // 真实角色已就位 → 头像球/角色名从中性占位切到真实（无痕首访仅这一次）
     this.notify();
   }
 
@@ -1111,7 +1118,9 @@ export class MiCallLogic {
 
     const char = this.chars[this.state.charIndex % this.chars.length];
     const charName = char.name;
-    const orbHue = `hue-rotate(${char.hue}deg)`;
+    // 未就绪（无痕首访的加载窗口）：球走中性基色(hue-rotate 0)，等真实默认角色到位再切，
+    // 不再「先占位色 → 秒变真实色」。就绪后才用该角色的确定性 id 色相。
+    const orbHue = this.charsReady ? `hue-rotate(${char.hue}deg)` : "hue-rotate(0deg)";
     const charTab = this.state.charTab;
     const charList = this.chars.map((c, i) => ({
       name: c.name,
@@ -1128,7 +1137,7 @@ export class MiCallLogic {
     })).filter((o) => charTab === "fav" ? this.state.favorites.includes(o._i) : true)
       .filter((o) => { const q = (this.state.searchQ || "").trim(); return !q || o.name.includes(q) || o.desc.includes(q); });
     const charListEmpty = charList.length === 0;
-    const charDots = this.chars.map((_, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 }));
+    const charDots = this.charsReady ? this.chars.map((_, i) => ({ op: i === this.state.charIndex ? 0.9 : 0.22 })) : [];   // 未就绪不显占位圆点
     const curFav = this.state.favorites.includes(this.state.charIndex);
     const favCurFill = curFav ? "#FF4F7B" : "none";
     const favCurStroke = curFav ? "#FF4F7B" : "var(--fg)";
@@ -1138,7 +1147,7 @@ export class MiCallLogic {
     const phaseIdle = p === "idle";
     const phaseEnded = p === "ended";
     // 简介(tagline)在 idle + 接通中(calling)都显示，跟未拨打状态对齐；真正接通(connected)/结束后才换成计时。
-    const showTagline = p === "idle" || p === "calling";
+    const showTagline = this.charsReady && (p === "idle" || p === "calling");   // 未就绪先不显占位简介
     const showOrbStatus = p !== "idle" && p !== "calling";   // 头部计时仅真正通话/结束态显示（接通中让位给简介）
     const stars = [1, 2, 3, 4, 5].map((n) => ({ fill: n <= this.state.rating ? "#FFB23E" : "var(--faint)", set: () => this.setState({ rating: n }) }));
     const feedbackChips = ["很温暖", "聊得开心", "答非所问", "反应慢"].map((t) => {
@@ -1207,7 +1216,7 @@ export class MiCallLogic {
       // 边缘光在 idle/ended（应用最常驻态）不可见——此时不渲染那层 blur(34px) 的旋转
       // 锥形渐变，省掉持续的 GPU 合成（仅通话各阶段才挂载）。
       edgeVisible: edgeOpacity > 0,
-      title: p === "ended" ? "通话结束" : charName,
+      title: p === "ended" ? "通话结束" : (this.charsReady ? charName : " "),   // 未就绪显空(占位高度不塌)，不闪占位名
       orbHue, showOrbStatus, showTagline, showUnderOrb, charDots,
       charTagline: char.desc,
       charDetail: {
