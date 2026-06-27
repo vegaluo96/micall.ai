@@ -1231,7 +1231,9 @@ export class MiCallLogic {
         previewing: this.state.previewing === this.state.charIndex,
         notPreviewing: this.state.previewing !== this.state.charIndex,
         previewLabel: this.state.previewing === this.state.charIndex ? "正在试听…" : "试听声音",
-        previewVoice: () => { this.playPreview(this.state.charIndex, this.selectedVoice(this.state.charIndex)); },
+        // 「TA 的原声」= 角色在后台设定的音色（含克隆音色）：传空 voiceId → 后端按角色 spec 的 voice_id 合成，
+        // 不再用用户个人选过的音色(myVoices/voiceByChar)顶替，故和后台音色设置一致。
+        previewVoice: () => { this.playPreview(this.state.charIndex, ""); },
         ...this.profileOf(this.state.charIndex),
         voiceChips: (() => {
           const ci = this.state.charIndex;
