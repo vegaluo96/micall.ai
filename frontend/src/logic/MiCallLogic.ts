@@ -198,7 +198,20 @@ export class MiCallLogic {
     const patch = typeof update === "function" ? update(this.state) : update;
     this.state = { ...this.state, ...patch };
     this.notify();
+    // 气泡(toast)统一自动消失：任何地方设了非空 toast 都自动清掉，杜绝「忘了 clearToastSoon →
+    // 气泡一直挂着不消失」（历史多处遗漏：音色库失败/请先登录/自动挂断/识别中断…）。每次设 toast 重置计时。
+    if (patch && Object.prototype.hasOwnProperty.call(patch, "toast")) this._armToastAutoClear();
     if (cb) cb();
+  }
+
+  private _toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private _armToastAutoClear() {
+    if (this._toastTimer) { clearTimeout(this._toastTimer); this._toastTimer = null; }
+    if (!this.state.toast) return;   // 清空 toast 不再排计时（避免空转/递归）
+    this._toastTimer = setTimeout(() => {
+      this._toastTimer = null;
+      if (this.state.toast) this.setState({ toast: "" });
+    }, 2800);
   }
 
   componentDidMount() {

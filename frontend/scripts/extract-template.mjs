@@ -52,7 +52,7 @@ template = template.replaceAll(
 // 无固定高度、本就矮于 82%，由 CSS 的 max-height:82% 兜住上限。
 template = template.replace(
   /(left:0;right:0;bottom:0;)height:(?:72|74|78)%;/g,
-  "$1height:82%;",
+  "$1max-height:82%;",
 );
 
 // 角色详情：把头部（头像/名字/标签）+ 其下分隔线做成固定头部，下方资料区独立滚动

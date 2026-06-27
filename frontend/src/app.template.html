@@ -386,7 +386,7 @@
       <!-- 状态：TA 当下的心情/近况/精力 -->
       <sc-if value="{{ statusOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ closeStatus }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:16px;">{{ statusView.name }} 现在</div>
           <sc-if value="{{ statusView.loading }}" hint-placeholder-val="{{ false }}">
@@ -407,7 +407,7 @@
       <!-- 回忆：你和这个角色之间的关系/聊过的事 -->
       <sc-if value="{{ memoryOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ closeMemory }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:82%;overflow-y:auto;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 16px 26px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:16px;">和 {{ memoryView.name }} 的回忆</div>
           <sc-if value="{{ memoryView.loading }}" hint-placeholder-val="{{ false }}">
@@ -475,7 +475,7 @@
 
       <sc-if value="{{ charDetailOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ charDetailClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.24);backdrop-filter:blur(9px) saturate(1.08);-webkit-backdrop-filter:blur(9px) saturate(1.08);z-index:10;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 0 0;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 6px;flex:none;"></div>
           <div style="flex:none;padding:0 20px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;">
               <div style="width:96px;height:96px;border-radius:50%;position:relative;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.18);"><div style="position:absolute;inset:0;background:#0b0b11;"></div><img src="{{ charDetail.avatar }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:{{ charDetail.avatarDisplay }};background:#0b0b11;" /></div>
@@ -612,7 +612,7 @@
 
       <sc-if value="{{ charOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ charClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:4px 8px 14px;">
             <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择角色</div>
@@ -646,7 +646,7 @@
 
       <sc-if value="{{ scenarioOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ scenarioClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 22px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 4px;flex:none;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:4px 8px 14px;flex:none;">
             <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;">选择场景</div>
@@ -699,7 +699,7 @@
 
       <sc-if value="{{ billsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ billsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 22px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:11;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 18px 22px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;padding-bottom:14px;flex:none;">账单</div>
           <div style="flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px;border-radius:20px;background:rgba(110,92,255,.08);border:1px solid var(--line);margin-bottom:22px;">
@@ -735,10 +735,7 @@
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 28px;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;"></div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-            <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,#FF8FA8,#9277F5);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(146,119,245,.3);">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-            </div>
-            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;margin-top:4px;">邀请好友</div>
+            <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.2px;">邀请好友</div>
             <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">每邀请一位好友,双方各得 <span style="color:#6E5CFF;font-weight:600;">{{ inviteRewardMin }} 分钟</span> 通话时长</div>
             <div style="display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;padding:13px 16px;border-radius:15px;background:var(--ctrl);box-sizing:border-box;">
               <span style="flex:1;font-size:16px;font-weight:600;color:var(--fg);letter-spacing:2px;">{{ inviteCode }}</span>
@@ -767,7 +764,7 @@
 
       <sc-if value="{{ rechargeOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ rechargeClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:8;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 0;display:flex;flex-direction:column;height:82%;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 14px 0;display:flex;flex-direction:column;max-height:82%;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 8px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);letter-spacing:.3px;text-align:center;flex:none;margin-bottom:10px;">充值</div>
           <!-- 会员套餐：可滚动区 -->
@@ -903,7 +900,7 @@
 
       <sc-if value="{{ termsOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ termsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">用户协议</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
@@ -919,7 +916,7 @@
 
       <sc-if value="{{ contactOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ contactClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:16px;flex:none;">联系我们</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
@@ -957,7 +954,7 @@
 
       <sc-if value="{{ privacyOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ privacyClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
+        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
           <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">隐私政策</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
