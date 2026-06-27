@@ -81,6 +81,35 @@ def _ice_servers_from_env() -> list:
 
 if _OK:
 
+    # —— Opus 下行音质补丁（纯收益：让手机/电脑里 AI 语音更"好听"）——
+    # aiortc 1.14 的 OpusEncoder 默认 application="voip"——为"语音清晰度"调校，听感偏扁平/电话味。
+    # 改成 "audio"（全频带、为自然音质调校）后，TTS 的情绪/温暖度在编码后保留得更好；码率维持 96k、
+    # 几乎不增延迟。这是【发送侧】编码参数：手机即便进系统通话模式，也是在其允许带宽内"尽量好听"，
+    # 电脑则直接受益（不降级媒体输出）。可经 env 调/回退：MICALL_OPUS_APPLICATION=voip 即恢复原状。
+    _OPUS_APP = (os.environ.get("MICALL_OPUS_APPLICATION", "audio").strip() or "audio")
+    try:
+        _OPUS_BITRATE = int(os.environ.get("MICALL_OPUS_BITRATE", "96000"))
+    except ValueError:
+        _OPUS_BITRATE = 96000
+    try:
+        from aiortc.codecs import opus as _opus_mod
+        if not getattr(_opus_mod.OpusEncoder, "_micall_hifi", False):
+            _orig_opus_init = _opus_mod.OpusEncoder.__init__
+
+            def _hifi_opus_init(self) -> None:  # type: ignore[no-redef]
+                _orig_opus_init(self)
+                try:                                  # 在首次 encode（PyAV 打开编码器）前覆盖，故生效
+                    self.codec.options = {"application": _OPUS_APP}
+                    self.codec.bit_rate = _OPUS_BITRATE
+                except Exception as _e:  # pragma: no cover
+                    log.warning("Opus 高音质参数未应用：%r", _e)
+
+            _opus_mod.OpusEncoder.__init__ = _hifi_opus_init  # type: ignore[assignment]
+            _opus_mod.OpusEncoder._micall_hifi = True         # 幂等：重复 import 不叠包裹
+            log.info("Opus 下行音质：application=%s bit_rate=%d", _OPUS_APP, _OPUS_BITRATE)
+    except Exception as _e:  # pragma: no cover
+        log.warning("Opus 音质补丁未生效（aiortc 版本差异），保持默认 voip：%r", _e)
+
     class _TTSTrack(MediaStreamTrack):
         """下行 AI 语音轨：外部 feed 24k PCM（s16 mono），内部重采样到 48k，按 20ms 实时节奏吐帧。"""
 
