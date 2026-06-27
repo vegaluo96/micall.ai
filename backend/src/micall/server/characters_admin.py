@@ -23,6 +23,7 @@ CHAR_OVERRIDES_PATH = _REPO_DEFAULT.parent / "character_overrides.json"
 CUSTOM_CHARS_PATH = _REPO_DEFAULT.parent / "custom_characters.json"   # 运营新建的角色（全 spec）
 DELETED_CHARS_PATH = _REPO_DEFAULT.parent / "deleted_characters.json"  # 被隐藏/删除的角色 id
 OFFLINE_CHARS_PATH = _REPO_DEFAULT.parent / "offline_characters.json"  # 被「下架」的角色 id（仍在后台、不对用户展示）
+CLONED_VOICES_PATH = _REPO_DEFAULT.parent / "cloned_voices.json"      # 克隆出的自定义音色清单（音色管理页据此展示）
 DEFAULT_CHAR_PATH = _REPO_DEFAULT.parent / "default_character.json"   # 运营设定的默认角色 id（用户端进来先选它）
 
 _LIST_SEP = re.compile(r"[、,，;；\n]+")
@@ -78,6 +79,31 @@ def _save_json_file(path: Path, data) -> None:
 def load_custom() -> dict:
     d = _load_json_file(CUSTOM_CHARS_PATH, {})
     return d if isinstance(d, dict) else {}
+
+
+# ── 克隆音色清单：克隆成功时记一条，音色管理页据此展示（系统库之外的自定义 voice_id）──
+def load_cloned_voices() -> list[dict]:
+    d = _load_json_file(CLONED_VOICES_PATH, [])
+    return d if isinstance(d, list) else []
+
+
+def add_cloned_voice(voice_id: str, name: str = "", char: str = "") -> None:
+    vid = (voice_id or "").strip()
+    if not vid:
+        return
+    voices = [v for v in load_cloned_voices() if v.get("voice_id") != vid]   # 同 id 覆盖（重克隆更新名）
+    voices.append({"voice_id": vid, "name": (name or vid).strip(), "char": char or ""})
+    _save_json_file(CLONED_VOICES_PATH, voices)
+
+
+def remove_cloned_voice(voice_id: str) -> bool:
+    vid = (voice_id or "").strip()
+    voices = load_cloned_voices()
+    kept = [v for v in voices if v.get("voice_id") != vid]
+    if len(kept) == len(voices):
+        return False
+    _save_json_file(CLONED_VOICES_PATH, kept)
+    return True
 
 
 def load_deleted() -> set:

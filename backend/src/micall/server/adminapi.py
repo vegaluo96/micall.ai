@@ -401,8 +401,8 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/characters":
             from .characters_admin import read_characters_for_admin
             return self._json(200, {"characters": read_characters_for_admin()})
-        if self._route() == "/admin/voices":   # MiniMax 系统（免费）音色库 + 各音色当前被哪些角色使用
-            from .characters_admin import effective_specs
+        if self._route() == "/admin/voices":   # MiniMax 系统（免费）音色库 + 克隆音色 + 各音色被哪些角色用
+            from .characters_admin import effective_specs, load_cloned_voices
             from .voice_library import system_voice_library
             used: dict[str, list[str]] = {}
             for cid, spec in effective_specs().items():
@@ -410,8 +410,17 @@ class _Handler(BaseHTTPRequestHandler):
                 if vid:
                     used.setdefault(vid, []).append((spec.get("identity") or {}).get("name") or cid)
             lib = system_voice_library()
+            sys_ids = {v["voice_id"] for v in lib}
             for v in lib:
                 v["used_by"] = used.get(v["voice_id"], [])
+            # 克隆/自定义音色：① 持久化清单里的；② 角色用了但不在系统库里的（兜住「先克隆过、清单还没记」的）。
+            labels = {c.get("voice_id"): c.get("name") for c in load_cloned_voices()}
+            custom_ids = set(labels) | {vid for vid in used if vid not in sys_ids}
+            for vid in sorted(custom_ids - sys_ids):
+                by = used.get(vid, [])
+                name = labels.get(vid) or ((by[0] + " · 克隆") if by else vid)
+                lib.append({"voice_id": vid, "name": name, "gender": "克隆音色", "group": "自定义",
+                            "lang": "中文", "engine": "MiniMax", "cloned": True, "used_by": by})
             return self._json(200, {"voices": lib, "engine": "MiniMax"})
         if self._route() == "/admin/cost-config":
             return self._json(200, read_cost_for_admin())

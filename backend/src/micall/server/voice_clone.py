@@ -114,13 +114,18 @@ def clone_for_character(audio: bytes, filename: str = "voice.wav", *,
         return {"ok": False, "error": str(e)[:400]}
     set_to = ""
     cid = (character_id or "").strip()
-    if cid:
-        try:
-            from .characters_admin import write_character_from_admin
+    char_name = ""
+    try:
+        from .characters_admin import add_cloned_voice, effective_specs, write_character_from_admin
+        if cid:
+            char_name = ((effective_specs().get(cid) or {}).get("identity") or {}).get("name") or cid
+        # 记入克隆音色清单（音色管理页展示），名字带上角色便于辨认
+        add_cloned_voice(res["voice_id"], name=(f"{char_name} · 克隆" if char_name else "克隆音色"), char=cid)
+        if cid:
             write_character_from_admin({"id": cid, "voice_id": res["voice_id"]})
             set_to = cid
-        except Exception as e:   # 复刻成功但写角色失败：不吞，返回 voice_id 让运营手动填
-            log.warning("克隆成功但写角色音色失败 char=%s：%r", cid, e)
-            res["set_error"] = str(e)[:200]
+    except Exception as e:   # 复刻成功但落库失败：不吞，返回 voice_id 让运营手动填
+        log.warning("克隆成功但落库失败 char=%s：%r", cid, e)
+        res["set_error"] = str(e)[:200]
     return {"ok": True, "voice_id": res["voice_id"], "demo_audio": res.get("demo_audio", ""),
             "set_to": set_to, **({"set_error": res["set_error"]} if "set_error" in res else {})}

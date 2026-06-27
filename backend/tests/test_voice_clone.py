@@ -40,6 +40,36 @@ class TestContentType(unittest.TestCase):
         self.assertEqual(vc._content_type("noext"), "audio/wav")   # 缺省
 
 
+class TestClonedVoiceRegistry(unittest.TestCase):
+    """克隆音色清单：add→load→remove 往返；同 id 覆盖。"""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from micall.server import characters_admin as ca
+        self.ca = ca
+        self.tmp = Path(tempfile.mkdtemp()) / "cloned_voices.json"
+        self._orig = ca.CLONED_VOICES_PATH
+        ca.CLONED_VOICES_PATH = self.tmp
+
+    def tearDown(self):
+        self.ca.CLONED_VOICES_PATH = self._orig
+        if self.tmp.exists():
+            self.tmp.unlink()
+
+    def test_add_load_remove(self):
+        ca = self.ca
+        self.assertEqual(ca.load_cloned_voices(), [])
+        ca.add_cloned_voice("vega123456", name="维佳 · 克隆", char="vega")
+        ca.add_cloned_voice("vega123456", name="维佳 · 克隆v2", char="vega")  # 同 id 覆盖
+        voices = ca.load_cloned_voices()
+        self.assertEqual(len(voices), 1)
+        self.assertEqual(voices[0]["name"], "维佳 · 克隆v2")
+        self.assertTrue(ca.remove_cloned_voice("vega123456"))
+        self.assertEqual(ca.load_cloned_voices(), [])
+        self.assertFalse(ca.remove_cloned_voice("nope"))
+
+
 class TestGuards(unittest.TestCase):
     def test_empty_audio_rejected(self):
         self.assertFalse(vc.clone_for_character(b"")["ok"])
