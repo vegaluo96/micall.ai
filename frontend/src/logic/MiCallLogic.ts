@@ -52,6 +52,7 @@ interface Char {
   traits: string[];
   bio: string;
   id?: string; // 出厂角色对应后端 spec 的 character_id（asset-pipeline/characters/*.json）；省略则回退 "c"+idx
+  avatar?: string; // 后台生成的头像 URL（/api/avatar?c=...）；空则圆圈回退渐变球
 }
 interface ScenarioDef {
   key: string;
@@ -249,6 +250,7 @@ export class MiCallLogic {
     this.chars = list.map((c: any) => ({
       id: c.id, name: c.name || "TA", desc: c.desc || "",
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
+      avatar: c.avatar || "",   // 后台生成的头像 URL（空则圆圈回退渐变球）
       hue: hueFromId(c.id),   // 由 id 确定性哈希：同角色颜色恒定、与后台一致，不随列表顺序变
       // 基础资料/喜好/富化维度从后端真值带过来（缺省留空，profileOf 按需显「—」/隐藏），让角色卡对齐后台设置。
       gender: c.gender || "", age: c.age, height: c.height, weight: c.weight,
@@ -1116,11 +1118,14 @@ export class MiCallLogic {
     // 未就绪（无痕首访的加载窗口）：球走中性基色(hue-rotate 0)，等真实默认角色到位再切，
     // 不再「先占位色 → 秒变真实色」。就绪后才用该角色的确定性 id 色相。
     const orbHue = this.charsReady ? `hue-rotate(${char.hue}deg)` : "hue-rotate(0deg)";
+    // 头像：有则圆圈显真实头像（大球/列表/详情都填满），无则回退渐变球（色相光晕始终保留）。
+    const orbAvatar = (this.charsReady && char.avatar) ? char.avatar : "";
     const charTab = this.state.charTab;
     const charList = this.chars.map((c, i) => ({
       name: c.name,
       desc: c.desc,
       hueFilter: `hue-rotate(${c.hue}deg)`,
+      avatar: c.avatar || "", avatarDisplay: c.avatar ? "block" : "none",
       bg: "var(--ctrl)",
       border: i === this.state.charIndex ? "2px solid #6E5CFF" : "2px solid transparent",
       check: i === this.state.charIndex ? 1 : 0,
@@ -1136,7 +1141,7 @@ export class MiCallLogic {
     const curFav = this.state.favorites.includes(this.state.charIndex);
     const favCurFill = curFav ? "#FF4F7B" : "none";
     const favCurStroke = curFav ? "#FF4F7B" : "var(--fg)";
-    const favList = this.chars.map((c, i) => ({ name: c.name, desc: c.desc, hueFilter: `hue-rotate(${c.hue}deg)`, _i: i, pick: () => this.setState({ charIndex: i, favOpen: false }) })).filter((o) => this.state.favorites.includes(o._i));
+    const favList = this.chars.map((c, i) => ({ name: c.name, desc: c.desc, hueFilter: `hue-rotate(${c.hue}deg)`, avatar: c.avatar || "", avatarDisplay: c.avatar ? "block" : "none", _i: i, pick: () => this.setState({ charIndex: i, favOpen: false }) })).filter((o) => this.state.favorites.includes(o._i));
     const hasFavs = favList.length > 0;
     const noFavs = favList.length === 0;
     const phaseIdle = p === "idle";
@@ -1213,9 +1218,11 @@ export class MiCallLogic {
       edgeVisible: edgeOpacity > 0,
       title: p === "ended" ? "通话结束" : (this.charsReady ? charName : " "),   // 未就绪显空(占位高度不塌)，不闪占位名
       orbHue, showOrbStatus, showTagline, showUnderOrb, charDots,
+      orbAvatar, hasOrbAvatar: !!orbAvatar,
       charTagline: char.desc,
       charDetail: {
         name: char.name, tagline: char.desc, bio: char.bio, traits: char.traits, hueFilter: orbHue,
+        avatar: orbAvatar, avatarDisplay: orbAvatar ? "block" : "none",
         fav: this.state.favorites.includes(this.state.charIndex),
         favFill: this.state.favorites.includes(this.state.charIndex) ? "#FF4F7B" : "none",
         favStroke: this.state.favorites.includes(this.state.charIndex) ? "#FF4F7B" : "var(--dim)",
