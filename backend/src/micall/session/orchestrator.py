@@ -195,7 +195,9 @@ class CallSession:
         self._billing_task: asyncio.Task | None = None
         self._listen_task: asyncio.Task | None = None    # task A：ASR 感知常驻协程
         self._current_turn: asyncio.Task | None = None   # 语音模式下当前一轮（可被打断）
-        self._greet_task: asyncio.Task | None = None     # 接通后主动开场白（异步，不阻塞 start；挂断时取消）
+        self._greet_task: asyncio.Task | None = None     # 主动开场白任务（由前端 ready 触发；挂断时取消）
+        self._greeted = False                            # 开场一次性守卫（begin_conversation 幂等）
+        self._opening_active = False                     # 开场白播放期：_listen_loop 整段丢 ASR（防自我打断）
         # 上行麦克风帧：有界（≈1–1.5s）。无界时 ASR/网络一慢，帧就积压，ASR 永远在嚼过期音频
         # → 越聊越延迟、还容易把旧片段重判（与"一句被当五遍"同源）。满则丢最旧、永远喂最新（见 push_audio）。
         self._mic_q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=64)
@@ -280,10 +282,9 @@ class CallSession:
         # task A 感知：有实时 ASR 才起（语音模式）；否则纯文字模式由 on_user_text 驱动。
         if self._asr_rt is not None:
             self._listen_task = asyncio.create_task(self._listen_loop())
-        # 接通即主动开口（异步，不阻塞计费/麦克风起步）：用「针对 TA 的开场白」填掉接通后的冷场。
-        # 用户抢先说话则让位（见 _run_opening 内的 history/phase 守卫）；用户也能随时打断这句开场。
-        if self._greet_on_start and getattr(self, "llm", None) is not None:
-            self._greet_task = asyncio.create_task(self._run_opening())
+        # 主动开场白【不在此触发】：改由前端「传输就绪(ready)」驱动（见 begin_conversation）——拨通先进
+        # 「接通中」loading 把 RTC 连好、AEC 热好，AI 才接起来开口，开场白直接走在已就绪传输上（不切通道=不顿、
+        # AEC 已在+开场期抑制 ASR=不自我打断、loading 盖住建连=不冷场）。
 
     # ── 上行音频：server 收到二进制帧 → 入队，喂给 task A 的 ASR 流 ──
     def push_audio(self, frame: bytes) -> None:
@@ -344,6 +345,8 @@ class CallSession:
                 t = (text or "").strip()
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
+                if self._opening_active:
+                    continue  # 开场白播放期：整段丢 ASR（不打断/不触发轮次/不上字幕）——防 AI 把自己的开场白当用户插话
                 if self._looks_like_echo(t):
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
@@ -431,15 +434,34 @@ class CallSession:
         async with self._turn_lock:
             await self._generate_turn(text)
 
+    def begin_conversation(self) -> None:
+        """前端发来 ready（RTC 已真连上 或 已回退 WS）→ 此刻才让 AI 主动开口：开场白走在已就绪的传输上。
+        一次性（_greeted 守卫），重复 ready / 会话已结束 / 未配开场 / 无 LLM 时均安全 no-op。"""
+        if self._greeted or not self._greet_on_start or getattr(self, "llm", None) is None:
+            return
+        if self.sm.phase in (Phase.IDLE, Phase.ENDED):
+            return
+        self._greeted = True
+        self._greet_task = asyncio.create_task(self._run_opening())
+
     async def _run_opening(self) -> None:
-        """接通后主动说开场白：仅在「还没有任何一轮、仍处 LISTENING」时插入——用户抢先开口（history 非空）
+        """主动说开场白：仅在「还没有任何一轮、仍处 LISTENING」时插入——用户抢先开口（history 非空）
         或已不在可对话态则让位。走 _turn_lock 与用户首轮串行，绝不并发；这句开场用户可随时打断
-        （_generate_turn 全程尊重 self._interrupt）。失败静默忽略，照常等用户开口。"""
+        （_generate_turn 全程尊重 self._interrupt）。失败静默忽略，照常等用户开口。
+        开场全程置 _opening_active → _listen_loop 整段丢 ASR：彻底断掉「AI 把自己开场白当用户插话」的自我打断
+        （AEC 热身窗在 RTC 连上即 arm，但开场 LLM+TTS 要 ~1.5s 才出声、热身窗会在开场音频播出前耗尽，故需此兜底）。"""
         try:
             async with self._turn_lock:
                 if self.history or self.sm.phase != Phase.LISTENING:
                     return
-                await self._generate_turn(self._opening_directive, opening=True)
+                self._opening_active = True
+                try:
+                    await self._generate_turn(self._opening_directive, opening=True)
+                finally:
+                    self._opening_active = False
+                    # 开场说完：若全双工，给随后第一轮对话一个新鲜 AEC 热身窗（开场已占满原热身窗）。
+                    if self._full_duplex_aec:
+                        self._aec_warmup_until = time.monotonic() + self._aec_warmup_s
         except asyncio.CancelledError:
             pass
         except Exception as e:

@@ -170,8 +170,28 @@ class TestOrchestrator(unittest.TestCase):
         for p in ("thinking", "speaking", "listening"):
             self.assertIn(p, states)
 
-    def test_proactive_opening_speaks_first(self):
-        """接通后不等用户：AI 主动先说一句开场白（emit ai 字幕），且不伪造 user 字幕、不把指令写进 history。"""
+    def test_start_does_not_open_until_ready(self):
+        """start() 本身不让 AI 开口——开场改由前端 ready(begin_conversation) 触发（拨通先把 RTC 连好再开口）。"""
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        async def run():
+            s = _make_session(emit)
+            await s.start()
+            await asyncio.sleep(0)        # 让任何被误触发的任务有机会跑
+            await s.end()
+            return s
+
+        s = asyncio.run(run())
+        self.assertIsNone(s._greet_task)             # start 没起开场任务
+        self.assertFalse(s._greeted)                 # 未开过口
+        ai = [e for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertEqual(ai, [])                     # start 后没有 AI 主动开场
+
+    def test_ready_triggers_opening_speaks_first(self):
+        """收到 ready(begin_conversation) → AI 主动开口；不伪造 user 字幕、不把指令写进 history；开场期抑制 ASR。"""
         events: list[dict] = []
 
         async def emit(ev):
@@ -183,7 +203,8 @@ class TestOrchestrator(unittest.TestCase):
             s = _make_session(emit)
             holder["s"] = s
             await s.start()
-            if s._greet_task:        # 开场是 create_task 异步触发 → 等它跑完再断言
+            s.begin_conversation()       # 前端「传输就绪」→ 触发开场（异步 create_task）
+            if s._greet_task:
                 await s._greet_task
             await s.end()
 
@@ -191,11 +212,33 @@ class TestOrchestrator(unittest.TestCase):
         s = holder["s"]
         ai = [e for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
         user_subs = [e for e in events if e["type"] == "subtitle" and e["role"] == "user"]
-        self.assertGreaterEqual(len(ai), 1)          # AI 主动开了口（无需用户先说）
+        self.assertGreaterEqual(len(ai), 1)          # AI 主动开了口
         self.assertEqual(user_subs, [])              # 开场不是用户说的 → 不伪造用户字幕
-        # 开场指令只临时喂 LLM、不入 history（不污染后续上下文）：history 里没有 user，只有 AI 开场回复。
+        self.assertFalse(s._opening_active)          # 开场结束标志已复位
+        # 开场指令只临时喂 LLM、不入 history：history 里没有 user，只有 AI 开场回复。
         self.assertTrue(all(m["role"] != "user" for m in s.history))
         self.assertTrue(any(m["role"] == "assistant" for m in s.history))
+
+    def test_begin_conversation_idempotent_and_safe_after_end(self):
+        """begin_conversation 一次性（_greeted 守卫）；会话已结束再调安全 no-op。"""
+        async def emit(ev):
+            pass
+
+        async def run():
+            s = _make_session(emit)
+            await s.start()
+            s.begin_conversation()
+            first = s._greet_task
+            s.begin_conversation()           # 二次：应被 _greeted 守卫挡掉，不另起任务
+            self.assertIs(s._greet_task, first)
+            if s._greet_task:
+                await s._greet_task
+            await s.end()
+            s.begin_conversation()           # 已结束：安全 no-op
+            return s
+
+        s = asyncio.run(run())
+        self.assertTrue(s._greeted)
 
     def test_opening_yields_when_user_speaks_first(self):
         """用户抢先开口：开场让位，不插一条多余的开场轮（靠 history/phase 守卫）。"""
@@ -208,6 +251,7 @@ class TestOrchestrator(unittest.TestCase):
             s = _make_session(emit)
             await s.start()
             await s.on_user_text("我先说")       # 抢在开场任务前拿到 _turn_lock
+            s.begin_conversation()
             if s._greet_task:
                 await s._greet_task             # 开场任务此时应因 history 非空而直接返回
             await s.end()

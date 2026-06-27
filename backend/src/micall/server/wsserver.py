@@ -349,6 +349,12 @@ class SignalingServer:
                             user_id = uid
                             log.info("⇆ WS 首条鉴权 user=%s", user_id)
                     continue
+                # 传输就绪：前端 loading 结束（RTC 真连上 或 已回退 WS）→ 此刻才让 AI 主动开口（开场白走在
+                # 已就绪传输上：不切通道、AEC 已热、loading 已盖住建连）。begin_conversation 幂等，重复/已结束安全。
+                if isinstance(d, dict) and d.get("type") == "ready":
+                    if session is not None:
+                        session.begin_conversation()
+                    continue
                 if isinstance(d, dict) and d.get("type") in ("rtc_offer", "rtc_ice", "rtc_close"):
                     if d.get("type") == "rtc_close":          # 前端回退 WS → 关掉 RTC，下行音频改回 WS
                         if rtc is not None:

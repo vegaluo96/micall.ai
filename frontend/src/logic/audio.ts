@@ -12,6 +12,10 @@
 const MIC_RATE = 16000;
 const TTS_RATE = 24000;
 
+// 接通中（loading 等 RTC 连好）的提示音：柔和、低音量、间歇，像真电话在响——把「正在接通」的等待感做实，
+// 而不是死寂。改 false 即整体关闭。
+const RING_ENABLED = true;
+
 type Ctor = { new (): AudioContext };
 function audioCtx(): AudioContext {
   const C = (window.AudioContext || (window as unknown as { webkitAudioContext: Ctor }).webkitAudioContext) as Ctor;
@@ -81,6 +85,9 @@ export class AudioPlayer {
   private playhead = 0;
   private sources = new Set<AudioBufferSourceNode>();
   private logged = false;
+  private ringOsc: OscillatorNode | null = null;       // 接通提示音（loading 期）
+  private ringGain: GainNode | null = null;
+  private ringTimer: ReturnType<typeof setInterval> | null = null;
 
   /** 必须在用户手势（点接听）里调一次，iOS 才允许出声。 */
   resume(): void {
@@ -125,8 +132,56 @@ export class AudioPlayer {
     return this.ctx.currentTime < this.playhead + tailMs / 1000;
   }
 
+  /** 接通中提示音：复用本播放器的 AudioContext 起一个 sine 振荡器，按 ~1.7s 周期柔和渐入渐出（间歇响铃感），
+   *  低音量(0.05)不刺耳。必须已在用户手势里 resume 过（点接听时），iOS 才出声。goLive/挂断即 stopRing。 */
+  startRing(): void {
+    if (!RING_ENABLED || this.ringOsc) return;
+    this.resume();
+    if (!this.ctx) return;
+    try {
+      const ctx = this.ctx;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      gain.connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = 480;          // 柔和中频，非刺耳电话铃
+      osc.connect(gain);
+      osc.start();
+      this.ringOsc = osc;
+      this.ringGain = gain;
+      const beat = () => {
+        if (!this.ctx || !this.ringGain) return;
+        const t = this.ctx.currentTime;
+        const g = this.ringGain.gain;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(0.0001, t);
+        g.exponentialRampToValueAtTime(0.05, t + 0.35);   // 渐入
+        g.exponentialRampToValueAtTime(0.0001, t + 1.0);  // 渐出（留 ~0.7s 静默 → 间歇感）
+      };
+      beat();
+      this.ringTimer = setInterval(beat, 1700);
+    } catch { this.stopRing(); }
+  }
+
+  /** 停接通提示音（传输就绪/挂断）。幂等。 */
+  stopRing(): void {
+    if (this.ringTimer !== null) { clearInterval(this.ringTimer); this.ringTimer = null; }
+    try {
+      if (this.ctx && this.ringGain) {
+        const t = this.ctx.currentTime;
+        this.ringGain.gain.cancelScheduledValues(t);
+        this.ringGain.gain.setValueAtTime(0.0001, t);   // 立即压低，避免咔哒
+      }
+      this.ringOsc?.stop((this.ctx?.currentTime ?? 0) + 0.05);
+    } catch { /* noop */ }
+    this.ringOsc = null;
+    this.ringGain = null;
+  }
+
   /** 打断/挂断：停掉所有排队中的音频。 */
   flush(): void {
+    this.stopRing();   // 任何挂断/打断路径都确保提示音停（loading 期挂断兜底）
     for (const s of this.sources) { try { s.stop(); } catch { /* noop */ } }
     this.sources.clear();
     this.playhead = 0;

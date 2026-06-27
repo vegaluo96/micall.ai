@@ -567,7 +567,10 @@ export class MiCallLogic {
    *  建连过程，loading 一结束就是已就绪。只在还卡在 calling 时转（防迟到/重复）。 */
   private goLive() {
     if (this.state.phase !== "calling") return;
+    this.player.stopRing();    // 接通提示音停（传输已就绪）
     this.setState({ phase: "listening", seconds: 0, subtitle: "", lines: [], callFailed: false });
+    // 告诉后端「传输已就绪」→ AI 接起来主动开口（开场白走在已就绪传输上）。phase 守卫保证整通只发一次。
+    try { this.ensureSignaling().send({ type: "ready" }); } catch { /* noop */ }
     this.armAutoHangup();      // 进入可对话才开始静默计时
     this.maybeEarphoneTip();   // 首通一次性提示：戴耳机打断更灵
   }
@@ -881,13 +884,12 @@ export class MiCallLogic {
     if (inCall && !this.callActive()) return;
     switch (ev.type) {
       case "connected":
-        // 接通即 goLive：UI 立刻就绪、开场音频走 WS 即时出声 = 启动快（不等 RTC，见上一版解耦）。
-        // 但【RTC 开启时不在连接窗口就起 WS 上行】——WS 无硬件 AEC，开场外放会回灌麦克风被当成插话 → 打断
-        // 「开场刚说一句就没声」。上行交给：RTC 连上→RTC 轨（全双工 AEC，见 onconnectionstatechange）；连不上
-        // →rtcFallback 再起 WS。开场那几秒在听 AI、本不需上行。不开 RTC：直接起 WS 上行。
-        this.goLive();
-        if (this.rtcEnabled) void this.startRtc();
-        else this.startMicUplink();
+        // 拨通=「接通中」loading：RTC 开启时只起 RTC、【停在 loading】，等真连上(或回退 WS)才 goLive
+        // （见 onconnectionstatechange:"connected" / rtcFallback）——把 RTC 连好、AEC 热好，AI 才接起来开口，
+        // 开场白直接走在已就绪传输上（不切通道=不顿、AEC 已在=不自我打断、loading 盖住建连=不冷场）。
+        // 不开 RTC：WS 立即就绪 → 直接起上行 + goLive。
+        if (this.rtcEnabled) { this.player.startRing(); void this.startRtc(); }
+        else { this.startMicUplink(); this.goLive(); }
         break;
       case "rtc_answer":
         if (this.pc && (ev as { sdp?: string }).sdp) {
@@ -899,6 +901,10 @@ export class MiCallLogic {
         this.rtcFallback();
         break;
       case "state":
+        // 【接通中 loading 期(phase==="calling")忽略服务端状态】：后端 start() 即发 state:listening，但本端要
+        // 停在 loading 直到传输就绪(goLive：RTC 连上/回退 WS)才退出——否则会被 state:listening 提前结束 loading、
+        // 且 goLive(发 ready) 永不触发 → AI 不开口。就绪后(已非 calling)再照常按服务端状态切 thinking/speaking/listening。
+        if (this.state.phase === "calling") break;
         // 麦克风上行门控不再看 phase，而是看「AI 音频是否在外放」（半双工，见 startMicUplink）——
         // 更确定：服务端状态回 listening 了，但前端可能还在播缓冲音频，那段也要继续静麦防回声。
         this.setState({ phase: ev.phase });
