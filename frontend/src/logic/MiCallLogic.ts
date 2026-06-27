@@ -801,8 +801,11 @@ export class MiCallLogic {
   }
 
   private async startRtc() {
-    if (this.pc || !this.micStream) return;
+    if (this.pc) return;
     this.rtcFellBack = false;
+    // 没麦克风（权限被撤/设备被占，micGranted 旧值为真但 acquireMic 失败）→ 绝不能卡在 loading：
+    // 走 rtcFallback（teardown + 通知后端 rtc_close + 起 WS 上行 + goLive 发 ready），让通话照常推进。
+    if (!this.micStream) { this.rtcFallback(); return; }
     const sig = this.ensureSignaling();
     try {
       const ice = this.iceServers();
