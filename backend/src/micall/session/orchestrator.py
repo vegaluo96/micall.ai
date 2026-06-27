@@ -351,8 +351,10 @@ class CallSession:
                 t = (text or "").strip()
                 if not t or self.sm.phase in (Phase.IDLE, Phase.ENDED):
                     continue
-                if self._opening_active:
-                    continue  # 开场白播放期：整段丢 ASR（不打断/不触发轮次/不上字幕）——防 AI 把自己的开场白当用户插话
+                # 开场白播放期：不再整段丢 ASR（那样你连开场白都打不断）。只挡开场白【自己的回声】
+                # （与开场文本明显重叠=没消干净的回声，用更激进阈值）；你真开口（用词不同）则放行 → 可打断开场白。
+                if self._opening_active and self._looks_like_echo(t, overlap_threshold=self._aec_warmup_echo_overlap):
+                    continue
                 if self._looks_like_echo(t):
                     continue  # AI 自己的声音回灌麦克风（前端半双工漏掉的残余），忽略：不打断、不触发新一轮
                 if _is_filler(t):
