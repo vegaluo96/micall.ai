@@ -103,6 +103,22 @@ class TestAssembler(unittest.TestCase):
         sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "介绍下你自己"}])[0]["content"]
         self.assertIn("深夜电台主播，专治失眠", sysmsg)
 
+    def test_curiosity_and_dimension_activation_in_prompt(self):
+        # 第一性原理：角色要对用户有真好奇（初识想认识 TA、按性子来、别审问）；MBTI/星座等维度要当行为滤镜
+        # 而非展示标签。两者都进 system 前缀。
+        char = CharacterRuntime.from_spec({
+            "identity": {"character_id": "x", "name": "维佳", "mbti": "ENTP",
+                         "profile": {"birthday": "1996-06-05"}},
+            "persona": {"core_traits": ["爱拆解"], "summary": "永远在找系统漏洞"},
+        })
+        a = ContextAssembler(char)
+        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("好奇", sysmsg)              # 好奇心驱动块进了前缀
+        self.assertIn("查户口", sysmsg)            # 好奇要有分寸、不审问
+        self.assertIn("滤镜", sysmsg)              # 维度激活成「行为滤镜」而非标签
+        self.assertIn("MBTI", sysmsg)
+        self.assertIn("双子座", sysmsg)            # 生日 1996-06-05 → 双子座（星座由生日算，进了基本资料）
+
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]
