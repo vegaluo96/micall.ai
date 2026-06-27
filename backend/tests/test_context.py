@@ -123,6 +123,30 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("内核", sysmsg)
         self.assertIn("报菜名", sysmsg)
 
+    def test_character_core_injected_as_spine(self):
+        # 用户：把维度串联成一个真正的人。每个角色一段「内核/spine」(persona.core)，
+        # 由现有维度提炼，作为组织原则注入——放在扁平特质表之前，让 AI 先读到完整的人。
+        char = CharacterRuntime.from_spec({
+            "identity": {"character_id": "x", "name": "维佳"},
+            "persona": {
+                "core": "你真正怕的是认真投入的东西其实没有生命力；嘴上嫌麻烦，其实一直在替它找活路。",
+                "core_traits": ["投机敏锐"],
+                "summary": "永远在找系统漏洞",
+            },
+        })
+        from micall.context.assembler import _persona_block
+        block = _persona_block(char)
+        self.assertIn("你的内核", block)
+        self.assertIn("没有生命力", block)               # 内核原文进了前缀
+        # 内核排在扁平特质表之前（作为组织原则，而非又一条标签）
+        self.assertLess(block.index("你的内核"), block.index("核心特质"))
+        # 没写 core 的角色不应凭空出现「你的内核」标题
+        bare = _persona_block(CharacterRuntime.from_spec({
+            "identity": {"character_id": "y", "name": "小语"},
+            "persona": {"core_traits": ["温柔"]},
+        }))
+        self.assertNotIn("你的内核", bare)
+
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]

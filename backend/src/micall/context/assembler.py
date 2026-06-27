@@ -156,6 +156,15 @@ def _persona_block(c: CharacterRuntime) -> str:
     idl = _identity_line(c.identity)
     if idl:
         lines.append(idl)
+    # 内核/spine（用户：把维度串联成一个真正的人）：每个角色一段「他之所以是他」的组织原则，
+    # 由其现有维度提炼而成（不新增设定）。放在扁平特质表之前——让 AI 先读到这个完整的人、
+    # 再把后面的来历/价值观/软肋/好恶当作这个内核的外在流露，而不是逐条勾选属性。
+    core = str(p.get("core", "") or "").strip()
+    if core:
+        lines.append(
+            "你的内核（你之所以是你的那个点——下面的性子、来历、价值观、软肋、好恶、习惯，都从这里长出来、"
+            "彼此印证；你开口前先是这个完整的人，不是在逐条对照属性表）：" + core
+        )
     if p.get("core_traits"):
         lines.append("核心特质：" + "、".join(p["core_traits"]))
     if p.get("summary"):
