@@ -13,7 +13,7 @@ import type { Vals } from "../dc/resolve";
 import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveCharacter,
          loadDashboard, loadUsers, loadCalls, loadOrders, loadTickets, loadInvites, replyTicket,
          loadRedeemCodes, createRedeemCode, deleteRedeemCode,
-         createCharacter, deleteCharacter, generateCharacter, setCharacterOnline,
+         createCharacter, deleteCharacter, generateCharacter, generateCore, setCharacterOnline,
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, cloneVoice,
@@ -66,7 +66,7 @@ export class AdminLogic {
 
   state: State = {
     section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {},
-    confirm: null, confirmBusy: false, savingChar: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
+    confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
     apiCfg: {
@@ -495,8 +495,34 @@ export class AdminLogic {
     this.setState((p) => ({ charBio: f.background_story || "", charEdit: { ...p.charEdit,
       name: f.name || "", tagline: f.tagline || "", gender: f.gender || (p.charEdit as any).gender, age: f.age || (p.charEdit as any).age,
       traits: f.traits || "", speaking_style: f.speaking_style || "", background_story: f.background_story || "",
-      likes: f.likes || "", dislikes: f.dislikes || "" } }));
+      core: f.core || "", likes: f.likes || "", dislikes: f.dislikes || "" } }));
     this.toastMsg("已生成，可微调后保存");
+  }
+
+  /** AI 生成内核：按当前编辑态的现有维度提炼一段 core，填进内核框（运营可再微调）。 */
+  async genCore() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (this.state.genCoreBusy) return;
+    const e = this.state.charEdit as any;
+    // 维度太空提炼不出内核——先让运营填点性格/来历/软肋
+    const hasMaterial = ["summary", "traits", "background_story", "hidden_layer", "values", "soft_spot", "likes", "dislikes", "speaking_style", "catchphrases", "quirks"]
+      .some((k) => String(e[k] || "").trim());
+    if (!hasMaterial) { this.toastMsg("先填点性格/来历/软肋，再生成内核"); return; }
+    this.setState({ genCoreBusy: true });
+    this.toastMsg("AI 提炼内核中…");
+    try {
+      const res = await generateCore({
+        name: e.name, tagline: e.tagline, occupation: e.occupation, summary: e.summary,
+        traits: e.traits, speaking_style: e.speaking_style, background_story: e.background_story,
+        hidden_layer: e.hidden_layer, values: e.values, soft_spot: e.soft_spot,
+        likes: e.likes, dislikes: e.dislikes, catchphrases: e.catchphrases, quirks: e.quirks, hobbies: e.hobbies,
+      });
+      if (!res.ok || !res.core) { this.toastMsg(res.error || "生成失败"); return; }
+      this.setCe("core", res.core);
+      this.toastMsg("内核已生成，可微调后保存");
+    } finally {
+      this.setState({ genCoreBusy: false });
+    }
   }
 
   // ── 音色克隆：录一段人声（或选文件）→ MiniMax 复刻 → 设为本角色音色 ──
@@ -1031,6 +1057,7 @@ export class AdminLogic {
       ceMbti: (s.charEdit as any).mbti || "", onCeMbti: (e: any) => this.setCe("mbti", e.target.value),
       ceSummary: (s.charEdit as any).summary || "", onCeSummary: (e: any) => this.setCe("summary", e.target.value),
       ceCore: (s.charEdit as any).core || "", onCeCore: (e: any) => this.setCe("core", e.target.value),
+      onGenCore: () => this.genCore(), genCoreLabel: s.genCoreBusy ? "提炼中…" : "✨ AI 生成内核",
       ceHobbies: (s.charEdit as any).hobbies || "", onCeHobbies: (e: any) => this.setCe("hobbies", e.target.value),
       ceCatchphrases: (s.charEdit as any).catchphrases || "", onCeCatchphrases: (e: any) => this.setCe("catchphrases", e.target.value),
       ceQuirks: (s.charEdit as any).quirks || "", onCeQuirks: (e: any) => this.setCe("quirks", e.target.value),

@@ -691,8 +691,11 @@
             <input value="{{ ceSummary }}" onInput="{{ onCeSummary }}" placeholder="如 嘴上慵懒，心里通透；不爱热闹，但记得每个人的话" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
           </div>
           <div>
-            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:8px;">内核 / spine（TA 之所以是 TA 的那个点：最在乎/最怕失去的一件事 + 守着的软处。其余维度都从这里长出来——这是「像真人」和「念人设」的分水岭，留空则只用通用整体性指令）</div>
-            <textarea value="{{ ceCore }}" onInput="{{ onCeCore }}" placeholder="如 你真正怕的是认真投入的东西其实没有生命力；嘴上嫌麻烦，脑子却一刻不停在替它找活路。" style="width:100%;box-sizing:border-box;min-height:76px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+              <div style="font-size:11.5px;color:#9A9DA7;">内核 / spine（TA 之所以是 TA 的那个点：最在乎/最怕失去的一件事 + 守着的软处。其余维度都从这里长出来——这是「像真人」和「念人设」的分水岭，留空则只用通用整体性指令）</div>
+              <div onClick="{{ onGenCore }}" style="flex:none;font-size:12px;font-weight:600;color:#6E5CFF;background:#F1EFFF;border:1px solid #E2DEFF;border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-hover="background:#E9E5FF" style-active="transform:scale(.96)">{{ genCoreLabel }}</div>
+            </div>
+            <textarea value="{{ ceCore }}" onInput="{{ onCeCore }}" placeholder="如 你真正怕的是认真投入的东西其实没有生命力；嘴上嫌麻烦，脑子却一刻不停在替它找活路。（也可点右上「AI 生成内核」按现有维度自动提炼）" style="width:100%;box-sizing:border-box;min-height:76px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
           <div>
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:8px;">说话风格</div>

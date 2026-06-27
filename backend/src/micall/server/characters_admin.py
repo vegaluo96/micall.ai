@@ -382,19 +382,68 @@ async def generate_character(prompt: str, llm) -> dict:
         "你是角色设定生成器。根据用户描述，生成一个适合语音陪伴 App 的虚拟角色。"
         "只输出 JSON，字段：name(中文名2-3字)、tagline(一句话简介)、gender(男/女)、age(数字)、"
         "traits(性格，3-4个，顿号分隔)、speaking_style(说话风格一句话)、background_story(背景故事2-3句)、"
-        "likes(喜欢，顿号分隔)、dislikes(不喜欢，顿号分隔)、values(价值观与边界一句话)。不要任何解释。"
+        "likes(喜欢，顿号分隔)、dislikes(不喜欢，顿号分隔)、values(价值观与边界一句话)、"
+        # 内核/spine：让生成的角色一出生就是个有内核的人，而不是属性表。
+        "core(内核2-4句，第二人称『你…』：这个人最在乎/最怕失去的那一个东西 + 守着的软处，"
+        "并让上面的性格/来历/好恶像因果一样从这里长出来；show-not-tell，别贴标签、别报星座/MBTI)。不要任何解释。"
     )
     buf = ""
     async for tok in llm.stream([{"role": "system", "content": sys},
                                  {"role": "user", "content": prompt or "生成一个温柔治愈的角色"}],
-                                max_tokens=800):
+                                max_tokens=1000):
         buf += tok
     m = re.search(r"\{.*\}", buf, re.S)
     if not m:
         raise ValueError("生成失败，未返回有效内容")
     data = json.loads(m.group())
     return {k: data.get(k, "") for k in
-            ("name", "tagline", "gender", "age", "traits", "speaking_style", "background_story", "likes", "dislikes", "values")}
+            ("name", "tagline", "gender", "age", "traits", "speaking_style", "background_story",
+             "likes", "dislikes", "values", "core")}
+
+
+async def generate_core(fields: dict, llm) -> str:
+    """按角色【现有】维度提炼一段内核/spine（不新增设定、保人格）。供后台「AI 生成内核」一键填充。
+    fields 是后台编辑态的扁平字段（name/traits/summary/background_story/hidden_layer/values/
+    soft_spot/likes/dislikes/speaking_style/catchphrases/quirks/hobbies/occupation… 任意子集）。"""
+    f = fields or {}
+    label = {
+        "name": "名字", "tagline": "一句话简介", "occupation": "职业", "summary": "性子",
+        "traits": "性格", "speaking_style": "说话风格", "background_story": "来历",
+        "hidden_layer": "未明说的内里", "values": "价值观与边界", "soft_spot": "软肋",
+        "likes": "喜欢", "dislikes": "不喜欢", "catchphrases": "口头禅", "quirks": "小习惯", "hobbies": "兴趣",
+    }
+    digest = "\n".join(f"{label[k]}：{str(f.get(k)).strip()}" for k in label
+                       if str(f.get(k, "")).strip())
+    if not digest.strip():
+        raise ValueError("角色维度为空，先填一些性格/来历/软肋再生成内核")
+    sys = (
+        "你是角色塑造专家。下面给你一个角色【现有】的各项维度，请提炼出 TA 的『内核 / spine』——"
+        "这个人之所以是 TA 的那个点。规则："
+        "① 只挑最深的【一个】：TA 最在乎/最想要/最怕失去的那件事，外加 TA 守着、怕被碰的那道软处。"
+        "② 让现有维度像因果一样从这里长出来（价值观从来历来、软肋被戳到时会怎样、口头禅小习惯只是表层流露），"
+        "织 2-3 个进去但要自然，别写成『因为…所以…』清单。"
+        "③ 严格只用下面给的材料，绝不新增任何事实/事件/经历/设定；保人格不变（毒舌别写温柔、高冷别写热情）。"
+        "④ 第二人称『你…』，2-4 句，show-not-tell，不贴标签、不报星座/MBTI/『你是个…型的人』。"
+        "只输出 JSON：{\"core\":\"…\"}，不要任何解释。"
+    )
+    buf = ""
+    async for tok in llm.stream([{"role": "system", "content": sys},
+                                 {"role": "user", "content": digest}],
+                                max_tokens=600):
+        buf += tok
+    m = re.search(r"\{.*\}", buf, re.S)
+    if m:
+        try:
+            core = str(json.loads(m.group()).get("core", "")).strip()
+            if core:
+                return core
+        except (ValueError, TypeError):
+            pass
+    # 兜底：模型没给合法 JSON 时，退回取纯文本（去掉可能的代码围栏/引号）
+    txt = re.sub(r"^```\w*|```$", "", buf.strip()).strip().strip('"').strip()
+    if not txt:
+        raise ValueError("生成失败，未返回有效内容")
+    return txt[:2000]
 
 
 # ── 用户端公开角色列表（GET /api/characters）──

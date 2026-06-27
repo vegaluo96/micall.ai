@@ -416,6 +416,18 @@ export async function generateCharacter(prompt: string): Promise<{ ok: boolean; 
   return { ok: false, error: "生成失败" };
 }
 
+/** AI 生成内核：把当前编辑态的扁平维度发给后端，按现有维度提炼一段 core（不新增设定、保人格）。 */
+export async function generateCore(fields: Record<string, any>): Promise<{ ok: boolean; core?: string; error?: string }> {
+  const b = base();
+  if (!b) return { ok: false, error: "需接入后端" };
+  try {
+    const r = await fetch(`${b}/admin/characters/generate-core`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify(fields) });
+    if (r.ok) return await r.json();
+    return { ok: false, error: `HTTP ${r.status}` };
+  } catch { /* noop */ }
+  return { ok: false, error: "生成失败" };
+}
+
 /** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
 export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };
 

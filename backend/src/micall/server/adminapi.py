@@ -632,6 +632,17 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True, "fields": fields})
             except Exception as e:
                 return self._json(400, {"ok": False, "error": str(e)[:200]})
+        if route == "/admin/characters/generate-core":  # AI 一键生成内核（按现有维度提炼，填现成角色）
+            import asyncio
+
+            from ..providers import make_llm
+            from .characters_admin import generate_core
+            try:
+                llm = make_llm(load_config().node("llm_slow"))
+                core = asyncio.run(generate_core(self._body() or {}, llm))
+                return self._json(200, {"ok": True, "core": core})
+            except Exception as e:
+                return self._json(400, {"ok": False, "error": str(e)[:200]})
         self._json(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:  # 静默（journalctl 不刷屏）

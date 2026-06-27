@@ -118,6 +118,42 @@ class TestCharactersAdmin(unittest.TestCase):
         ca.write_character_from_admin({"id": cid, "voice_id": "female-yujie"})
         self.assertEqual(ca.effective_specs()[cid]["persona"]["core"], "你真正怕的是认真投入的东西其实没有生命力。")
 
+    def test_generate_core_uses_dimensions_and_parses_json(self):
+        # 「AI 生成内核」：按现有维度提炼，解析 {"core":...}。用 StubLLM 注入回复。
+        import asyncio
+
+        from micall.providers import StubLLM
+        llm = StubLLM(['{"core":"你最怕的是认真做的东西没人懂。"}'])
+        core = asyncio.run(ca.generate_core(
+            {"name": "测试", "summary": "嘴硬心软", "soft_spot": "被说不够好"}, llm))
+        self.assertEqual(core, "你最怕的是认真做的东西没人懂。")
+
+    def test_generate_core_falls_back_to_plain_text(self):
+        # 模型没给合法 JSON 时退回纯文本（去围栏/引号）。
+        import asyncio
+
+        from micall.providers import StubLLM
+        llm = StubLLM(["你真正在乎的是被记得。"])
+        core = asyncio.run(ca.generate_core({"summary": "慢热"}, llm))
+        self.assertEqual(core, "你真正在乎的是被记得。")
+
+    def test_generate_core_rejects_empty_dimensions(self):
+        import asyncio
+
+        from micall.providers import StubLLM
+        with self.assertRaises(ValueError):
+            asyncio.run(ca.generate_core({}, StubLLM(['{"core":"x"}'])))
+
+    def test_generate_character_includes_core_field(self):
+        # AI 一键生成角色现在也产出 core。
+        import asyncio
+
+        from micall.providers import StubLLM
+        reply = '{"name":"小柔","tagline":"t","gender":"女","age":22,"traits":"温柔","speaking_style":"轻","background_story":"b","likes":"l","dislikes":"d","values":"v","core":"你怕被遗忘。"}'
+        fields = asyncio.run(ca.generate_character("温柔", StubLLM([reply])))
+        self.assertEqual(fields["core"], "你怕被遗忘。")
+        self.assertEqual(fields["name"], "小柔")
+
     def test_nonnumeric_age_is_rejected_not_stored(self):
         # num() 此前对 "abc" 原样返回 → 会把非数字落进 identity（提示词出现「年龄abc」）。现应跳过、保留出厂值。
         cid, _ = _a_factory_char()
