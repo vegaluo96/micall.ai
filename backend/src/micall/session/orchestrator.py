@@ -145,6 +145,28 @@ def _take_first_sentence(buf: str, minlen: int = 6) -> tuple[str, str]:
     return "", buf
 
 
+def _bargein_decision(
+    *, nlen: int, nt: str, is_final: bool, ai_playing: bool,
+    immediate_chars: int, confirm_ms: float, pending_at: float, pending_text: str, now: float,
+) -> tuple[str, float, str]:
+    """打断「确认门」纯函数（便于确定性单测）。前提：本片段已过 floor 门槛与回声/幻听/语气词等过滤。
+    返回 (action, new_pending_at, new_pending_text)：action='interrupt' 立即/确认打断；'hold' 挂起候选、不打断。
+    仅在「AI 外放 且 片段较短」时才挂起，其余一律 interrupt（与旧行为一致、零额外延迟）：
+      ① 你的回合(not ai_playing) 或 明显够长(nlen>=immediate) → interrupt。
+      ② AI 外放 + 短片段：
+         · 已有窗口内挂起候选：final（强证据）或本次「增长/不同」(nt!=pending 或 更长) → interrupt（续音确认）；
+           否则同一短碎片重复（多为回声）→ hold（刷新计时、不确认）。
+         · 无挂起候选（含孤立短 final）→ hold（记 now/nt 等续音；孤立短 final 不立即起轮，防回声 final 既切又起轮）。"""
+    if not ai_playing or nlen >= immediate_chars:
+        return ("interrupt", 0.0, "")
+    has_pending = bool(pending_at) and (now - pending_at) <= confirm_ms
+    if has_pending:
+        if is_final or nt != pending_text or nlen > len(pending_text):
+            return ("interrupt", 0.0, "")
+        return ("hold", now, pending_text)   # 同一碎片重复：续等、不确认
+    return ("hold", now, nt)
+
+
 class CallSession:
     def __init__(
         self,
@@ -234,6 +256,12 @@ class CallSession:
         # ——不放开模糊重叠，否则漏进来的 AI 余音会被当插话「说到一半自我打断」(实测踩坑)。退回 WS 即回门槛 4。
         self._full_duplex_aec = False
         self._bargein_min_chars_aec = int(turn.get("bargein_min_chars_aec", 3))
+        # 打断「确认门」（治「长回复快结束时被一段杂音/残余回声误切」）：AI 外放时，短碎片（bargein 门槛..immediate）
+        # 不立刻切断本轮回复，先挂起为候选，需在 bargein_confirm_ms 内来第二个合格事件（续音/增长）或一个 final 才确认打断；
+        # 明显够长（≥immediate）的一上来就立即打断。AI 不在播时（你的回合）完全不进此门、零额外延迟。
+        # 想恢复旧行为（任何合格碎片即打断）→ 把 bargein_immediate_chars 调到 ≤bargein 门槛（如 2）。
+        self._bargein_immediate_chars = int(turn.get("bargein_immediate_chars", 5))
+        self._bargein_confirm_ms = float(turn.get("bargein_confirm_ms", 500)) / 1000.0
         # AEC 热身：RTC 全双工刚连上时，浏览器回声消除的自适应滤波器要 ~1-2s 才收敛；这段里 AI 在外放时
         # 麦克风录到的多是「没消干净的余音」→ 被识别成错字（开头几句对不上）。故连上后给一个热身窗口：
         # 窗口内【AI 正在播】时一律丢弃 ASR（不触发回合、不打断、不上字幕），等收敛了再正常全双工。
@@ -341,6 +369,7 @@ class CallSession:
     async def _listen_loop(self) -> None:
         recent: dict[str, float] = {}  # 最近 final → 时刻：同句短时间内重复出现（回声/幻听）去重
         flushed = False  # 本次用户开口是否已让前端停播（每句一次，防刷）
+        pending_at = 0.0; pending_text = ""  # 打断确认门：AI 外放中挂起的短碎片候选（时刻+归一化文本），等续音确认
         try:
             async for text, is_final in self._asr_rt.stream(self._mic_frames()):
                 t = (text or "").strip()
@@ -369,17 +398,26 @@ class CallSession:
                 bargein_min = self._bargein_min_chars_aec if self._full_duplex_aec else self._bargein_min_chars
                 partial_min = bargein_min if ai_playing else self._partial_min_chars
                 if not is_final:
-                    # 用户开口（实质中间结果）→ 打断：停后端生成 + 让前端停播。
+                    # 用户开口（实质中间结果）→（经确认门）打断：停后端生成 + 让前端停播。
                     # 后端可能已把整句音频发完、状态回 listening 但前端还在播缓冲，故即便不在 speaking
                     # 也发 interrupted 去 flush，否则"打断无效"。
-                    if len(_norm(t)) >= partial_min:
-                        if not flushed:
-                            flushed = True
-                            if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
-                                await self.interrupt()
-                            else:
-                                await self._emit(ServerEvent.interrupted())
-                        await self._emit(ServerEvent.subtitle("user", t, partial=True))
+                    nt = _norm(t)
+                    if len(nt) >= partial_min:
+                        action, pending_at, pending_text = _bargein_decision(
+                            nlen=len(nt), nt=nt, is_final=False, ai_playing=ai_playing,
+                            immediate_chars=self._bargein_immediate_chars, confirm_ms=self._bargein_confirm_ms,
+                            pending_at=pending_at, pending_text=pending_text, now=time.monotonic())
+                        if action == "interrupt":
+                            if not flushed:
+                                flushed = True
+                                if self.sm.phase in (Phase.THINKING, Phase.SPEAKING):
+                                    await self.interrupt()
+                                else:
+                                    await self._emit(ServerEvent.interrupted())
+                            await self._emit(ServerEvent.subtitle("user", t, partial=True))
+                        else:  # hold：AI 外放中的短碎片先挂起、不切断本轮回复（治「长回复快结束被一段杂音/残余回声误切」）
+                            log.info("打断挂起：%r len=%d ai_playing=%s（等 %.0fms 续音确认；AI近语=%r）",
+                                     t, len(nt), ai_playing, self._bargein_confirm_ms * 1000, self._ai_said[-20:])
                     continue
                 flushed = False  # 这句说完，下一句重新允许打断
                 now = time.monotonic()
@@ -390,6 +428,15 @@ class CallSession:
                 # 最终结果门控：太短（噪声/静音误识别/外放回授碎片）或 10 秒内重复出现的同句（回声/幻听/重判）
                 # → 丢弃，否则会"自说自话刷屏 / 凭空冒出重复的一句"（§1.4：end-of-turn 要的是真说完）。
                 if len(nt) < final_min or nt in recent:
+                    continue
+                # 确认门：AI 外放中的「孤立短 final」（无前序续音）先挂起、不立即起轮——防一段残余回声/噪声的 final
+                # 既切断当前回复又凭空起一轮；有前序挂起候选则确认打断+起轮。长 final / 不在播 → 照常立即起轮。
+                action, pending_at, pending_text = _bargein_decision(
+                    nlen=len(nt), nt=nt, is_final=True, ai_playing=ai_playing,
+                    immediate_chars=self._bargein_immediate_chars, confirm_ms=self._bargein_confirm_ms,
+                    pending_at=pending_at, pending_text=pending_text, now=now)
+                if action == "hold":
+                    log.info("短 final 挂起（AI 外放中、无前序续音）：%r len=%d", t, len(nt))
                     continue
                 recent[nt] = now
                 log.info("⟵ 用户说完：%r", t)
