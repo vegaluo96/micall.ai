@@ -449,7 +449,10 @@ class CallSession:
         或已不在可对话态则让位。走 _turn_lock 与用户首轮串行，绝不并发；这句开场用户可随时打断
         （_generate_turn 全程尊重 self._interrupt）。失败静默忽略，照常等用户开口。
         开场全程置 _opening_active → _listen_loop 整段丢 ASR：彻底断掉「AI 把自己开场白当用户插话」的自我打断
-        （AEC 热身窗在 RTC 连上即 arm，但开场 LLM+TTS 要 ~1.5s 才出声、热身窗会在开场音频播出前耗尽，故需此兜底）。"""
+        （AEC 热身窗在 RTC 连上即 arm，但开场 LLM+TTS 要 ~1.5s 才出声、热身窗会在开场音频播出前耗尽，故需此兜底）。
+        关键：_opening_active 必须保持到音频【真正播完】，不是发完——RTC 下合成远快于播放，_generate_turn 在「音频
+        喂进缓冲」即返回时缓冲里还有几秒没播；这段尾巴若解除抑制，开场白回声会触发打断→flush_tts→把开场从中间切断
+        （「说到一半声音被切断」）。故用 _audio_until 等到播完再解除。"""
         try:
             async with self._turn_lock:
                 if self.history or self.sm.phase != Phase.LISTENING:
@@ -457,6 +460,10 @@ class CallSession:
                 self._opening_active = True
                 try:
                     await self._generate_turn(self._opening_directive, opening=True)
+                    # 等开场音频真正播完（_audio_until 是已发音频播放到的终点），这段尾巴继续抑制 ASR 防回声切断。
+                    tail = self._audio_until - time.monotonic()
+                    if tail > 0:
+                        await asyncio.sleep(min(tail, 20.0))   # 上限 20s 防异常值卡死（正常开场就几秒）
                 finally:
                     self._opening_active = False
                     # 开场说完：若全双工，给随后第一轮对话一个新鲜 AEC 热身窗（开场已占满原热身窗）。
