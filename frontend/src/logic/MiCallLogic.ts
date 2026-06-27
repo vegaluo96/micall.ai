@@ -750,6 +750,7 @@ export class MiCallLogic {
 
   endCall() {
     this.clearTimers();
+    this.player.playHangup();   // 挂断音效，与接通提示音呼应（stopMic 的 flush 会停 AI 音频/接通音，但不影响它）
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });
     this.stopMic(); // release the microphone on hang-up (turns off the mic indicator)
     this.setState({ phase: "ended", textMode: false, rating: 0, feedback: [] });
