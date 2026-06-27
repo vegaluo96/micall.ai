@@ -159,7 +159,7 @@ export class AudioPlayer {
         const g = this.ringGain.gain;
         g.cancelScheduledValues(t);
         g.setValueAtTime(0.0001, t);
-        g.exponentialRampToValueAtTime(0.05, t + 0.35);   // 渐入
+        g.exponentialRampToValueAtTime(0.12, t + 0.35);   // 渐入（音量调大，更像真电话响）
         g.exponentialRampToValueAtTime(0.0001, t + 1.0);  // 渐出（留 ~0.7s 静默 → 间歇感）
       };
       beat();

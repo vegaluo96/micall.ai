@@ -278,7 +278,8 @@ class CallSession:
         await self._emit(ServerEvent.connected())
         self.sm.to(Phase.LISTENING)
         await self._emit(ServerEvent.state(Phase.LISTENING.value))
-        self._billing_task = asyncio.create_task(self._billing_loop())
+        # 计费/计时【不在此起】：改由前端「ready(接通就绪)」触发（见 begin_conversation）——拨通 loading 期不计费、
+        # 前端显示的时长（由 billing.elapsed 驱动）也从接通后才走。
         # task A 感知：有实时 ASR 才起（语音模式）；否则纯文字模式由 on_user_text 驱动。
         if self._asr_rt is not None:
             self._listen_task = asyncio.create_task(self._listen_loop())
@@ -435,11 +436,14 @@ class CallSession:
             await self._generate_turn(text)
 
     def begin_conversation(self) -> None:
-        """前端发来 ready（RTC 已真连上 或 已回退 WS）→ 此刻才让 AI 主动开口：开场白走在已就绪的传输上。
-        一次性（_greeted 守卫），重复 ready / 会话已结束 / 未配开场 / 无 LLM 时均安全 no-op。"""
-        if self._greeted or not self._greet_on_start or getattr(self, "llm", None) is None:
-            return
+        """前端发来 ready（RTC 已真连上 或 已回退 WS）→ 此刻才【开始计时/计费】+ 让 AI 主动开口：
+        拨通 loading 期不计费（用户要求）；前端显示时长由 billing.elapsed 驱动，也从此刻才走。
+        计费一次性（_billing_task 守卫）；开场再叠加 _greeted/配置/LLM 守卫。重复 ready / 会话已结束安全 no-op。"""
         if self.sm.phase in (Phase.IDLE, Phase.ENDED):
+            return
+        if self._billing_task is None:   # 接通就绪才起计费/计时（loading 期不计）
+            self._billing_task = asyncio.create_task(self._billing_loop())
+        if self._greeted or not self._greet_on_start or getattr(self, "llm", None) is None:
             return
         self._greeted = True
         self._greet_task = asyncio.create_task(self._run_opening())
