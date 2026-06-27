@@ -657,7 +657,10 @@
           <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">身高 cm</div><input value="{{ ceHeight }}" onInput="{{ onCeHeight }}" placeholder="如 165" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
           <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">体重 kg</div><input value="{{ ceWeight }}" onInput="{{ onCeWeight }}" placeholder="如 48" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
           <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">种族</div><input value="{{ ceRace }}" onInput="{{ onCeRace }}" placeholder="如 东亚人" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
-          <div style="grid-column:span 3;"><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">生日（如 2002-03-15）</div><input value="{{ ceBirthday }}" onInput="{{ onCeBirthday }}" placeholder="YYYY-MM-DD" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
+          <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">职业</div><input value="{{ ceOccupation }}" onInput="{{ onCeOccupation }}" placeholder="如 深夜电台主播" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
+          <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">现居</div><input value="{{ ceResidence }}" onInput="{{ onCeResidence }}" placeholder="如 上海" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
+          <div><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">MBTI</div><input value="{{ ceMbti }}" onInput="{{ onCeMbti }}" placeholder="如 INFP" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
+          <div style="grid-column:span 3;"><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">生日（如 2002-03-15，星座据此自动推算）</div><input value="{{ ceBirthday }}" onInput="{{ onCeBirthday }}" placeholder="YYYY-MM-DD" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
           <div style="grid-column:span 3;"><div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">外貌（被问长相时她照此回答）</div><input value="{{ ceAppearance }}" onInput="{{ onCeAppearance }}" placeholder="如 齐肩黑发，红唇，眼神慵懒" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" /></div>
         </div>
 
@@ -690,6 +693,10 @@
             <input value="{{ ceTraits }}" onInput="{{ onCeTraits }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
           </div>
           <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">性子速写（一句话概括她的性情，用户端会看到）</div>
+            <input value="{{ ceSummary }}" onInput="{{ onCeSummary }}" placeholder="如 嘴上慵懒，心里通透；不爱热闹，但记得每个人的话" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div>
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">说话风格</div>
             <textarea value="{{ ceStyle }}" onInput="{{ onCeStyle }}" style="width:100%;box-sizing:border-box;min-height:64px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
@@ -704,6 +711,20 @@
             </div>
           </div>
           <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">兴趣爱好（顿号分隔，用户端会看到）</div>
+            <input value="{{ ceHobbies }}" onInput="{{ onCeHobbies }}" placeholder="如 读诗、煮咖啡、看老电影" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">口头禅（顿号分隔，会自然带进对话）</div>
+              <input value="{{ ceCatchphrases }}" onInput="{{ onCeCatchphrases }}" placeholder="如 嗯，我在、别急，慢慢说" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            </div>
+            <div>
+              <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">小习惯（顿号分隔，让她更像真人）</div>
+              <input value="{{ ceQuirks }}" onInput="{{ onCeQuirks }}" placeholder="如 说话爱停顿、想事情时会轻声哼歌" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" />
+            </div>
+          </div>
+          <div>
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">默认音色 voice_id（MiniMax 系统音色，如 female-shaonv）</div>
             <input value="{{ ceVoice }}" onInput="{{ onCeVoice }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;font-family:ui-monospace,monospace;color:#16161A;outline:none;background:#FAFAFB;" />
           </div>
@@ -714,9 +735,14 @@
             </div>
             <textarea value="{{ ceBio }}" onInput="{{ onCeBio }}" style="width:100%;box-sizing:border-box;min-height:96px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:13px 15px;font-size:13.5px;line-height:1.7;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
+          <div style="margin-top:5px;padding-top:13px;border-top:1px dashed #E6E7EB;font-size:11px;color:#B4B7C0;letter-spacing:.3px;">幕后设定 · 不在用户端展示，仅用于驱动 AI 的言谈与情绪</div>
           <div>
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">内里（不明说但会流露的一面）</div>
             <textarea value="{{ ceHidden }}" onInput="{{ onCeHidden }}" placeholder="如 嘴上撩人，其实很在意对方是不是真在听" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
+          </div>
+          <div>
+            <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">软肋（被戳到会破防，平时藏着、不轻易示人）</div>
+            <textarea value="{{ ceSoftSpot }}" onInput="{{ onCeSoftSpot }}" placeholder="如 怕被人说「你变了」；提到老家会突然安静" style="width:100%;box-sizing:border-box;min-height:56px;resize:vertical;border:1px solid #E6E7EB;border-radius:11px;padding:11px 14px;font-size:13.5px;line-height:1.6;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;"></textarea>
           </div>
           <div>
             <div style="font-size:11.5px;color:#9A9DA7;margin-bottom:5px;">价值观与边界（她的原则，不必迎合用户）</div>

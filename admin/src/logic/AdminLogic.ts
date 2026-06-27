@@ -177,6 +177,15 @@ export class AdminLogic {
         if ((row as any).weight !== "" && (row as any).weight != null) c.weight = (row as any).weight;
         if ((row as any).birthday != null) c.birthday = (row as any).birthday;
         if ((row as any).race != null) c.race = (row as any).race;
+        // 富化维度：身份(职业/现居/MBTI) + 人设(性子/兴趣/口头禅/小习惯/软肋)。列表型后端已 join 成串。
+        if ((row as any).occupation != null) c.occupation = (row as any).occupation;
+        if ((row as any).residence != null) c.residence = (row as any).residence;
+        if ((row as any).mbti != null) c.mbti = (row as any).mbti;
+        if ((row as any).summary != null) c.summary = (row as any).summary;
+        if ((row as any).hobbies != null) c.hobbies = (row as any).hobbies;
+        if ((row as any).catchphrases != null) c.catchphrases = (row as any).catchphrases;
+        if ((row as any).quirks != null) c.quirks = (row as any).quirks;
+        if ((row as any).soft_spot != null) c.soft_spot = (row as any).soft_spot;
         if ((row as any).status) c.status = (row as any).status;   // 上线 / 下架（后端真值）
       }
       this.setState({}); // 用真实角色数据重渲染
@@ -435,8 +444,11 @@ export class AdminLogic {
         appearance: c.appearance || "", height: (c.height ?? "") + "", weight: (c.weight ?? "") + "",
         birthday: c.birthday || "", race: c.race || "",
         traits: Array.isArray(c.traits) ? c.traits.join("、") : (c.traits || ""),
+        occupation: c.occupation || "", residence: c.residence || "", mbti: c.mbti || "",
+        summary: c.summary || "",
         speaking_style: c.speaking_style || "", background_story: c.bio || "",
-        hidden_layer: c.hidden_layer || "", values: c.values || "",
+        hidden_layer: c.hidden_layer || "", values: c.values || "", soft_spot: c.soft_spot || "",
+        hobbies: c.hobbies || "", catchphrases: c.catchphrases || "", quirks: c.quirks || "",
         prompt_extra: c.prompt_extra || "",
         likes: c.likes || "", dislikes: c.dislikes || "", voice_id: c.voiceId || "",
       };
@@ -452,7 +464,7 @@ export class AdminLogic {
   /** 打开「新建角色」表单（空白 + AI 生成入口）。 */
   openNewChar() {
     this.setState({ detail: { type: "char", id: "__new__" }, charBio: "", charAiPrompt: "",
-      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", prompt_extra: "", likes: "", dislikes: "", voice_id: "" } });
+      charEdit: { name: "", tagline: "", gender: "女", age: "20", nationality: "", appearance: "", height: "", weight: "", birthday: "", race: "", occupation: "", residence: "", mbti: "", summary: "", traits: "", speaking_style: "", background_story: "", hidden_layer: "", values: "", soft_spot: "", hobbies: "", catchphrases: "", quirks: "", prompt_extra: "", likes: "", dislikes: "", voice_id: "" } });
   }
 
   /** AI 一键生成角色字段，填进编辑表单（运营可再微调）。 */
@@ -502,6 +514,8 @@ export class AdminLogic {
         if (!res.ok || !res.id) { this.toastMsg(res.error || "创建失败"); return; }
         this.chars.push({ id: res.id, cid: res.id, name: e.name, desc: e.tagline, hue: (this.chars.length * 47) % 360,
           gender: e.gender || "女", age: e.age || "20", height: 160, weight: 48, birthday: "", nationality: "", race: "",
+          occupation: e.occupation || "", residence: e.residence || "", mbti: e.mbti || "", summary: e.summary || "",
+          hobbies: e.hobbies || "", catchphrases: e.catchphrases || "", quirks: e.quirks || "", soft_spot: e.soft_spot || "",
           traits: this._splitList(e.traits), tags: [], slogan: "", likes: e.likes || "", dislikes: e.dislikes || "",
           bio: e.background_story || "", speaking_style: e.speaking_style || "", prompt_extra: e.prompt_extra || "", voiceId: e.voice_id || "",
           calls: "0", customVoices: 0, favs: "0", status: "上线" });
@@ -521,6 +535,8 @@ export class AdminLogic {
         id: c.cid, name: e.name, tagline: e.tagline, traits: e.traits,
         gender: e.gender, age: e.age, nationality: e.nationality, appearance: e.appearance,
         height: e.height, weight: e.weight, birthday: e.birthday, race: e.race,
+        occupation: e.occupation, residence: e.residence, mbti: e.mbti, summary: e.summary,
+        hobbies: e.hobbies, catchphrases: e.catchphrases, quirks: e.quirks, soft_spot: e.soft_spot,
         speaking_style: e.speaking_style, background_story: e.background_story,
         hidden_layer: e.hidden_layer, values: e.values, prompt_extra: e.prompt_extra,
         likes: e.likes, dislikes: e.dislikes, voice_id: e.voice_id,
@@ -530,6 +546,8 @@ export class AdminLogic {
         c.bio = e.background_story; c.likes = e.likes; c.dislikes = e.dislikes;
         c.hidden_layer = e.hidden_layer; c.values = e.values; c.prompt_extra = e.prompt_extra;
         c.speaking_style = e.speaking_style; c.voiceId = e.voice_id;
+        c.occupation = e.occupation; c.residence = e.residence; c.mbti = e.mbti; c.summary = e.summary;
+        c.hobbies = e.hobbies; c.catchphrases = e.catchphrases; c.quirks = e.quirks; c.soft_spot = e.soft_spot;
         if (e.gender) c.gender = e.gender; if (e.age !== "" && e.age != null) c.age = e.age;
         c.nationality = e.nationality; c.appearance = e.appearance; c.birthday = e.birthday; c.race = e.race;
         if (e.height !== "" && e.height != null) c.height = e.height;
@@ -855,6 +873,14 @@ export class AdminLogic {
       ceRace: (s.charEdit as any).race || "", onCeRace: (e: any) => this.setCe("race", e.target.value),
       ceHidden: (s.charEdit as any).hidden_layer || "", onCeHidden: (e: any) => this.setCe("hidden_layer", e.target.value),
       ceValues: (s.charEdit as any).values || "", onCeValues: (e: any) => this.setCe("values", e.target.value),
+      ceOccupation: (s.charEdit as any).occupation || "", onCeOccupation: (e: any) => this.setCe("occupation", e.target.value),
+      ceResidence: (s.charEdit as any).residence || "", onCeResidence: (e: any) => this.setCe("residence", e.target.value),
+      ceMbti: (s.charEdit as any).mbti || "", onCeMbti: (e: any) => this.setCe("mbti", e.target.value),
+      ceSummary: (s.charEdit as any).summary || "", onCeSummary: (e: any) => this.setCe("summary", e.target.value),
+      ceHobbies: (s.charEdit as any).hobbies || "", onCeHobbies: (e: any) => this.setCe("hobbies", e.target.value),
+      ceCatchphrases: (s.charEdit as any).catchphrases || "", onCeCatchphrases: (e: any) => this.setCe("catchphrases", e.target.value),
+      ceQuirks: (s.charEdit as any).quirks || "", onCeQuirks: (e: any) => this.setCe("quirks", e.target.value),
+      ceSoftSpot: (s.charEdit as any).soft_spot || "", onCeSoftSpot: (e: any) => this.setCe("soft_spot", e.target.value),
       cePromptExtra: (s.charEdit as any).prompt_extra || "", onCePromptExtra: (e: any) => this.setCe("prompt_extra", e.target.value),
       replyDraft: s.replyDraft, onReplyDraft: (e: any) => this.setState({ replyDraft: e.target.value }), ticketNeedsReply,
       sendReply: async () => { const v = (s.replyDraft || "").trim(); if (!v) { this.toastMsg("请输入回复内容"); return; } const id = d.id; const ok = await replyTicket(id, v); if (!ok && usingBackend()) { this.toastMsg("回复失败，请重试"); return; } const t = this.tickets.find((x) => x.id === id); if (t) { t.reply = v; t.status = "已回复"; } this.setState((p) => ({ ticketReplies: { ...p.ticketReplies, [id]: v }, replyDraft: "" })); this.toastMsg("回复已发送"); },

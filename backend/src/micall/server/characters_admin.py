@@ -152,6 +152,11 @@ def read_characters_for_admin() -> list[dict]:
             "dislikes": _join(persona.get("dislikes")),
             "voice_id": voice.get("voice_id", ""),
             "prompt_extra": ro.get("realtime_prompt_extra", "") or "",
+            # 富化维度：身份(职业/现居/MBTI) + 人设(性子/兴趣/口头禅/小习惯/软肋)。列表 join 成可编辑串。
+            "occupation": ident.get("occupation", ""), "residence": ident.get("residence", ""),
+            "mbti": ident.get("mbti", ""), "summary": persona.get("summary", ""),
+            "hobbies": _join(persona.get("hobbies")), "catchphrases": _join(persona.get("catchphrases")),
+            "quirks": _join(persona.get("quirks")), "soft_spot": persona.get("soft_spot", ""),
             "status": "下架" if cid in offline else "上线",
         })
     return out
@@ -212,6 +217,15 @@ def write_character_from_admin(payload: dict) -> None:
     if "dislikes" in p:        persona["dislikes"] = _split(p["dislikes"])[:30]
     if "voice_id" in p:        voice["voice_id"] = cap(p["voice_id"], 200)
     if "prompt_extra" in p:    ro["realtime_prompt_extra"] = cap(p["prompt_extra"], 2000)
+    # 富化维度
+    if "occupation" in p:      ident["occupation"] = cap(p["occupation"], 100)
+    if "residence" in p:       ident["residence"] = cap(p["residence"], 100)
+    if "mbti" in p:            ident["mbti"] = cap(p["mbti"], 20)
+    if "summary" in p:         persona["summary"] = cap(p["summary"], 500)
+    if "hobbies" in p:         persona["hobbies"] = _split(p["hobbies"])[:30]
+    if "catchphrases" in p:    persona["catchphrases"] = _split(p["catchphrases"])[:30]
+    if "quirks" in p:          persona["quirks"] = _split(p["quirks"])[:30]
+    if "soft_spot" in p:       persona["soft_spot"] = cap(p["soft_spot"], 2000)
 
     tmp = CHAR_OVERRIDES_PATH.with_name(CHAR_OVERRIDES_PATH.name + ".tmp")
     tmp.write_text(json.dumps(ov, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -240,12 +254,16 @@ def _spec_from_flat(cid: str, p: dict) -> dict:
         "identity": {"character_id": cid, "name": s(p.get("name")) or "新角色",
                      "tagline": s(p.get("tagline")), "gender": s(p.get("gender")), "age": n(p.get("age")),
                      "nationality": s(p.get("nationality")), "appearance": s(p.get("appearance")),
+                     "occupation": s(p.get("occupation")), "residence": s(p.get("residence")), "mbti": s(p.get("mbti")),
                      **({"profile": prof} if prof else {}),
                      "version": "1"},
-        "persona": {"core_traits": _split(p.get("traits", "")), "speaking_style": s(p.get("speaking_style")),
+        "persona": {"core_traits": _split(p.get("traits", "")), "summary": s(p.get("summary")),
+                    "speaking_style": s(p.get("speaking_style")),
                     "background_story": s(p.get("background_story")),
                     "hidden_layer": s(p.get("hidden_layer")),
                     "values_and_boundaries": s(p.get("values")),
+                    "hobbies": _split(p.get("hobbies", "")), "catchphrases": _split(p.get("catchphrases", "")),
+                    "quirks": _split(p.get("quirks", "")), "soft_spot": s(p.get("soft_spot")),
                     "likes": _split(p.get("likes", "")), "dislikes": _split(p.get("dislikes", ""))},
         "voice": {"voice_id": s(p.get("voice_id"))},
         "runtime_overrides": {"realtime_prompt_extra": s(p.get("prompt_extra"))},
