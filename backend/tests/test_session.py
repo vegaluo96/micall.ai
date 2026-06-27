@@ -142,6 +142,16 @@ class TestSentenceEmotion(unittest.TestCase):
         self.assertEqual(clean_for_subtitle("(thinking deeply) 让我想想。"), "让我想想。")
         self.assertEqual(clean_for_tts("(thinking deeply) 让我想想。"), "让我想想。")
 
+    def test_bracket_stage_direction_with_cjk_comma(self):
+        from micall.session.emotion import clean_for_subtitle, clean_for_tts
+        # 实测 bug 再现：方括号里带全角逗号+中文的表演提示「[sighs，有点无奈地笑了]」整条漏进字幕。
+        # 根因是旧 _ALL_EMOTION_TAGS 内部字符类不含全角标点，被 ， 截断。字幕全去；TTS 转成 (sighs)。
+        s = "[sighs，有点无奈地笑了] 你真是......"
+        self.assertEqual(clean_for_subtitle(s), "你真是......")
+        self.assertEqual(clean_for_tts(s), "(sighs) 你真是......")
+        # 时间形态 [8:30] 仍不误伤（数字开头不当标签）。
+        self.assertEqual(clean_for_subtitle("[8:30]该起床了"), "[8:30]该起床了")
+
     def test_humanize_text_to_real_sounds(self):
         from micall.session.emotion import humanize_for_tts
         # 正向情绪：文字「哈哈」→ (laughs)（让 TTS 真笑）。
