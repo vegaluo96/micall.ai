@@ -21,7 +21,7 @@ from typing import Any
 _REPO_DEFAULT = Path(__file__).resolve().parents[2] / "config" / "default.json"
 
 # Admin「接口配置」的 5 个节点（docs/02 §7.9）。
-NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding")
+NODE_KEYS = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "image")
 
 
 def _header_safe(s: str) -> str:

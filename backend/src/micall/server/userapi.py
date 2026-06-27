@@ -105,6 +105,23 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_image(self, data: bytes) -> None:
+        # 按魔数嗅探类型（生图上游可能回 png/jpeg/webp/gif）。URL 带 ?v=mtime 版本号，故可长缓存。
+        ct = "image/png"
+        if data[:2] == b"\xff\xd8":
+            ct = "image/jpeg"
+        elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            ct = "image/webp"
+        elif data[:4] == b"GIF8":
+            ct = "image/gif"
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", ct)
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _route(self) -> str:
         return self.path.split("?", 1)[0].rstrip("/")
 
@@ -149,6 +166,12 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._audio_wav(preview_wav(character_id=self._query("c"), voice_id=self._query("v")))
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if route == "/api/avatar":            # 公开：后台生成的角色头像（图片字节）；无则 404 → 前端回退渐变球
+            from .characters_admin import load_avatar
+            img = load_avatar(self._query("c"))
+            if not img:
+                return self._json(404, {"ok": False, "error": "no avatar"})
+            return self._send_image(img)
         if route == "/api/voices":            # 公开：真实可选音色库（MiniMax 系统音色）+（登录则）我每个角色已选音色
             from .voice_library import system_voice_library
             uid = self._uid()                 # 带合法 token 才回显选中态；游客只拿库

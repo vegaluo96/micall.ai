@@ -38,6 +38,7 @@ SECTION_TO_NODE: dict[str, tuple[str, dict[str, str]]] = {
     "tts":    ("tts",       {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "voiceId": "default_voice", "sampleRate": "sample_rate"}),
     "memory": ("llm_slow",  {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "maxContext": "max_context"}),
     "embed":  ("embedding", {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "vectorDB": "vector_db", "topK": "top_k"}),
+    "image":  ("image",     {"endpoint": "endpoint", "key": "api_key", "provider": "provider", "model": "model", "size": "size"}),
 }
 _NUMERIC = {"temperature": float, "reply_max_tokens": int, "sample_rate": int, "top_k": int, "max_context": int}
 
@@ -559,6 +560,10 @@ class _Handler(BaseHTTPRequestHandler):
             from .characters_admin import delete_character
             ok = delete_character((self._body().get("id") or "").strip())
             return self._json(200, {"ok": ok})
+        if route == "/admin/generate-avatar":   # 给角色生成「半写实·柔光影棚」头像（走『生图』节点）
+            from .avatar_gen import generate_for_character
+            res = generate_for_character((self._body().get("id") or "").strip())
+            return self._json(200 if res.get("ok") else 400, res)
         if route == "/admin/voice-clone":   # 上传一段人声 → MiniMax 复刻 → 设为指定角色音色
             n = int(self.headers.get("Content-Length", 0) or 0)
             if n <= 0 or n > 20 * 1024 * 1024:   # 原始音频体，绕过 _body 的 256KB/JSON 限制
