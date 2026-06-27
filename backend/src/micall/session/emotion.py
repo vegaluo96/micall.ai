@@ -120,7 +120,11 @@ _INTERJECTIONS = frozenset({
     "humming", "hissing", "emm", "sneezes", "sneeze",
 })
 _PAUSE = re.compile(r"<#\s*\d+(?:\.\d+)?\s*#>")                # MiniMax 停顿标记 <#0.4#>
-_EN_PAREN = re.compile(r"\(\s*([a-zA-Z][a-zA-Z\- ]*)\s*\)")     # 英文括号（可能是拟声标签）
+_EN_PAREN = re.compile(r"\(\s*([a-zA-Z][a-zA-Z\- ]*)\s*\)")     # 英文括号（单词级拟声标签，保留）
+# 任意 ASCII 括号舞台说明：模型常写带逗号/多词的表演提示，如「(sighs lightly, playful)」「(笑着说)」。
+# 这类**绝不能进字幕**（用户实测：字幕里冒出「(sighs lightly, playful)」），送 TTS 也得按首词判定拟声、
+# 否则 MiniMax 会把「sighs lightly, playful」整串当英文字念出来。_EN_PAREN 因不含逗号会漏掉这类，故另立此正则。
+_ANY_PAREN = re.compile(r"\([^)]*\)")
 _CN_ACTION = re.compile(r"（[^）]*）|【[^】]*】|\*[^*]*\*")        # 中文旁白/动作/星号：一律去掉
 _ALL_EMOTION_TAGS = re.compile(                                  # 句中任意位置的方括号标注残留（情绪标签 / 舞台说明）
     # tag 内容允许【空格】：模型有时把拟声/旁白写成多词方括号（如 [laughs softly]），原来不含空格会漏进字幕。
@@ -134,9 +138,12 @@ _BRACKET_SIGH = re.compile(r"[\[【]\s*(?:sigh|exhale)[\w \-]*[\]】]", re.IGNOR
 
 
 def _keep_interjection(m: "re.Match[str]") -> str:
-    """英文括号：是 MiniMax 认的拟声标签就保留（喂 TTS），否则当旁白去掉。"""
-    word = m.group(1).strip().lower()
-    return m.group(0) if word in _INTERJECTIONS else ""
+    """ASCII 括号（送 TTS）：按【首词】判定——首词是 MiniMax 认的拟声（含「(sighs lightly, playful)」这类
+    带逗号/多词的表演提示）就归一成单标签 (sighs) 让她真叹/真笑；否则当纯旁白去掉。
+    这样既不漏「sighs lightly, playful」被当英文念，也保住真人拟声。"""
+    inner = (m.group(1) if m.lastindex else m.group(0).strip("()")).strip().lower()
+    first = re.split(r"[\s,;:.，；：]+", inner)[0] if inner else ""
+    return f"({first})" if first in _INTERJECTIONS else ""
 
 
 def clean_for_tts(text: str) -> str:
@@ -146,7 +153,7 @@ def clean_for_tts(text: str) -> str:
     t = _BRACKET_SIGH.sub("(sighs)", t)              # [sighs]/[exhale] 等 → 真叹气
     t = _ALL_EMOTION_TAGS.sub("", t)                 # 其余方括号标注（情绪/舞台说明）清掉
     t = _CN_ACTION.sub("", t)
-    t = _EN_PAREN.sub(_keep_interjection, t)
+    t = _ANY_PAREN.sub(_keep_interjection, t)        # ASCII 括号：按首词保留拟声(归一为单标签)，否则去掉
     return t.strip()
 
 
@@ -155,7 +162,7 @@ def clean_for_subtitle(text: str) -> str:
     t = _ALL_EMOTION_TAGS.sub("", text or "")
     t = _PAUSE.sub("", t)
     t = _CN_ACTION.sub("", t)
-    t = _EN_PAREN.sub("", t)
+    t = _ANY_PAREN.sub("", t)   # ASCII 括号舞台说明一律去掉（含带逗号多词的「(sighs lightly, playful)」），用户不该看到
     return re.sub(r"\s{2,}", " ", t).strip()
 
 

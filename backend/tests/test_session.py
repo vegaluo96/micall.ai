@@ -131,6 +131,17 @@ class TestSentenceEmotion(unittest.TestCase):
         self.assertEqual(clean_for_tts("唉。[sighs]别这样"), "唉。(sighs)别这样")
         self.assertEqual(clean_for_subtitle("[8:30]该起床了"), "[8:30]该起床了")  # 数字开头(时间)不误伤
 
+    def test_paren_stage_direction_with_comma(self):
+        from micall.session.emotion import clean_for_subtitle, clean_for_tts
+        # 实测 bug：字幕里冒出「(sighs lightly, playful)」。根因是旧 _EN_PAREN 不含逗号 → 多词带逗号的
+        # 表演提示漏过。字幕必须全去；TTS 按首词归一为单拟声标签 (sighs)，不把整串英文念出来。
+        s = "(sighs lightly, playful) 你啊，说话总爱留半句。"
+        self.assertEqual(clean_for_subtitle(s), "你啊，说话总爱留半句。")
+        self.assertEqual(clean_for_tts(s), "(sighs) 你啊，说话总爱留半句。")
+        # 首词非拟声的纯舞台说明：字幕与 TTS 都去掉（别让 MiniMax 念「thinking deeply」）。
+        self.assertEqual(clean_for_subtitle("(thinking deeply) 让我想想。"), "让我想想。")
+        self.assertEqual(clean_for_tts("(thinking deeply) 让我想想。"), "让我想想。")
+
     def test_humanize_text_to_real_sounds(self):
         from micall.session.emotion import humanize_for_tts
         # 正向情绪：文字「哈哈」→ (laughs)（让 TTS 真笑）。
