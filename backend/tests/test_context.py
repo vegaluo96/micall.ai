@@ -276,5 +276,37 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("我家猫", msgs[-1]["content"])    # 原 user 内容保留
 
 
+class TestEnrichedPersona(unittest.TestCase):
+    """富化维度：星座按生日算；性子/口头禅/小习惯/兴趣 + 幕后(软肋)都注入 LLM。
+    展示/幕后的对外分界另由 public_characters 守（见 test_characters_admin）。"""
+
+    def test_zodiac_from_birthday(self):
+        from micall.context.assembler import _zodiac
+        self.assertEqual(_zodiac("2002-03-15"), "双鱼座")
+        self.assertEqual(_zodiac("1998-11-08"), "天蝎座")
+        self.assertEqual(_zodiac("1994-12-25"), "摩羯座")
+        self.assertEqual(_zodiac(""), "")
+        self.assertEqual(_zodiac("不是日期"), "")
+
+    def test_identity_line_has_new_dims(self):
+        from micall.context.assembler import _identity_line
+        line = _identity_line({"gender": "女", "age": 24, "nationality": "中国",
+                               "occupation": "主播", "residence": "上海", "mbti": "INFP",
+                               "profile": {"race": "东亚人", "birthday": "2002-03-15"}})
+        for s in ("双鱼座", "INFP", "职业：主播", "现居上海", "东亚人"):
+            self.assertIn(s, line)
+
+    def test_persona_block_injects_surface_and_backstage(self):
+        from micall.context.assembler import _persona_block
+        c = CharacterRuntime("lin_wan", "林晚",
+                             {"core_traits": ["温柔"], "summary": "慢热温柔", "catchphrases": ["嗯，我在"],
+                              "quirks": ["先嗯一声"], "hobbies": ["听黑胶"], "soft_spot": "很少说累"},
+                             emotion_map={}, identity={})
+        block = _persona_block(c)
+        for s in ("你的性子：慢热温柔", "你的口头禅", "嗯，我在", "你的小习惯",
+                  "你的兴趣爱好", "听黑胶", "你的软肋", "很少说累"):
+            self.assertIn(s, block)
+
+
 if __name__ == "__main__":
     unittest.main()

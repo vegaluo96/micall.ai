@@ -107,6 +107,16 @@ class TestCharactersAdmin(unittest.TestCase):
         ca.write_character_from_admin({"id": "lin_wan", "name": "改名"})
         self.assertEqual(ca.factory_specs()["lin_wan"]["identity"]["name"], "林晚")  # 出厂文件不动
 
+    def test_public_characters_surface_vs_backstage(self):
+        """第一性原理分界：富化展示维度对外吐；导演提示(说话风格)+秘密深度(软肋/内里/价值观)绝不上卡片。"""
+        lw = next(c for c in ca.public_characters() if c["id"] == "lin_wan")
+        for k in ("occupation", "residence", "mbti", "summary", "hobbies", "catchphrases", "quirks"):
+            self.assertIn(k, lw)
+        self.assertEqual(lw["occupation"], "深夜情感电台主播")
+        self.assertTrue(lw["catchphrases"] and lw["hobbies"])
+        for k in ("soft_spot", "speaking_style", "hidden_layer", "values_and_boundaries"):
+            self.assertNotIn(k, lw)
+
 
 class TestRuntimePicksUpOverride(unittest.TestCase):
     def setUp(self):

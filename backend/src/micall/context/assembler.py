@@ -106,14 +106,36 @@ def _special_day_line(now: datetime.datetime) -> str:
     return f"（今天是{name}——若自然可应应景送上一句心意，别硬塞祝福。）"
 
 
+# 星座按生日算（不入库，省一个字段）。cuts=每个星座的「末日」(月,日)。
+_ZODIAC_CUTS = [(1, 19, "摩羯座"), (2, 18, "水瓶座"), (3, 20, "双鱼座"), (4, 19, "白羊座"),
+                (5, 20, "金牛座"), (6, 21, "双子座"), (7, 22, "巨蟹座"), (8, 22, "狮子座"),
+                (9, 22, "处女座"), (10, 23, "天秤座"), (11, 22, "天蝎座"), (12, 21, "射手座")]
+
+
+def _zodiac(birthday: str) -> str:
+    """生日 'YYYY-MM-DD' → 星座；解析不出返回空。"""
+    m = re.match(r"^\d{4}-(\d{1,2})-(\d{1,2})$", str(birthday or "").strip())
+    if not m:
+        return ""
+    md = (int(m.group(1)), int(m.group(2)))
+    for cm, cd, name in _ZODIAC_CUTS:
+        if md <= (cm, cd):
+            return name
+    return "摩羯座"   # 12/22–12/31
+
+
 def _identity_line(idt: dict) -> str:
-    """把 identity 摊成一句「基本资料」，让 AI 清楚自己是谁（被问性别/年龄/外貌/生日能答上）。"""
+    """把 identity 摊成一句「基本资料」，让 AI 清楚自己是谁（被问性别/年龄/星座/职业/外貌/生日能答上）。"""
     prof = idt.get("profile", {}) or {}
     bits = [b for b in (
         idt.get("gender", ""),
         f"{idt['age']}岁" if idt.get("age") not in (None, "") else "",
+        _zodiac(prof.get("birthday", "")),                     # 星座（生日算，不入库）
+        idt.get("mbti", ""),
         idt.get("nationality", ""),
         prof.get("race", ""),                                  # 族裔：角色卡有、后台能设，过去漏注入 → 补上对齐
+        f"职业：{idt['occupation']}" if idt.get("occupation") else "",
+        f"现居{idt['residence']}" if idt.get("residence") else "",
         f"外貌：{idt['appearance']}" if idt.get("appearance") else "",
         f"生日 {prof['birthday']}" if prof.get("birthday") else "",
         f"身高{prof['height_cm']}cm" if prof.get("height_cm") else "",
@@ -136,14 +158,24 @@ def _persona_block(c: CharacterRuntime) -> str:
         lines.append(idl)
     if p.get("core_traits"):
         lines.append("核心特质：" + "、".join(p["core_traits"]))
+    if p.get("summary"):
+        lines.append("你的性子：" + p["summary"])
     if p.get("speaking_style"):
         lines.append("说话风格：" + p["speaking_style"])
+    if p.get("catchphrases"):
+        lines.append("你的口头禅（自然地用、会让人一听就知道是你；别生硬堆砌）：" + "、".join(p["catchphrases"]))
+    if p.get("quirks"):
+        lines.append("你的小习惯：" + "、".join(p["quirks"]))
     if p.get("background_story"):
         lines.append("你的来历：" + p["background_story"])
     if p.get("hidden_layer"):
         lines.append("你未必明说、但会流露的内里：" + p["hidden_layer"])
+    if p.get("soft_spot"):
+        lines.append("你的软肋（被戳到会破防，平时藏着、不轻易示人）：" + p["soft_spot"])
     if p.get("values_and_boundaries"):
         lines.append("你的价值观与边界（不必迎合用户）：" + p["values_and_boundaries"])
+    if p.get("hobbies"):
+        lines.append("你的兴趣爱好：" + "、".join(p["hobbies"]))
     if p.get("likes"):
         lines.append("你喜欢：" + "、".join(p["likes"]))
     if p.get("dislikes"):

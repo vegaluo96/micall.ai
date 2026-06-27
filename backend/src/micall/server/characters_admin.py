@@ -345,8 +345,14 @@ def public_characters() -> list[dict]:
             # 基础资料 + 喜好：过去用户端这些是按下标瞎编的假数据（与后台对不上）。回真值，让角色卡=后台设置。
             "gender": ident.get("gender", ""), "age": ident.get("age", ""),
             "appearance": ident.get("appearance", ""), "nationality": ident.get("nationality", ""),
+            "occupation": ident.get("occupation", ""), "residence": ident.get("residence", ""),
+            "mbti": ident.get("mbti", ""),
             "height": prof.get("height_cm", ""), "weight": prof.get("weight_kg", ""),
             "birthday": prof.get("birthday", ""), "race": prof.get("race", ""),
+            # 富化维度（展示层）：性子一句话 / 兴趣 / 口头禅 / 小习惯。说话风格/价值观/内里/软肋属「幕后」不外吐。
+            "summary": persona.get("summary", ""),
+            "hobbies": persona.get("hobbies", []) or [], "catchphrases": persona.get("catchphrases", []) or [],
+            "quirks": persona.get("quirks", []) or [],
             "likes": persona.get("likes", []) or [], "dislikes": persona.get("dislikes", []) or [],
             "default": cid == default_id,
         })
