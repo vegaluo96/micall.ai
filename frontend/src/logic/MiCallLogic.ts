@@ -78,15 +78,15 @@ export class MiCallLogic {
   private notify: () => void = () => {};
 
   // ── instance data (ported verbatim) ──────────────────────────────────────
-  // 冷启动占位：**不放任何真实角色名**（旧版放「沈知微」等 → 首屏一闪那个名字再秒切默认角色，
-  // 就是用户说的「代码残留」）。这里只放一个中性空占位；配合 charsReady 门控，首访加载窗口显中性、
-  // 返回访客直接用 micall_chars 缓存的真实默认角色，杜绝任何具体角色名/球色闪一下。
+  // 冷启动占位 = 后台设定的【默认角色 维佳/vega】本人。这样首屏（含无痕窗口·无缓存）第一帧就直接画默认角色的
+  // 名字 + 球色，不再「先中性球(图一) → 秒切默认维佳(图二)」。loadCharacters 拉到全量后默认角色仍排首位(idx0)、
+  // 同 id 同色同名，无任何变化、无闪。⚠️ 若将来在后台把默认角色从 vega 改掉，需同步这里的 id/name/desc。
   chars: Char[] = [
-    { name: "", hue: 0, desc: "", traits: [], bio: "", id: "" },
+    { name: "维佳", hue: hueFromId("vega"), desc: "在混沌里找非对称机会的人", traits: [], bio: "", id: "vega" },
   ];
-  // 角色是否已就绪：有缓存(返回访客)或 loadCharacters 跑完即 true。为 false 时（无痕首访的加载窗口）
-  // 头像球与角色名走「中性占位」，杜绝先闪一下占位角色再秒切到真实默认角色那一下「球变色」。
-  charsReady = false;
+  // 角色已就绪：冷启动占位即真实默认角色(vega)，故首帧即可显示、不必再走中性占位窗口。
+  // 返回访客由构造器读 micall_chars 缓存覆盖；loadCharacters 跑完用全量真实角色覆盖。三条路径都不闪。
+  charsReady = true;
   private _scenesBuilt = false;
 
   state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 60, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false };
