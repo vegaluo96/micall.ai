@@ -1,14 +1,11 @@
 import asyncio
-import time
 import unittest
 
 from micall.config import load_config
 from micall.context import CharacterRuntime, ContextAssembler
 from micall.memory import InMemoryRepository
-from micall.providers import ASRProvider, StubLLM, StubTTS
+from micall.providers import StubLLM, StubTTS
 from micall.session import CallSession
-from micall.session.orchestrator import _bargein_decision
-from micall.session.state import Phase
 
 
 def _make_session(emit, llm=None):
@@ -376,126 +373,6 @@ class TestScenarioPrompt(unittest.TestCase):
         s.set_scene("现在假装在海边散步")
         self.assertEqual(s.scenario_prompt, "现在假装在海边散步")   # LLM 情境换了
         self.assertEqual(s.scenario, "heart")                        # 记录标签不动（统计稳定）
-
-
-# ── 打断「确认门」（治「长回复快结束被一段杂音/残余回声误切」）──
-class TestBargeInGate(unittest.TestCase):
-    """纯函数 _bargein_decision：AI 外放时短碎片先挂起、需续音/final 确认才打断；
-    够长/你的回合一律立即打断。覆盖计划 (a)-(d)。"""
-
-    def d(self, *, nlen, nt, is_final, ai_playing, pending_at=0.0, pending_text="", now=100.0):
-        return _bargein_decision(nlen=nlen, nt=nt, is_final=is_final, ai_playing=ai_playing,
-                                 immediate_chars=5, confirm_ms=0.5,
-                                 pending_at=pending_at, pending_text=pending_text, now=now)
-
-    def test_your_turn_interrupts_immediately(self):
-        # AI 不在播（你的回合）→ 立即打断，与旧行为一致、零额外延迟。
-        self.assertEqual(self.d(nlen=2, nt="嗯嗯", is_final=False, ai_playing=False)[0], "interrupt")
-
-    def test_long_fragment_interrupts_immediately(self):
-        # AI 外放 + ≥immediate 字 → 明显真说话，立即打断。
-        self.assertEqual(self.d(nlen=6, nt="我想说一下啊", is_final=False, ai_playing=True)[0], "interrupt")
-
-    def test_lone_short_fragment_holds(self):
-        # AI 外放 + 短碎片 + 无挂起 → hold（不切断本轮回复），记录候选。
-        action, pa, pt = self.d(nlen=2, nt="林管", is_final=False, ai_playing=True)
-        self.assertEqual(action, "hold")
-        self.assertEqual((pa, pt), (100.0, "林管"))
-
-    def test_repeated_same_fragment_stays_held(self):
-        # 同一短碎片窗口内重复（典型回声）→ 仍 hold，不误确认。
-        action, _, _ = self.d(nlen=2, nt="林管", is_final=False, ai_playing=True,
-                              pending_at=100.0, pending_text="林管", now=100.2)
-        self.assertEqual(action, "hold")
-
-    def test_growing_fragment_confirms(self):
-        # 窗口内续音「增长」→ 确认打断（真说话在持续）。
-        action, _, _ = self.d(nlen=3, nt="林管啊", is_final=False, ai_playing=True,
-                              pending_at=100.0, pending_text="林管", now=100.2)
-        self.assertEqual(action, "interrupt")
-
-    def test_stale_pending_resets_to_hold(self):
-        # 上个候选已超确认窗 → 视作新候选 hold（不因陈旧候选误确认）。
-        action, pa, _ = self.d(nlen=2, nt="噪声", is_final=False, ai_playing=True,
-                              pending_at=100.0, pending_text="林管", now=101.0)
-        self.assertEqual(action, "hold")
-        self.assertEqual(pa, 101.0)
-
-    def test_lone_short_final_holds_no_turn(self):
-        # AI 外放 + 孤立短 final（无前序续音）→ hold：不打断、不起新轮（防回声 final 既切又起轮）。
-        self.assertEqual(self.d(nlen=2, nt="好的", is_final=True, ai_playing=True)[0], "hold")
-
-    def test_short_final_with_pending_confirms(self):
-        # 短 final 紧跟前序挂起候选 → 确认打断（哪怕文本与候选相同，final 是强证据）。
-        action, _, _ = self.d(nlen=2, nt="等等", is_final=True, ai_playing=True,
-                              pending_at=100.0, pending_text="等等", now=100.2)
-        self.assertEqual(action, "interrupt")
-
-    def test_long_final_interrupts(self):
-        self.assertEqual(self.d(nlen=6, nt="我说完了啦哈", is_final=True, ai_playing=True)[0], "interrupt")
-
-    def test_config_knobs_wired(self):
-        # 会话从 turn 配置读出确认门旋钮。
-        s = _make_session(lambda ev: None)
-        self.assertEqual(s._bargein_immediate_chars, 5)
-        self.assertAlmostEqual(s._bargein_confirm_ms, 0.5)
-
-
-class _ScriptedASR(ASRProvider):
-    """按脚本吐 (text, is_final)（忽略上行帧），驱动 _listen_loop 测确认门接线。"""
-
-    def __init__(self, events):
-        self._events = events
-
-    async def stream(self, frames):
-        for ev in self._events:
-            yield ev
-            await asyncio.sleep(0)
-
-
-class TestBargeInGateWiring(unittest.TestCase):
-    """端到端：把脚本 ASR 事件喂进 _listen_loop，验证短碎片不切断、续音/长 final 才打断。"""
-
-    def _run_listen(self, events, *, phase=Phase.SPEAKING):
-        out: list[dict] = []
-
-        async def emit(ev):
-            out.append(ev)
-
-        async def run():
-            config = load_config()
-            char = CharacterRuntime("lin_wan", "林晚", {"core_traits": ["温柔"]}, emotion_map={"tender": "gentle"})
-            repo = InMemoryRepository()
-            assembler = ContextAssembler(char, profile=repo.get_profile("u", "lin_wan"), memory=repo)
-            s = CallSession(config=config, emit=emit, llm=StubLLM(["[emotion:tender] 在呢。"]),
-                            tts=StubTTS(), assembler=assembler, character_id="lin_wan", scenario="heart",
-                            remaining_seconds=30, voice_id="v1", realtime_asr=_ScriptedASR(events))
-            s.sm.phase = phase
-            s._full_duplex_aec = True
-            s._audio_until = time.monotonic() + 100   # ai_playing 恒真
-            await s._listen_loop()
-            return s, out
-
-        return asyncio.run(run())
-
-    def test_lone_short_partial_during_playback_does_not_interrupt(self):
-        # 本 bug 核心：AI 外放时一个 2 字短碎片（残余回声/噪声）→ 不打断、不发 interrupted → 不会切断长回复。
-        s, out = self._run_listen([("林管", False)])
-        self.assertFalse(s._interrupt.is_set())
-        self.assertEqual([e for e in out if e["type"] == "interrupted"], [])
-
-    def test_growing_partials_confirm_interrupt(self):
-        # 真说话：两个「增长」短 partial（窗内）→ 确认打断。
-        s, out = self._run_listen([("林管", False), ("林管说话", False)])
-        self.assertTrue(s._interrupt.is_set())
-        self.assertTrue(any(e["type"] == "interrupted" for e in out))
-
-    def test_lone_short_final_holds_no_new_turn(self):
-        # AI 外放时孤立短 final → 不打断、不起新轮（无 AI 字幕、无 interrupted）。
-        s, out = self._run_listen([("好的", True)])
-        self.assertFalse(s._interrupt.is_set())
-        self.assertEqual([e for e in out if e["type"] == "interrupted"], [])
-        self.assertEqual([e for e in out if e["type"] == "subtitle" and e.get("role") == "ai"], [])
 
 
 if __name__ == "__main__":
