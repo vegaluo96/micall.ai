@@ -637,6 +637,13 @@ export class MiCallLogic {
   closeHistory() { if (this.state.historyOpen) this.setState({ historyOpen: false }); }
   closeTopSheet() { this.setState(this.sheets()); }
 
+  /** 游客引导注册（注册即送 60 分钟免费时长）：关掉所有面板/菜单 → 打开注册弹层。
+   *  extra 附加 state（如时长用完弹层要带 outOfMins:false）。复用 openRegister 的语义。 */
+  private goRegister(extra: Partial<State> = {}) {
+    this.setState({ ...this.sheets(), menuOpen: false, authOpen: true, authMode: "register",
+      regPromptShown: false, regPromptDismissed: true, ...extra });
+  }
+
   // ── realtime call flow (signaling-driven) ─────────────────────────────────
   private isConnected() {
     return ["listening", "thinking", "speaking"].includes(this.state.phase);
@@ -953,7 +960,10 @@ export class MiCallLogic {
         // Server-authoritative balance. seconds=elapsed drives the timer text.
         this.setState((s) => {
           const next: Partial<State> = { seconds: ev.elapsed, remaining: ev.remaining_seconds };
-          if (ev.elapsed >= 60 && !s.loggedIn && !s.regPromptShown && !s.regPromptDismissed) {
+          // 游客快用完时（剩 ≤20 秒）提前弹「注册领免费时长」横幅——比原来卡在 elapsed>=60(正好结束)
+          // 早一步给出「快结束了」的提示，且严格早于 out_of_minutes，不再和用完弹层同帧蹦出。
+          if (!s.loggedIn && !s.regPromptShown && !s.regPromptDismissed
+              && ev.remaining_seconds != null && ev.remaining_seconds <= 20) {
             next.regPromptShown = true;
           }
           return next;
@@ -1346,6 +1356,9 @@ export class MiCallLogic {
       favClose: () => this.setState({ favOpen: false }),
       rechargeOpen: this.state.rechargeOpen,
       rechargeToggle: () => this.setState((s) => ({ rechargeOpen: !s.rechargeOpen })),
+      // 空闲态剩余条入口：游客→注册领免费时长（无账号充不了值），登录→充值。
+      remainCtaLabel: this.state.loggedIn ? "充值" : "注册领免费时长",
+      remainCta: () => { if (this.state.loggedIn) this.setState((s) => ({ rechargeOpen: !s.rechargeOpen })); else this.goRegister(); },
       rechargeClose: () => this.setState({ rechargeOpen: false }),
       redeemCode: this.state.redeemCode,
       onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
@@ -1472,7 +1485,11 @@ export class MiCallLogic {
       retryDial: () => this.retryDial(),
       dismissFail: () => this.setState({ callFailed: false }),
       outOfMins: this.state.outOfMins,
-      outToRecharge: () => this.setState({ outOfMins: false, rechargeOpen: true }),
+      // 时长用完弹层：游客没账号、充不了值——引导注册（注册即送 60 分钟）；登录用户照旧走充值。
+      outTitle: this.state.loggedIn ? "通话时长已用完" : "试用时长用完了",
+      outBody: this.state.loggedIn ? "本月的通话时长用完了。充值后可以继续和 TA 聊。" : "注册即送 60 分钟免费时长，继续和 TA 聊。",
+      outPrimaryLabel: this.state.loggedIn ? "去充值" : "注册领 60 分钟",
+      outPrimary: () => { if (this.state.loggedIn) this.setState({ outOfMins: false, rechargeOpen: true }); else this.goRegister({ outOfMins: false }); },
       dismissOut: () => this.setState({ outOfMins: false }),
       settingsFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, settingsOpen: true }),
       contactFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, contactOpen: true }); this.loadTickets(); },
@@ -1594,7 +1611,7 @@ export class MiCallLogic {
       billFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, billsOpen: true }); this.loadBills(); },
       billsOpen: this.state.billsOpen,
       billsClose: () => this.setState({ billsOpen: false }),
-      billsToRecharge: () => this.setState({ ...this.sheets(), rechargeOpen: true }),
+      billsToRecharge: () => { if (this.state.loggedIn) this.setState({ ...this.sheets(), rechargeOpen: true }); else this.goRegister(); },
       billsList: (this.realBills ?? this.bills).map((b) => ({
         title: b.title, date: b.date, mins: b.mins,
         minsColor: b.mins.startsWith("+") ? "#33A06B" : "var(--dim)",

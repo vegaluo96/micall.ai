@@ -148,7 +148,7 @@
           <sc-if value="{{ phaseIdle }}" hint-placeholder-val="{{ true }}">
             <div style="display:flex;align-items:center;gap:11px;font-size:15px;letter-spacing:.5px;font-variant-numeric:tabular-nums;">
               <span style="color:var(--dim);">{{ remainLabel }}</span>
-              <div onClick="{{ rechargeToggle }}" style="color:#2E7BFF;cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:3px;user-select:none;">充值
+              <div onClick="{{ remainCta }}" style="color:#2E7BFF;cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:3px;user-select:none;">{{ remainCtaLabel }}
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px;"><path d="M9 6l6 6-6 6"/></svg>
               </div>
             </div>
@@ -882,11 +882,11 @@
           <div style="width:60px;height:60px;border-radius:50%;background:rgba(245,166,35,.14);display:flex;align-items:center;justify-content:center;">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           </div>
-          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;">通话时长已用完</div>
-          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">本月的通话时长用完了。充值后可以继续和 TA 聊。</div>
+          <div style="font-size:18px;font-weight:600;color:var(--fg);margin-top:4px;">{{ outTitle }}</div>
+          <div style="font-size:14px;color:var(--dim);text-align:center;line-height:1.6;text-wrap:pretty;">{{ outBody }}</div>
           <div style="display:flex;gap:10px;margin-top:14px;width:100%;">
             <div onClick="{{ dismissOut }}" style="flex:1;text-align:center;font-size:15px;font-weight:500;color:var(--fg);cursor:pointer;padding:12px 0;border-radius:15px;background:var(--ctrl);" style-active="transform:scale(.97)">以后再说</div>
-            <div onClick="{{ outToRecharge }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;" style-active="transform:scale(.97)">去充值</div>
+            <div onClick="{{ outPrimary }}" style="flex:1;text-align:center;font-size:15px;font-weight:600;color:#fff;cursor:pointer;padding:12px 0;border-radius:15px;background:#6E5CFF;" style-active="transform:scale(.97)">{{ outPrimaryLabel }}</div>
           </div>
         </div>
       </sc-if>
