@@ -51,7 +51,7 @@ npm run build && sudo cp -r dist/* /var/www/micall-admin/
 curl -s https://zsky.com/api/invite-reward
 
 # 用户端音色试听：应是 200 + audio/wav
-curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "https://zsky.com/api/voice-preview?c=lin_wan"
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "https://zsky.com/api/voice-preview?c=shen_zhiwei"
 
 # 后台 MiniMax 系统音色库（带 Basic Auth）
 curl -s -u admin:<后台密码> https://admin.zsky.com/admin/voices | head -c 200

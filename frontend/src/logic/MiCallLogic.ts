@@ -69,12 +69,13 @@ export class MiCallLogic {
   private notify: () => void = () => {};
 
   // ── instance data (ported verbatim) ──────────────────────────────────────
+  // 冷启动占位（未接后端/首屏缓存未命中时短暂显示）；接通后由 loadCharacters 用后端真实 36 角色覆盖。
   chars: Char[] = [
-    { name: "林晚", hue: 0, desc: "温柔的深夜倾听者", traits: ["温柔", "耐心", "共情"], bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不评判——只是陪着你。", id: "lin_wan" },
-    { name: "江野", hue: 135, desc: "理性可靠的陪伴", traits: ["理性", "冷静", "务实"], bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚。", id: "jiang_ye" },
-    { name: "夏鸣", hue: 60, desc: "元气满满的朋友", traits: ["元气", "幽默", "直率"], bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", id: "xia_ming" },
-    { name: "顾辞", hue: 225, desc: "沉静睿智的对话者", traits: ["沉静", "睿智", "文艺"], bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书。", id: "gu_ci" },
-    { name: "苏窈", hue: 300, desc: "俏皮灵动的伙伴", traits: ["俏皮", "灵动", "好奇"], bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", id: "su_yao" },
+    { name: "沈知微", hue: 250, desc: "把你慢慢听懂的心理咨询师", traits: ["沉稳", "洞察", "温柔"], bio: "临床心理学出身，做咨询十年，相信「被听见」本身就有疗愈的力量。", id: "shen_zhiwei" },
+    { name: "时砚", hue: 200, desc: "靠谱可信赖的急诊科医生", traits: ["可靠", "温和", "责任感强"], bio: "急诊科的年轻骨干，见过最暗的夜也救过最险的人，话不多却让人安心。", id: "shi_yan" },
+    { name: "苏糖", hue: 330, desc: "把日子过成糖的元气少女", traits: ["元气", "爱幻想", "共情强"], bio: "美术生大一，画画是从小的梦，喜欢把生活里的小确幸画下来。", id: "su_tang" },
+    { name: "慕廷舟", hue: 30, desc: "霸道却反差宠人的少爷", traits: ["霸道", "骄矜", "反差宠"], bio: "家族集团的独子，骄矜难搞是真，认定了人把全世界宠给你也是真。", id: "mu_tingzhou" },
+    { name: "林九", hue: 145, desc: "开甜品店的温柔治愈系", traits: ["温柔", "细腻", "慢热"], bio: "辞了城里的工作回苏州开了家小小甜品店，每一份都亲手做。", id: "lin_jiu" },
   ];
   private _scenesBuilt = false;
 
@@ -232,11 +233,10 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     const list = await authApi.getCharacters();
     if (!list || !list.length) return;
-    const HUE: Record<string, number> = { lin_wan: 0, jiang_ye: 135, xia_ming: 60, gu_ci: 225, su_yao: 300 };
     this.chars = list.map((c: any, i: number) => ({
       id: c.id, name: c.name || "TA", desc: c.desc || "",
       traits: Array.isArray(c.traits) ? c.traits : [], bio: c.bio || "",
-      hue: HUE[c.id] ?? ((i * 47) % 360),
+      hue: (i * 47) % 360,   // 按列表序散开色相，36 个角色卡颜色各异
       // 基础资料/喜好/富化维度从后端真值带过来（缺省留空，profileOf 按需显「—」/隐藏），让角色卡对齐后台设置。
       gender: c.gender || "", age: c.age, height: c.height, weight: c.weight,
       birthday: c.birthday || "", nationality: c.nationality || "", race: c.race || "",
@@ -1241,6 +1241,7 @@ export class MiCallLogic {
         if (d && d.mood) items.push({ label: "心情", value: d.mood });
         if (d && d.recent) items.push({ label: "最近在经历", value: d.recent });
         if (d && d.energy) items.push({ label: "此刻精力", value: d.energy });
+        if (d && d.anticipating) items.push({ label: "在期待", value: d.anticipating });
         return { name, loading: false, items, empty: items.length === 0,
                  emptyText: `${name}现在状态挺好，随时可以接你电话～` };
       })(),

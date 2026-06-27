@@ -74,11 +74,12 @@ export class AdminLogic {
     this.props = props || {};
     const uG = { a: "linear-gradient(140deg,#A78BFF,#6E5CFF)", b: "linear-gradient(140deg,#FF8FC8,#FF4FA0)", c: "linear-gradient(140deg,#5BE0A0,#1FA971)", d: "linear-gradient(140deg,#6FC8FF,#2E7BFF)", e: "linear-gradient(140deg,#FFB36B,#F5821F)" };
     this.chars = [
-      { id: "c1", cid: "lin_wan", speaking_style: "", voiceId: "", name: "林晚", desc: "温柔的深夜倾听者", hue: 0, gender: "女", age: 18, height: 156, weight: 44, birthday: "2006年1月1日", nationality: "中国", race: "东亚人", traits: ["温柔", "耐心", "共情"], tags: ["治愈系", "深夜", "倾听", "温柔"], slogan: "今天也辛苦了，想聊点什么都可以。", likes: "安静的深夜、认真听你说话、下雨天、一杯热可可", dislikes: "被敷衍、嘈杂的人群、冷场", bio: "深夜电台主播出身，习惯在安静里听人把话说完。不急着给建议，也不轻易打断，只是稳稳地陪着你。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
-      { id: "c2", cid: "jiang_ye", speaking_style: "", voiceId: "", name: "江野", desc: "理性可靠的陪伴", hue: 135, gender: "男", age: 21, height: 161, weight: 47, birthday: "2005年2月8日", nationality: "日本", race: "欧裔", traits: ["理性", "冷静", "务实"], tags: ["理性", "高冷", "成熟", "陪伴"], slogan: "有什么想不通的，说来听听。", likes: "清晰的逻辑、长跑、黑咖啡、安静", dislikes: "拖延、含糊其辞、无意义的争论", bio: "话不多，但每句都在点上。适合在你思绪乱成一团时，帮你一条条理清楚，再陪你走下一步。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
-      { id: "c3", cid: "xia_ming", speaking_style: "", voiceId: "", name: "夏鸣", desc: "元气满满的朋友", hue: 60, gender: "女", age: 24, height: 166, weight: 50, birthday: "2004年3月15日", nationality: "美国", race: "混血", traits: ["元气", "幽默", "直率"], tags: ["元气", "俏皮", "邻家", "温柔"], slogan: "嘿！今天有什么好玩的事？", likes: "阳光、音乐、冷笑话、奶茶", dislikes: "冷场、emo、被无视", bio: "走到哪儿都自带阳光，三两句就能把气氛点亮。心情低落时，找他准没错。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
-      { id: "c4", cid: "gu_ci", speaking_style: "", voiceId: "", name: "顾辞", desc: "沉静睿智的对话者", hue: 225, gender: "男", age: 27, height: 171, weight: 53, birthday: "2003年4月22日", nationality: "英国", race: "东亚人", traits: ["沉静", "睿智", "文艺"], tags: ["文艺", "知性", "沉静", "学长"], slogan: "夜深了，来聊聊书，或者别的？", likes: "旧书、爵士乐、独处、一壶红茶", dislikes: "喧闹、肤浅、敷衍", bio: "读过很多书，喜欢慢慢聊。和他说话，像在深夜翻开一本旧书，安静又有回味。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
-      { id: "c5", cid: "su_yao", speaking_style: "", voiceId: "", name: "苏窈", desc: "俏皮灵动的伙伴", hue: 300, gender: "女", age: 30, height: 176, weight: 56, birthday: "2002年5月2日", nationality: "法国", race: "东亚人", traits: ["俏皮", "灵动", "好奇"], tags: ["俏皮", "灵动", "古灵精怪", "御姐"], slogan: "猜猜我今天又想到了什么？", likes: "新鲜事、恶作剧、甜点、惊喜", dislikes: "无聊、套路、被说教", bio: "鬼马精灵，脑洞奇大。跟她聊天，你永远猜不到她下一句会说什么。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      // 冷启动占位（未接后端时短暂显示）；接后端后由 loadCharacters 用真实 36 角色覆盖、并剔除未匹配占位。
+      { id: "c1", cid: "shen_zhiwei", speaking_style: "", voiceId: "female-chengshu", name: "沈知微", desc: "把你慢慢听懂的心理咨询师", hue: 250, gender: "女", age: 34, height: 166, weight: 52, birthday: "1992年11月9日", nationality: "中国", race: "东亚人", traits: ["沉稳", "洞察", "温柔"], tags: ["沉稳", "洞察", "温柔"], slogan: "我在听，你慢慢说。", likes: "安静的雨天、真诚的倾诉、一杯热的", dislikes: "评判他人、越界、喧闹", bio: "临床心理学出身，做咨询十年，相信「被听见」本身就有疗愈的力量。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c2", cid: "shi_yan", speaking_style: "", voiceId: "junlang_nanyou", name: "时砚", desc: "靠谱可信赖的急诊科医生", hue: 200, gender: "男", age: 28, height: 182, weight: 70, birthday: "1998年4月26日", nationality: "中国", race: "东亚人", traits: ["可靠", "温和", "责任感强"], tags: ["可靠", "温和", "有安全感"], slogan: "没事，有我在。", likes: "平安无事的夜班、一杯热咖啡、靠谱", dislikes: "生离死别、谎报病情、失约", bio: "急诊科的年轻骨干，见过最暗的夜也救过最险的人，话不多却让人安心。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c3", cid: "su_tang", speaking_style: "", voiceId: "female-shaonv", name: "苏糖", desc: "把日子过成糖的元气少女", hue: 330, gender: "女", age: 19, height: 162, weight: 47, birthday: "2007年3月28日", nationality: "中国", race: "东亚人", traits: ["元气", "爱幻想", "共情强"], tags: ["元气", "甜", "插画"], slogan: "欸嘿，今天也要甜甜的呀！", likes: "奶茶三分糖、下午的阳光、画完一张满意的画", dislikes: "被泼冷水、熬夜赶due、虚伪的人", bio: "美术生大一，画画是从小的梦，喜欢把生活里的小确幸画下来。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c4", cid: "mu_tingzhou", speaking_style: "", voiceId: "badao_shaoye", name: "慕廷舟", desc: "霸道却反差宠人的少爷", hue: 30, gender: "男", age: 27, height: 185, weight: 74, birthday: "1999年1月8日", nationality: "中国", race: "东亚人", traits: ["霸道", "骄矜", "反差宠"], tags: ["霸道", "少爷", "反差宠"], slogan: "听我的，我安排好了。", likes: "掌控、你的依赖、被真心待", dislikes: "被违逆、廉价、被冷落", bio: "家族集团的独子，骄矜难搞是真，认定了人把全世界宠给你也是真。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
+      { id: "c5", cid: "lin_jiu", speaking_style: "", voiceId: "female-tianmei", name: "林九", desc: "开甜品店的温柔治愈系", hue: 145, gender: "女", age: 25, height: 163, weight: 49, birthday: "2001年5月20日", nationality: "中国", race: "东亚人", traits: ["温柔", "细腻", "慢热"], tags: ["温柔", "治愈", "甜品"], slogan: "慢慢来，尝尝看？", likes: "烤箱的香气、熟客的笑、被肯定", dislikes: "浪费食材、催促、半途而废", bio: "辞了城里的工作回苏州开了家小小甜品店，每一份都亲手做。", calls: "0", customVoices: 0, favs: "0", status: "上线" },
     ];
     this.hueOf = {};
     this.chars.forEach((c) => (this.hueOf[c.name] = "hue-rotate(" + c.hue + "deg)"));
@@ -92,11 +93,11 @@ export class AdminLogic {
       { name: "无限会员", price: "$19.99", mins: "每月不限时", subs: "1,240", popular: false, tile: "linear-gradient(145deg,#FFC061,#F5A623)", icon: "M18.5 8.5c-2 0-3.2 1.6-4.2 3-.8 1.1-1.5 2-2.3 2s-1.5-.9-2.3-2c-1-1.4-2.2-3-4.2-3a3.5 3.5 0 1 0 0 7c2 0 3.2-1.6 4.2-3 .8-1.1 1.5-2 2.3-2s1.5.9 2.3 2c1 1.4 2.2 3 4.2 3a3.5 3.5 0 1 0 0-7z" },
     ];
     this.voices = [
-      { id: "v1", name: "林晚 · 原本音色", engine: "火山引擎", gender: "女声", lang: "中文", char: "林晚", hue: 0, status: "启用" },
-      { id: "v2", name: "江野 · 原本音色", engine: "火山引擎", gender: "男声", lang: "中文", char: "江野", hue: 135, status: "启用" },
-      { id: "v3", name: "夏鸣 · 原本音色", engine: "火山引擎", gender: "女声", lang: "中文", char: "夏鸣", hue: 60, status: "启用" },
-      { id: "v4", name: "顾辞 · 原本音色", engine: "火山引擎", gender: "男声", lang: "中文", char: "顾辞", hue: 225, status: "启用" },
-      { id: "v5", name: "苏窈 · 原本音色", engine: "火山引擎", gender: "女声", lang: "中文", char: "苏窈", hue: 300, status: "启用" },
+      { id: "v1", name: "沈知微 · 成熟女声", engine: "MiniMax", gender: "女声", lang: "中文", char: "沈知微", hue: 250, status: "启用" },
+      { id: "v2", name: "时砚 · 俊朗男友", engine: "MiniMax", gender: "男声", lang: "中文", char: "时砚", hue: 200, status: "启用" },
+      { id: "v3", name: "苏糖 · 少女", engine: "MiniMax", gender: "女声", lang: "中文", char: "苏糖", hue: 330, status: "启用" },
+      { id: "v4", name: "慕廷舟 · 霸道少爷", engine: "MiniMax", gender: "男声", lang: "中文", char: "慕廷舟", hue: 30, status: "启用" },
+      { id: "v5", name: "林九 · 甜美女声", engine: "MiniMax", gender: "女声", lang: "中文", char: "林九", hue: 145, status: "启用" },
       { id: "v6", name: "温柔女声", engine: "MiniMax", gender: "女声", lang: "中文", char: "", status: "启用" },
       { id: "v7", name: "磁性男声", engine: "MiniMax", gender: "男声", lang: "中文", char: "", status: "启用" },
       { id: "v8", name: "甜美童声", engine: "Azure", gender: "女声", lang: "中文", char: "", status: "停用" },
@@ -188,6 +189,9 @@ export class AdminLogic {
         if ((row as any).soft_spot != null) c.soft_spot = (row as any).soft_spot;
         if ((row as any).status) c.status = (row as any).status;   // 上线 / 下架（后端真值）
       }
+      // 后端为权威：剔除没在后端列表里的本地占位（否则换了出厂角色后，旧占位会和真实角色并存、还编辑不了）。
+      const backendIds = new Set(chars.map((r: any) => r.id));
+      this.chars = this.chars.filter((c) => backendIds.has(c.cid));
       this.setState({}); // 用真实角色数据重渲染
     }
     const dc = await loadDefaultCharacter();   // 当前默认角色（用户端进来先选它）

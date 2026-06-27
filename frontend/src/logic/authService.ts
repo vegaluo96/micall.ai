@@ -145,7 +145,7 @@ export async function matchVoice(desc: string): Promise<Voice | null> {
 }
 
 /** 角色「状态」：TA 当下的心情/近况/精力（per-角色自主状态，公开）。 */
-export async function getCharacterStatus(characterId: string): Promise<{ mood: string; recent: string; energy: string; has: boolean } | null> {
+export async function getCharacterStatus(characterId: string): Promise<{ mood: string; recent: string; energy: string; anticipating: string; has: boolean } | null> {
   if (!characterId) return null;
   try {
     const r = await fetch(BASE + "/api/character-status?c=" + encodeURIComponent(characterId));
