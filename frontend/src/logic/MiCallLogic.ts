@@ -152,7 +152,10 @@ export class MiCallLogic {
         if (c && Array.isArray(c.chars) && c.chars.length) {
           // 缓存里可能存着旧算法的 hue（部署前是按下标算的）→ 一律按 id 现算，杜绝「首屏旧色 → 秒变新色」。
           this.chars = c.chars.map((ch: any) => ({ ...ch, hue: hueFromId(ch.id) }));
-          if (typeof c.idx === "number" && c.idx >= 0 && c.idx < c.chars.length) this.state.charIndex = c.idx;
+          // 首屏即定位到上次选的角色：优先按存的 id（换序也准），否则用缓存里的下标。刷新不回默认、也不闪默认。
+          let idx = (typeof c.idx === "number" && c.idx >= 0 && c.idx < this.chars.length) ? c.idx : -1;
+          try { const lid = localStorage.getItem("micall_lastchar"); if (lid) { const k = this.chars.findIndex((x: any) => x.id === lid); if (k >= 0) idx = k; } } catch { /* noop */ }
+          if (idx >= 0) this.state.charIndex = idx;
           this.charsReady = true;   // 有真实缓存 → 首屏即可显真实角色，不走中性占位
         }
       }
@@ -264,9 +267,13 @@ export class MiCallLogic {
       hobbies: Array.isArray(c.hobbies) ? c.hobbies : [], catchphrases: Array.isArray(c.catchphrases) ? c.catchphrases : [], quirks: Array.isArray(c.quirks) ? c.quirks : [],
       likes: Array.isArray(c.likes) ? c.likes : [], dislikes: Array.isArray(c.dislikes) ? c.dislikes : [],
     }));
-    // 默认角色（运营在后台设、后端把它标 default 并排首位）：进来先选它。
+    // 角色选择恢复优先级：①上次选的角色（按 id，刷新/换序都保留，登录用户不再每次回默认）；
+    // ②否则后台默认角色（运营标 default 并排首位）；③再否则保持现下标（越界归零）。
+    const savedId = (() => { try { return localStorage.getItem("micall_lastchar") || ""; } catch { return ""; } })();
+    const si = savedId ? this.chars.findIndex((c) => c.id === savedId) : -1;
     const di = list.findIndex((c: any) => c && c.default);
-    if (di >= 0) this.state.charIndex = di;
+    if (si >= 0) this.state.charIndex = si;
+    else if (di >= 0) this.state.charIndex = di;
     else if (this.state.charIndex >= this.chars.length) this.state.charIndex = 0;
     // 缓存真实角色 + 默认下标：下次刷新首屏直接显真实数据（不再闪内置占位名）。
     try { localStorage.setItem("micall_chars", JSON.stringify({ chars: this.chars, idx: this.state.charIndex })); } catch { /* noop */ }
@@ -605,7 +612,11 @@ export class MiCallLogic {
     }
   }
   selectLang(l: string) { this.setState({ lang: l, langOpen: false }); this.savePrefs(); }
-  selectChar(i: number) { this.setState({ charIndex: i, charOpen: false }); }
+  selectChar(i: number) { this.rememberChar(i); this.setState({ charIndex: i, charOpen: false }); }
+  /** 记住用户选的角色（按 id 存，列表换序也不丢）：刷新后 loadCharacters/构造器优先恢复它，不每次回默认。 */
+  private rememberChar(i: number) {
+    try { const id = this.chars[i]?.id; if (id) localStorage.setItem("micall_lastchar", id); } catch { /* noop */ }
+  }
 
   clearTimers() { (this.t || []).forEach(clearTimeout); this.t = []; if (this.autoHangupTimer) { clearTimeout(this.autoHangupTimer); this.autoHangupTimer = null; } this._stopReveal(); }
 
@@ -849,6 +860,7 @@ export class MiCallLogic {
 
   switchTo(idx: number, sceneKey: string) {
     if (this.isConnected()) { this.setState({ pendingSwitch: { idx, sceneKey }, historyOpen: false }); return; }
+    this.rememberChar(idx);
     this.setState({ charIndex: idx, scenario: sceneKey, historyOpen: false });
   }
   confirmSwitch() {
@@ -856,6 +868,7 @@ export class MiCallLogic {
     this.clearTimers();
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });
     this.stopMic();
+    this.rememberChar(ps.idx);
     this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, charIndex: ps.idx, scenario: ps.sceneKey, pendingSwitch: null });
   }
   resetIdle() {
@@ -1168,7 +1181,7 @@ export class MiCallLogic {
     const curFav = this.state.favorites.includes(this.state.charIndex);
     const favCurFill = curFav ? "#FF4F7B" : "none";
     const favCurStroke = curFav ? "#FF4F7B" : "var(--fg)";
-    const favList = this.chars.map((c, i) => ({ name: c.name, desc: c.desc, hueFilter: `hue-rotate(${c.hue}deg)`, avatar: c.avatar || "", avatarDisplay: c.avatar ? "block" : "none", _i: i, pick: () => this.setState({ charIndex: i, favOpen: false }) })).filter((o) => this.state.favorites.includes(o._i));
+    const favList = this.chars.map((c, i) => ({ name: c.name, desc: c.desc, hueFilter: `hue-rotate(${c.hue}deg)`, avatar: c.avatar || "", avatarDisplay: c.avatar ? "block" : "none", _i: i, pick: () => { this.rememberChar(i); this.setState({ charIndex: i, favOpen: false }); } })).filter((o) => this.state.favorites.includes(o._i));
     const hasFavs = favList.length > 0;
     const noFavs = favList.length === 0;
     const phaseIdle = p === "idle";
