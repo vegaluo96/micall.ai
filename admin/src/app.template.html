@@ -90,12 +90,6 @@
       <!-- DASHBOARD -->
       <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
         <div style="animation:adRise .3s ease;">
-          <sc-if value="{{ isDemoData }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;background:rgba(224,149,79,.1);border:1px solid rgba(224,149,79,.25);border-radius:11px;padding:10px 14px;">
-              <span style="width:7px;height:7px;border-radius:50%;background:#E0954F;flex:none;"></span>
-              <span style="font-size:12.5px;color:#B5762B;font-weight:500;">{{ dataModeLabel }} · 下方为占位数字，接入后端后自动显示真实指标</span>
-            </div>
-          </sc-if>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
             <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
               <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 18px 16px;box-shadow:0 1px 2px rgba(0,0,0,.03);">

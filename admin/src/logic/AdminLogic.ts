@@ -92,17 +92,9 @@ export class AdminLogic {
       { name: "畅聊会员", price: "$9.99", mins: "每月 1500 分钟", subs: "4,910", popular: true, tile: "linear-gradient(145deg,#B79CFF,#9277F5)", icon: "M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" },
       { name: "无限会员", price: "$19.99", mins: "每月不限时", subs: "1,240", popular: false, tile: "linear-gradient(145deg,#FFC061,#F5A623)", icon: "M18.5 8.5c-2 0-3.2 1.6-4.2 3-.8 1.1-1.5 2-2.3 2s-1.5-.9-2.3-2c-1-1.4-2.2-3-4.2-3a3.5 3.5 0 1 0 0 7c2 0 3.2-1.6 4.2-3 .8-1.1 1.5-2 2.3-2s1.5.9 2.3 2c1 1.4 2.2 3 4.2 3a3.5 3.5 0 1 0 0-7z" },
     ];
-    this.voices = [
-      { id: "v1", name: "沈知微 · 成熟女声", engine: "MiniMax", gender: "女声", lang: "中文", char: "沈知微", hue: 250, status: "启用" },
-      { id: "v2", name: "时砚 · 俊朗男友", engine: "MiniMax", gender: "男声", lang: "中文", char: "时砚", hue: 200, status: "启用" },
-      { id: "v3", name: "苏糖 · 少女", engine: "MiniMax", gender: "女声", lang: "中文", char: "苏糖", hue: 330, status: "启用" },
-      { id: "v4", name: "慕廷舟 · 霸道少爷", engine: "MiniMax", gender: "男声", lang: "中文", char: "慕廷舟", hue: 30, status: "启用" },
-      { id: "v5", name: "林九 · 甜美女声", engine: "MiniMax", gender: "女声", lang: "中文", char: "林九", hue: 145, status: "启用" },
-      { id: "v6", name: "温柔女声", engine: "MiniMax", gender: "女声", lang: "中文", char: "", status: "启用" },
-      { id: "v7", name: "磁性男声", engine: "MiniMax", gender: "男声", lang: "中文", char: "", status: "启用" },
-      { id: "v8", name: "甜美童声", engine: "Azure", gender: "女声", lang: "中文", char: "", status: "停用" },
-      { id: "v9", name: "English · Aria", engine: "ElevenLabs", gender: "女声", lang: "English", char: "", status: "启用" },
-    ];
+    // 音色列表：以后端 /admin/voices（MiniMax 真实系统音色 + 克隆音色）为唯一来源，挂载即拉。
+    // 不再放假音色占位（曾有 Azure/ElevenLabs 等并不存在的引擎），未加载时显示空，杜绝演示数据误导。
+    this.voices = [];
     this.apiSections = [
       { key: "asr", name: "ASR · 语音识别", chain: "快链路", desc: "实时把用户语音转写为文字 · 默认 Qwen3-ASR-Flash（阿里百炼）", icon: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8", req: "快 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "lang", label: "识别语言" }] },
       { key: "fast", name: "LLM · 快脑（通话中）", chain: "快链路", desc: "通话中实时生成简短回复 · 默认 deepseek-v4-flash（DeepSeek 直连，小写；deepseek-chat 是其旧别名，2026-07-24 停用）", icon: "M13 2L3 14h7l-1 8 10-12h-7l1-8z", req: "快 · 短 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "temp", label: "温度" }, { k: "maxTokens", label: "回复上限 Token" }] },
@@ -900,9 +892,7 @@ export class AdminLogic {
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
       isDashboard: s.section === "dashboard", isUsers: s.section === "users", isChars: s.section === "characters", isVoices: s.section === "voices",
-      // 看板数据来源标识：接了后端有真实 KPI 则隐藏；否则提示「演示数据」，避免运营误把内置数当真。
-      isDemoData: !this.realStats,
-      dataModeLabel: this.realStats ? "实时数据" : "演示数据（未接入后端或加载失败）",
+      // 看板永远显示真实数据（未加载/无数据时为 0 或空），不再有「演示数据·占位数字」横幅误导。
       isCalls: s.section === "calls", isTickets: s.section === "tickets", isOrders: s.section === "orders",
       kpis, trend, trendTitle, dateChips, topChars, topScenes, recentCalls,
       isInvites: s.section === "invites",
