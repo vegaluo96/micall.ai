@@ -520,20 +520,6 @@
               </div>
             </div>
           </div>
-          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:grid;grid-template-columns:1.1fr 1.4fr 1.6fr;gap:12px;padding:15px 22px;border-bottom:1px solid #EEEFF2;">
-              <span style="font-size:15px;font-weight:600;align-self:center;">付费 / 免费策略</span>
-              <span style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#878B95;"><span style="width:8px;height:8px;border-radius:50%;background:#C2C4CC;"></span>免费用户</span>
-              <span style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#6E5CFF;"><span style="width:8px;height:8px;border-radius:50%;background:#6E5CFF;"></span>付费会员</span>
-            </div>
-            <sc-for list="{{ freePaid }}" as="r" hint-placeholder-count="9">
-              <div style="display:grid;grid-template-columns:1.1fr 1.4fr 1.6fr;gap:12px;padding:13px 22px;border-bottom:1px solid #F4F4F6;align-items:center;">
-                <span style="font-size:13px;font-weight:500;color:#16161A;">{{ r.item }}</span>
-                <span style="font-size:13px;color:#878B95;">{{ r.free }}</span>
-                <span style="font-size:13px;color:#3A3D47;font-weight:500;">{{ r.paid }}</span>
-              </div>
-            </sc-for>
-          </div>
         </div>
       </sc-if>
 

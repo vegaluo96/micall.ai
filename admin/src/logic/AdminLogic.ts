@@ -668,7 +668,7 @@ export class AdminLogic {
       tickets: ["工单反馈", openTicketCount + " 条待处理"],
       orders: ["订单充值", "会员套餐与交易记录"],
       api: ["接口配置", "ASR · LLM · TTS 服务接入"],
-      cost: ["成本与限流", "成本结构与付费/免费策略"],
+      cost: ["成本与限流", "成本结构与限流策略"],
       invites: ["邀请裂变", "邀请奖励规则与裂变数据"],
     };
 
@@ -784,17 +784,6 @@ export class AdminLogic {
       ccTts: s.costCfg.tts, onCcTts: (e: any) => this.setCost("tts", e.target.value),
       ccAsr: s.costCfg.asr, onCcAsr: (e: any) => this.setCost("asr", e.target.value),
       saveCost: () => this.saveCost(),
-      freePaid: [
-        { item: "通话额度", free: "每日 30 分钟", paid: "畅聊 1500 分钟/月 · 无限会员不限时" },
-        { item: "单次通话最长", free: "15 分钟", paid: "60 分钟" },
-        { item: "语音合成 TTS", free: "标准音质", paid: "标准 / 高音质（高级）" },
-        { item: "自定义音色", free: "不可用", paid: "会员可用（Voice Design / Clone）" },
-        { item: "AI 回复长度", free: "≤ 80 字", paid: "≤ 120 字" },
-        { item: "表情视频", free: "基础状态", paid: "完整 12 状态" },
-        { item: "记忆深度", free: "近 3 次通话", paid: "长期记忆完整" },
-        { item: "超额后", free: "提示充值 / 切低成本模式", paid: "切低成本模式 · 不中断" },
-        { item: "高成本模型", free: "不可用", paid: "仅高级会员" },
-      ],
       ioOpen: s.ioOpen, exportSample,
       openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), closeIO: () => this.setState({ ioOpen: false }),
       runExport: () => this.exportChars(),
