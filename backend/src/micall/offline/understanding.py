@@ -23,13 +23,34 @@ log = logging.getLogger("micall.understanding")
 Message = dict
 
 
+import re
+
+# 纯语气词/附和（嗯/哦/好的/对…）：当事实存只会淹没事实表、稀释召回（成堆寒暄压过要紧事）。
+_BACKCHANNEL = {
+    "嗯", "嗯嗯", "嗯哼", "哦", "哦哦", "噢", "啊", "欸", "诶", "好", "好的", "好呀", "好吧",
+    "行", "行吧", "对", "对对", "对的", "是", "是的", "是啊", "哈", "嘿", "唉", "额", "呃",
+    "ok", "okay", "嗯呐", "知道了", "明白", "懂了", "没事", "没有", "不是",
+}
+
+
+def _is_trivial_utterance(text: str) -> bool:
+    """纯语气词/附和/笑声 → True（不值得当事实存）。保守：只挡明确无信息量的，宁可漏放、不误删真话。"""
+    t = re.sub(r"[\s，,。.！!？?、…~ ]+", "", text or "")
+    if not t:
+        return True
+    if t in _BACKCHANNEL:
+        return True
+    return bool(re.fullmatch(r"(?:哈|嘻|嘿|呵|嘻){2,}|嗯+|哦+|啊+|噢+", t))
+
+
 def extract_facts(history: Sequence[Message]) -> list[str]:
-    """从对话抽取用户陈述作事实层原料（骨架用用户原话；真实由 LLM 结构化抽取补充）。"""
+    """从对话抽取用户陈述作事实层原料（骨架用用户原话；真实由 LLM 结构化抽取补充）。
+    过滤纯语气词/附和（嗯/哦/好的…）——它们不是事实，当事实存只会把召回淹没。"""
     out: list[str] = []
     for m in history:
         if m.get("role") == "user":
             t = (m.get("content") or "").strip()
-            if t:
+            if t and not _is_trivial_utterance(t):
                 out.append(t)
     return out
 
@@ -64,7 +85,12 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         # fact_profile / interaction_prefs：过去 prompt 读了却没人写 → 永远空。现在补上，让角色跨通真记得你是谁、怎么待你舒服。
         "fact_profile(对象{键:值}；TA 的客观信息——名字/称呼、性别（只在 TA 明确说过、或对话里铁证如山时记，"
         "如「男」「女」；一丝不确定就别写，宁可空着也别替 TA 猜性别）、职业、所在地、在忙的事、重要的人、纪念日等，"
-        "只记 TA【明确说过】的，键用简短中文；在现有 fact_profile 上增改、别删，没新信息就原样返回或省略)、"
+        "只记 TA【明确说过】的，键用简短中文；在现有 fact_profile 上增改（同一件事就改同一个键的值、别堆新键），"
+        "没新信息就原样返回或省略；TA【纠正/否认/推翻】旧信息时，把要删的键名放进 remove_facts)、"
+        "remove_facts(字符串数组；本次通话里 TA 明确【纠正/否认/推翻】的、或你发现【之前记错】的旧信息——"
+        "把现有 fact_profile 里该删的【键名】列出来（如 TA 说『我不是模特』→ 列出错记的职业类键；TA 说"
+        "『那是你的创可贴、不是我的』→ 列出你之前张冠李戴记成 TA 的那条键；TA 说『我搬走了/分手了/换工作了』"
+        "→ 旧的所在地/对象/职业键若不再改值也可列出）。只删确实被否认或记错的，没有就空数组、绝不误删)、"
         "interaction_prefs(对象{键:值}；怎么对待 TA 更舒服——如 喜欢被鼓励/不爱被催/喜欢直接说重点，只记有依据的)、"
         "insights([{insight,confidence,evidence}]，印证或推翻旧判断、暴露新模式)、"
         "hypotheses([{guess,confidence,next}]，带着假设进下次对话去验证)、"
@@ -149,8 +175,29 @@ def _merge_kv(dst: dict[str, Any], src: Any, *, cap: int) -> None:
             del dst[k]
 
 
+def _apply_removals(profile: UserProfile, remove_facts: Any) -> int:
+    """纠错/删除通道（写入规则升级）：TA 纠正/否认旧信息时，慢脑给出要删的 fact_profile 键名 → 删掉。
+    告别「增改不删」永久背着错记的事实（角色自己的创可贴错记成 TA 的、性别/职业/所在地记错且 TA 已纠正）。
+    匹配宽容但安全：删 键名相等/被包含、或值里含该 token 的条目（token 至少 2 字，避免误伤）。返回删除条数。"""
+    if not isinstance(remove_facts, (list, tuple)):
+        return 0
+    removed = 0
+    for rem in remove_facts:
+        tok = str(rem).strip()
+        if len(tok) < 2:
+            continue
+        for store in (profile.fact_profile, profile.interaction_prefs):
+            for k in list(store.keys()):
+                if tok == k or tok in k or tok in str(store.get(k, "")):
+                    store.pop(k, None)
+                    removed += 1
+    return removed
+
+
 def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
-    """把模型产出合并进画像：洞察去重累积（同条更新置信度，不重复堆叠）、假设替换、关系/策略更新。"""
+    """把模型产出合并进画像：先按 remove_facts 删纠错项，再洞察去重累积、假设替换、关系/策略更新。"""
+    # 纠错优先：先删 TA 纠正/否认的旧事实，再 merge 新/改值——这样若同键有更正值会被重新写回、不被误删。
+    _apply_removals(profile, update.get("remove_facts"))
     # 客观事实 + 相处偏好：过去读了没人写的两个死字段，现在增改落库（跨通记得你是谁、怎么待你）。
     _merge_kv(profile.fact_profile, update.get("fact_profile"), cap=30)
     _merge_kv(profile.interaction_prefs, update.get("interaction_prefs"), cap=20)

@@ -23,6 +23,49 @@ class TestExtractFacts(unittest.TestCase):
         ]
         self.assertEqual(extract_facts(history), ["我在准备面试", "养了只猫"])
 
+    def test_filters_trivial_backchannel(self):
+        history = [
+            {"role": "user", "content": "嗯嗯"},
+            {"role": "user", "content": "哈哈哈"},
+            {"role": "user", "content": "好的"},
+            {"role": "user", "content": "我下周要去成都出差"},
+            {"role": "user", "content": "哦"},
+        ]
+        # 纯语气词/笑声不入事实层，只留真有信息量的那句
+        self.assertEqual(extract_facts(history), ["我下周要去成都出差"])
+
+
+class TestCorrectionRemoval(unittest.TestCase):
+    """写入规则升级：remove_facts 纠错删除——告别『增改不删』永久背着错记的事实。"""
+
+    def _profile(self):
+        p = UserProfile("u", "c")
+        p.fact_profile = {"职业": "模特", "脚上小事": "磨破皮贴了创可贴", "所在地": "北京"}
+        return p
+
+    def test_remove_facts_deletes_corrected_keys(self):
+        p = self._profile()
+        merge_profile(p, {"remove_facts": ["职业", "创可贴"]})
+        self.assertNotIn("职业", p.fact_profile)          # TA 说「我不是模特」→ 删
+        self.assertNotIn("脚上小事", p.fact_profile)       # 值里含「创可贴」→ 删张冠李戴那条
+        self.assertIn("所在地", p.fact_profile)            # 没被点名的保留
+
+    def test_remove_then_merge_keeps_corrected_value(self):
+        # 同键既在 remove_facts 又有更正值：先删后写 → 保住更正值，不被误删
+        p = self._profile()
+        merge_profile(p, {"remove_facts": ["所在地"], "fact_profile": {"所在地": "上海"}})
+        self.assertEqual(p.fact_profile["所在地"], "上海")
+
+    def test_remove_ignores_too_short_token(self):
+        p = self._profile()
+        merge_profile(p, {"remove_facts": ["猫"]})   # 1 字 token 不参与匹配，避免误删
+        self.assertEqual(len(p.fact_profile), 3)
+
+    def test_prompt_documents_remove_facts(self):
+        from micall.offline.understanding import build_understanding_prompt
+        system = build_understanding_prompt(UserProfile("u", "c"), [])[0]["content"]
+        self.assertIn("remove_facts", system)
+
 
 class TestSpeakerAttribution(unittest.TestCase):
     """防『角色把自己说的话当成用户的事』(脚上创可贴 bug)：转写区分说话人 + 铁律不张冠李戴。"""
