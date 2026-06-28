@@ -24,6 +24,32 @@ class TestExtractFacts(unittest.TestCase):
         self.assertEqual(extract_facts(history), ["我在准备面试", "养了只猫"])
 
 
+class TestSpeakerAttribution(unittest.TestCase):
+    """防『角色把自己说的话当成用户的事』(脚上创可贴 bug)：转写区分说话人 + 铁律不张冠李戴。"""
+
+    def test_transcript_labels_distinguish_speakers(self):
+        from micall.offline.understanding import _speaker_label, build_understanding_prompt
+        self.assertEqual(_speaker_label("user"), "对方(TA)")
+        self.assertEqual(_speaker_label("assistant"), "角色本人")
+        history = [
+            {"role": "assistant", "content": "我今天跳舞脚磨破皮了，贴了创可贴"},
+            {"role": "user", "content": "多喝热水"},
+        ]
+        msgs = build_understanding_prompt(UserProfile("u", "c"), history)
+        user_msg = msgs[-1]["content"]
+        # 转写里角色自己的话被标成「角色本人:」而非裸 assistant:，用户的标成「对方(TA):」
+        self.assertIn("角色本人: 我今天跳舞脚磨破皮了", user_msg)
+        self.assertIn("对方(TA): 多喝热水", user_msg)
+        self.assertNotIn("assistant:", user_msg)
+
+    def test_system_prompt_has_attribution_ironclad_rule(self):
+        from micall.offline.understanding import build_understanding_prompt
+        system = build_understanding_prompt(UserProfile("u", "c"), [])[0]["content"]
+        self.assertIn("张冠李戴", system)
+        self.assertIn("角色本人", system)
+        self.assertIn("绝不能", system)
+
+
 class TestParse(unittest.TestCase):
     def test_plain_json(self):
         self.assertEqual(parse_profile_update('{"next_strategy":"轻轻问"}')["next_strategy"], "轻轻问")

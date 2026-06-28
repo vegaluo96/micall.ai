@@ -34,8 +34,15 @@ def extract_facts(history: Sequence[Message]) -> list[str]:
     return out
 
 
+def _speaker_label(role: str) -> str:
+    """把对话双方在转写里标清楚：user=被画像的「对方(TA)」，assistant=AI 陪伴角色「角色本人」。
+    防止慢脑把【角色本人】说的自己的事（今天干了啥/脚磨破皮/在忙什么）错记成【对方】的事
+    （张冠李戴 → 角色下次把自己的事当成 TA 的事去问，如「你脚上的创可贴换了没」）。"""
+    return "对方(TA)" if role == "user" else "角色本人"
+
+
 def build_understanding_prompt(profile: UserProfile, history: Sequence[Message]) -> list[Message]:
-    transcript = "\n".join(f"{m.get('role')}: {m.get('content')}" for m in history)
+    transcript = "\n".join(f"{_speaker_label(m.get('role'))}: {m.get('content')}" for m in history)
     existing = {
         "fact_profile": profile.fact_profile,
         "interaction_prefs": profile.interaction_prefs,
@@ -48,6 +55,9 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
     }
     system = (
         "你是离线理解引擎。基于本次通话与现有画像，推断并修正你对这个人的理解。"
+        "【通话里有两个人，先分清谁是谁】转写中「对方(TA):」开头的，是你要了解、要画像的那个人（用户）；"
+        "「角色本人:」开头的，是 TA 正在通话的那个 AI 陪伴角色【自己】说的话。你的活儿是更懂【对方(TA)】，"
+        "不是去记录角色本人的事。"
         "严格只输出一个 JSON 对象，字段："
         "new_facts(数组；每项可以是字符串，或 {text, importance} 对象，importance 取 0~1——"
         "TA 的重要事/在意的人事物/承诺给高分，闲聊寒暄给低分，便于日后优先想起要紧事)、"
@@ -78,6 +88,12 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "【铁律】只记录本次通话里【明确出现过】的信息：不要把推测/脑补/'可能'当成事实写进 "
         "new_facts 或 last_topic——拿不准的一律放进 hypotheses（带 confidence）。"
         "绝不要虚构'谈过合作/约定过/一起做过/答应过'之类对话里没真实发生的共同经历或承诺。"
+        "【铁律·分清谁说的，绝不张冠李戴】fact_profile / new_facts / relationship.last_topic 只装"
+        "【对方(TA)】说过的、关于 TA 自己的信息。【角色本人】说的关于它自己的生活、经历、身体、状态、心情"
+        "（如「我今天跳舞脚磨破皮了」「我贴了创可贴」「我最近在忙排练」），那是【角色自己】的事，"
+        "【绝不能】记成对方(TA)的事、绝不能写进 fact_profile/new_facts。一旦记错，角色下次会把自己的事"
+        "当成对方的去问（把自己脚上的创可贴说成「你脚上的创可贴换了没」），非常出戏、让人莫名其妙。"
+        "拿不准某件事是【对方】的还是【角色本人】的，就不记。"
         "证据不足就少写、宁缺毋滥；没有可靠新信息时 new_facts 可为空数组。"
     )
     user = f"现有画像：{json.dumps(existing, ensure_ascii=False)}\n\n本次通话：\n{transcript}"
