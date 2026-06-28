@@ -17,6 +17,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
+         worldRefresh, loadLimits, saveLimits,
          generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
@@ -65,7 +66,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {},
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, limitsCfg: null,
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -430,6 +431,8 @@ export class AdminLogic {
     }
     const cc = await loadCostConfig();
     if (cc) this.setState({ costCfg: { chars_per_token: String(cc.chars_per_token), llm_fast: String(cc.llm_fast), llm_slow: String(cc.llm_slow), embedding: String(cc.embedding), tts: String(cc.tts), asr: String(cc.asr) } });
+    const lim = await loadLimits();
+    if (lim) this.setState({ limitsCfg: lim });
     if (dash || users || calls || orders || tickets || invites || codes) this.setState({});
   }
 
@@ -445,13 +448,51 @@ export class AdminLogic {
 
   /** 连通性测试：有后端实测该节点；结果写进 apiStatus，驱动卡片状态徽标（不再写死「已连接」）。 */
   async testApi(sectionKey: string, name: string) {
-    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: "testing" } }));
+    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: "testing" }, apiTestDetail: { ...p.apiTestDetail, [sectionKey]: null } }));
     const res = await testApiSection(sectionKey, this.state.apiCfg[sectionKey]);
     const st = res.ok === false ? "fail" : "ok";   // ok===null（无后端）当通过；false 才算失败
-    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: st } }));
+    // 把真实结果（联网脑的真实答案/live 初判、或后端 note/错误）留在卡下方，不再只闪一下 toast。
+    const detail = res.ok === false
+      ? { kind: "fail", text: res.error || "未知错误" }
+      : (res.answer != null
+          ? { kind: res.live ? "live" : "maybe", text: res.answer, ms: res.ms }
+          : { kind: "ok", text: res.note || "", ms: res.ms });
+    this.setState((p) => ({ apiStatus: { ...p.apiStatus, [sectionKey]: st }, apiTestDetail: { ...p.apiTestDetail, [sectionKey]: detail } }));
     if (res.ok === null) this.toastMsg(name + " 连接测试成功");
-    else if (res.ok) this.toastMsg(name + " 测试成功" + (res.ms ? ` · ${res.ms}ms` : ""));
-    else this.toastMsg(name + " 测试失败：" + (res.error || "未知错误"));
+    else if (res.ok === false) this.toastMsg(name + " 测试失败：" + (res.error || "未知错误"));
+    else if (res.answer != null) this.toastMsg(name + (res.live ? " 看着像真联网 ✅" : " 已连上、但答案不像真联网 ⚠️"));
+    else this.toastMsg(name + " 测试成功" + (res.ms ? ` · ${res.ms}ms` : ""));
+  }
+
+  /** 手动拉取联网脑（世界库）：真跑一遍 open-meteo 天气 + 联网脑话题，把真实结果亮在面板上「看效果」。 */
+  async pullWorld() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (this.state.worldPulling) return;
+    this.setState({ worldPulling: true });
+    const res = await worldRefresh();
+    this.setState({ worldPulling: false, worldPull: res });
+    if (res.ok === null) this.toastMsg("需接入后端");
+    else if (res.ok === false) this.toastMsg("拉取失败：" + (res.error || "未知错误"));
+    else if (!res.search_configured) this.toastMsg(`拉到天气 ${res.weather_cities || 0} 城；联网脑未配 → 话题为空`);
+    else this.toastMsg(`联网脑拉到 ${res.topics_count || 0} 条话题 · 天气 ${res.weather_cities || 0} 城`);
+  }
+
+  setLimit(k: string, v: string) {
+    const n = v.replace(/[^\d.]/g, "");
+    this.setState((p) => ({ limitsCfg: { ...(p.limitsCfg || {}), [k]: n } }));
+  }
+  /** 保存运行限流（只发可调的几个键）到后端 global_defaults，下一通即生效。 */
+  async saveRunLimits() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const l = this.state.limitsCfg || {};
+    const ok = await saveLimits({
+      reply_max_tokens: parseInt(l.reply_max_tokens, 10),
+      incall_max_turns: parseInt(l.incall_max_turns, 10),
+      budget_chars: parseInt(l.budget_chars, 10),
+      world_refresh_hours: parseFloat(l.world_refresh_hours),
+    });
+    if (ok) { const lim = await loadLimits(); if (lim) this.setState({ limitsCfg: lim }); }
+    this.toastMsg(ok ? "运行限流已保存，下一通即生效" : "保存失败");
   }
 
   /** 卡片连接状态徽标：未测过=未知（中性），测过按真实结果显示已连接/连接失败。 */
@@ -461,6 +502,21 @@ export class AdminLogic {
     if (st === "fail") return { statusLabel: "连接失败", statusColor: "#E0594F", statusBg: "rgba(224,89,79,.1)" };
     if (st === "testing") return { statusLabel: "测试中…", statusColor: "#E0954F", statusBg: "rgba(224,149,79,.12)" };
     return { statusLabel: "未测试", statusColor: "#878B95", statusBg: "#F0F0F3" };
+  }
+
+  /** 把上次「测试连接」的真实结果折成卡下方一行：联网脑亮真实答案 + live 徽标，其它节点显 note/错误。 */
+  _apiTestDetailView(key: string) {
+    const d = (this.state.apiTestDetail || {})[key];
+    if (!d || !d.text) return { hasTestDetail: false, testDetailText: "", testDetailTag: "", testDetailColor: "", testDetailBg: "" };
+    const map: Record<string, any> = {
+      live: { tag: "看着像真联网 ✅", c: "#1FA971", b: "rgba(31,169,113,.08)" },
+      maybe: { tag: "已连上 · 但不像真联网 ⚠️", c: "#E0954F", b: "rgba(224,149,79,.1)" },
+      ok: { tag: "返回正常", c: "#1FA971", b: "rgba(31,169,113,.08)" },
+      fail: { tag: "失败", c: "#E0594F", b: "rgba(224,89,79,.08)" },
+    };
+    const m = map[d.kind] || map.ok;
+    return { hasTestDetail: true, testDetailText: String(d.text).slice(0, 600),
+      testDetailTag: m.tag + (d.ms ? ` · ${d.ms}ms` : ""), testDetailColor: m.c, testDetailBg: m.b };
   }
 
   toastMsg(m: string) {
@@ -830,6 +886,7 @@ export class AdminLogic {
         masked: !!(f.pw && /•/.test(String(cfg[f.k] || ""))),
         onInput: (e: any) => this.setCfg(sec.key, f.k, e.target.value) })),
       test: () => this.testApi(sec.key, sec.name), save: () => this.saveApi(sec.name),
+      ...this._apiTestDetailView(sec.key),
     }; });
     const stC: Record<string, any> = { "正常": { c: "#1FA971", b: "rgba(31,169,113,.1)" }, "未配置": { c: "#878B95", b: "#F0F0F3" }, "延迟高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "成本高": { c: "#E0954F", b: "rgba(224,149,79,.12)" }, "异常": { c: "#E0594F", b: "rgba(224,89,79,.1)" }, "备用中": { c: "#2E7BFF", b: "rgba(46,123,255,.1)" } };
     const stp = (st: string) => { const x = stC[st] || stC["正常"]; return { status: st, stColor: x.c, stBg: x.b }; };
@@ -869,8 +926,31 @@ export class AdminLogic {
     const memTypeC: Record<string, string> = { fact: "#2E7BFF", preference: "#6E5CFF", project: "#E0954F", relationship: "#FF6FA5", open_loop: "#1FA971" };
     // 真实记忆涉及用户隐私，不在后台明文展示（始终空）。
     const memoryRecent: any[] = ([] as any[]).map((m) => ({ ...m, typeColor: memTypeC[m.type] || "#878B95", typeBg: (memTypeC[m.type] || "#878B95") + "1a", wColor: m.written ? "#1FA971" : "#E0954F", wBg: m.written ? "rgba(31,169,113,.1)" : "rgba(224,149,79,.12)", wLabel: m.written ? "已写入" : "待写入" }));
-    const limitItems = [["单次通话最长", "60 分钟"], ["静音自动挂断", "45 秒"], ["AI 单次最大回复", "120 字"], ["超额后", "切换低成本模式"]];
+    // 运行限流：显示【真正在管线里生效】的值（来自后端 global_defaults 等），不再写死误导。
+    const L = s.limitsCfg || {};
+    const limitsLoaded = !!(L && Object.keys(L).length);
+    const limitItems = (limitsLoaded ? [
+      ["AI 单次回复上限", `${L.reply_max_tokens} tokens · 约 ${Math.round((Number(L.reply_max_tokens) || 0) * 1.5)} 字`],
+      ["通话内记忆轮数", `${L.incall_max_turns} 轮`],
+      ["上下文预算", `${L.budget_chars} 字`],
+      ["联网脑 / 天气刷新", `每 ${L.world_refresh_hours} 小时`],
+      ["游客试用", `${L.guest_trial_seconds} 秒`],
+      ["注册赠送", `${L.register_gift_minutes} 分钟`],
+      ["通话时长上限", "按余额扣到 0 自动挂断（无固定时长上限）"],
+      ["静音自动挂断", "用户端设置 · 默认 3 分钟"],
+    ] : [["运行限流", "接入后端后显示真实生效值"]]).map(([k, v]) => ({ k, v }));
     const warnItems = ["单用户今日成本 > $20", "某模型失败率 > 5%", "TTS 成本环比上涨 > 30%", "通话平均时长异常波动", "单个 voice_id 调用量激增"];
+
+    // 手动拉取联网脑（世界库）的真实结果展示。
+    const wp = s.worldPull;
+    const worldTopics: string[] = (wp && wp.topics) || [];
+    const worldWeather = (wp && wp.weather) ? Object.keys(wp.weather).map((c: string) => ({ city: c, line: wp.weather[c] })) : [];
+    const worldHasResult = !!(wp && wp.ok);
+    const worldErr = (wp && wp.ok === false) ? (wp.error || "拉取失败") : "";
+    const worldSearchOff = !!(wp && wp.ok && !wp.search_configured);
+    const worldSummary = worldHasResult
+      ? `话题 ${wp.topics_count || 0} 条 · 天气 ${wp.weather_cities || 0}/${wp.cities_total || 0} 城`
+      : (worldErr ? "拉取失败" : "");
 
     const titles: Record<string, [string, string]> = {
       dashboard: ["数据概览", "MiCall.ai 运营核心指标"],
@@ -999,6 +1079,19 @@ export class AdminLogic {
       ccTts: s.costCfg.tts, onCcTts: (e: any) => this.setCost("tts", e.target.value),
       ccAsr: s.costCfg.asr, onCcAsr: (e: any) => this.setCost("asr", e.target.value),
       saveCost: () => this.saveCost(),
+      // 运行限流（真实生效，可改 4 个旋钮）
+      limitsLoaded,
+      rlReply: String(L.reply_max_tokens ?? ""), onRlReply: (e: any) => this.setLimit("reply_max_tokens", e.target.value),
+      rlTurns: String(L.incall_max_turns ?? ""), onRlTurns: (e: any) => this.setLimit("incall_max_turns", e.target.value),
+      rlBudget: String(L.budget_chars ?? ""), onRlBudget: (e: any) => this.setLimit("budget_chars", e.target.value),
+      rlWorldHours: String(L.world_refresh_hours ?? ""), onRlWorldHours: (e: any) => this.setLimit("world_refresh_hours", e.target.value),
+      saveRunLimits: () => this.saveRunLimits(),
+      // 手动拉取联网脑（世界库）—— 模板引擎不支持三元，按钮文案/底色在这里算好
+      worldPulling: !!s.worldPulling, worldPullLabel: s.worldPulling ? "拉取中…" : "立即拉取",
+      worldPullBtnBg: s.worldPulling ? "#C9A86A" : "#E0954F",
+      worldHasResult, worldErr, worldSearchOff, worldSummary,
+      worldTopics, worldWeather, hasWorldTopics: worldTopics.length > 0, hasWorldWeather: worldWeather.length > 0,
+      pullWorld: () => this.pullWorld(),
       ioOpen: s.ioOpen, exportSample,
       openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), closeIO: () => this.setState({ ioOpen: false }),
       runExport: () => this.exportChars(),

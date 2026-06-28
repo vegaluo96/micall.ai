@@ -446,8 +446,9 @@ export async function generateCore(fields: Record<string, any>): Promise<{ ok: b
   return { ok: false, error: "生成失败" };
 }
 
-/** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。 */
-export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string };
+/** 连通性测试结果：ok=null 表示无后端（未知）；失败时 error 带出后端真因（1004/2049 等）。
+ *  联网脑额外带 answer（模型真实答案）+ live（像不像真联网的初判），让运营一眼看出「连上≠在搜网」。 */
+export type TestResult = { ok: boolean | null; error?: string; ms?: number; note?: string; answer?: string; live?: boolean };
 
 /** 连通性测试。有后端则让后端实测该节点；无后端时本地无法跨域直连，返回 ok=null（未知）。 */
 export async function testApiSection(sectionKey: string, cfg: Record<string, string>): Promise<TestResult> {
@@ -461,9 +462,47 @@ export async function testApiSection(sectionKey: string, cfg: Record<string, str
       body: JSON.stringify({ section: sectionKey, config: cfg }),
     });
     if (!r.ok) return { ok: false, error: `HTTP ${r.status}` };
-    const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; ms?: number; note?: string };
-    return { ok: typeof data.ok === "boolean" ? data.ok : true, error: data.error, ms: data.ms, note: data.note };
+    const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; ms?: number; note?: string; answer?: string; live?: boolean };
+    return { ok: typeof data.ok === "boolean" ? data.ok : true, error: data.error, ms: data.ms, note: data.note, answer: data.answer, live: data.live };
   } catch {
     return { ok: false, error: "无法连接服务器" };
   }
+}
+
+/** 手动拉取联网脑（世界库）：后端真跑一遍 open-meteo 天气 + 联网脑话题，回带真实结果给运营看效果。
+ *  无后端 → ok:null（本地无法跨域直连联网脑）。 */
+export type WorldPull = { ok: boolean | null; error?: string; search_configured?: boolean;
+  cities_total?: number; weather_cities?: number; topics_count?: number;
+  topics?: string[]; weather?: Record<string, string> };
+export async function worldRefresh(): Promise<WorldPull> {
+  const b = base();
+  if (!b) return { ok: null };
+  try {
+    const r = await fetch(`${b}/admin/world-refresh`, { method: "POST", headers: authHeaders(true), credentials: "include" });
+    if (!r.ok) return { ok: false, error: `HTTP ${r.status}` };
+    return (await r.json().catch(() => ({ ok: false, error: "解析失败" }))) as WorldPull;
+  } catch {
+    return { ok: false, error: "无法连接服务器" };
+  }
+}
+
+/** 读取【真正生效】的运行限流（global_defaults 等）。无后端 → null。 */
+export async function loadLimits(): Promise<Record<string, number> | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/limits-config`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) return (await r.json()) as Record<string, number>;
+  } catch { /* noop */ }
+  return null;
+}
+/** 保存运行限流（只传可调的几个键；后端钳到安全区间，下一通即生效）。返回是否成功。 */
+export async function saveLimits(cfg: Record<string, any>): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/limits-config`, { method: "PUT", headers: authHeaders(true), credentials: "include", body: JSON.stringify(cfg) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
 }

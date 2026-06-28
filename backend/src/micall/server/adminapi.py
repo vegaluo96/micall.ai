@@ -167,6 +167,47 @@ async def _ping_embed(node: NodeConfig) -> dict:
     return {"ok": True, "ms": int((time.perf_counter() - t0) * 1000), "note": f"维度 {len(vec)}"}
 
 
+# 联网自检：模型嘴上承认「我连不了网」的措辞 → 一定没在搜网（无论它后面编得多像）。
+_NOT_LIVE = (
+    "无法获取", "不能联网", "没有实时", "无法访问", "无法提供实时", "我无法查", "没有联网", "不具备联网",
+    "无法实时", "无法查询", "知识截止", "训练数据", "截至我", "作为ai", "作为一个ai", "无法连接互联网",
+)
+
+
+def _looks_live(answer: str) -> bool:
+    """启发式判「这答案像不像真联网拿到的」：含 数字+温度单位 或 来源网址 → 像(True)；
+    命中「我连不了网」措辞 → 不像(False)。仅作初判徽标，最终让人看亮出来的真实答案。纯函数，便于测试。"""
+    a = (answer or "").strip().lower()
+    if not a:
+        return False
+    if any(k in a for k in _NOT_LIVE):
+        return False
+    has_temp = bool(re.search(r"\d+\s*(°|度|℃|摄氏)", answer))
+    has_src = ("http" in a) or ("来源" in answer) or ("weather" in a) or ("数据来自" in answer)
+    return bool(has_temp or has_src)
+
+
+async def _ping_search(node: NodeConfig) -> dict:
+    """联网脑专用自检——发一条【只有真联网才答得对】的实时问题（今天日期 + 某城此刻天气 + 要来源网址），
+    收完整答案亮给运营看。区分「连上了(发请求通)」vs「真在搜网(答得出今天真实天气+来源)」。"""
+    import datetime
+    import time
+
+    from ..providers import make_llm
+
+    llm = make_llm(node)
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    q = (f"今天是{now.year}年{now.month}月{now.day}日。请用你的联网检索查一下【上海现在的天气】"
+         "（必须带具体气温数字），并给出你参考的信息来源网址。两句话以内回答。")
+    t0 = time.perf_counter()
+    chunks: list[str] = []
+    async for tok in llm.stream([{"role": "user", "content": q}], max_tokens=400):
+        chunks.append(tok)
+    ans = "".join(chunks).strip()
+    return {"ok": True, "ms": int((time.perf_counter() - t0) * 1000),
+            "answer": ans[:600], "live": _looks_live(ans)}
+
+
 def test_section(section: str, sec: dict) -> dict:
     import asyncio
 
@@ -192,11 +233,15 @@ def test_section(section: str, sec: dict) -> dict:
     try:
         if node_key in ("llm_fast", "llm_slow", "llm_eval"):
             return asyncio.run(_ping_llm(node))
+        if node_key == "llm_search":            # 联网脑：发实时问题、亮真实答案，区分「连上」vs「真在搜网」
+            return asyncio.run(_ping_search(node))
         if node_key == "tts":
             return asyncio.run(_ping_tts(node))
         if node_key == "embedding":
             return asyncio.run(_ping_embed(node))
-        return {"ok": True, "note": "已填 endpoint/key（ASR 未做真实连通）"}
+        if node_key == "asr":                    # ASR 要音频流、无法用文本探，给诚实说明（不再假报「正常」）
+            return {"ok": True, "note": "已填 endpoint/key；ASR 需音频流，连通性以真实通话为准（看通话是否出字幕）"}
+        return {"ok": True, "note": "已填 endpoint/key"}
     except Exception as e:  # 鉴权/网络/模型名等：回带便于排错，但抹掉可能回显的 key，完整详情仅记服务端日志
         msg = str(e)[:300]
         if key and key.strip():
@@ -249,6 +294,115 @@ def write_cost_from_admin(payload: dict) -> None:
     tmp = OVERRIDES_PATH.with_name(OVERRIDES_PATH.name + ".tmp")
     tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
     tmp.replace(OVERRIDES_PATH)
+
+
+# ── 运行限流：暴露【真正生效】的几个旋钮（global_defaults），让后台显示=实际行为、且可改 ──
+def read_limits_for_admin() -> dict:
+    """读真正在管线里生效的限流/容量值（不是写死的展示）。reply_max_tokens 是回复长度的【真知柄】
+    ——orchestrator 读 global_defaults.reply_max_tokens；快脑卡里那个 maxTokens 字段对实时回复其实不生效。"""
+    cfg = load_config()
+    g = cfg.global_defaults or {}
+
+    def gi(k: str, d: int) -> int:
+        try:
+            return int(g.get(k, d) or d)
+        except (TypeError, ValueError):
+            return d
+    try:
+        from .auth import register_gift_seconds
+        gift_min = register_gift_seconds() // 60
+    except Exception:
+        gift_min = 0
+    try:
+        from .userapi import GUEST_TRIAL_SECONDS
+        guest = int(GUEST_TRIAL_SECONDS)
+    except Exception:
+        guest = 60
+    try:
+        wh = float(g.get("world_refresh_hours", 24) or 24)
+    except (TypeError, ValueError):
+        wh = 24.0
+    return {
+        "reply_max_tokens": gi("reply_max_tokens", 200),
+        "incall_max_turns": gi("incall_max_turns", 20),
+        "budget_chars": gi("budget_chars", 16000),
+        "memory_depth": gi("memory_depth", 5),
+        "world_refresh_hours": wh,
+        "guest_trial_seconds": guest,
+        "register_gift_minutes": gift_min,
+    }
+
+
+def write_limits_from_admin(payload: dict) -> None:
+    """把可调限流旋钮写进 admin_overrides.json 的 global_defaults 段（下一通即生效，不重启）。
+    只写显式传入的键、各自钳到安全区间，避免误把正常两句话截断或把上下文饿死。"""
+    existing: dict = {}
+    if OVERRIDES_PATH.exists():
+        try:
+            existing = json.loads(OVERRIDES_PATH.read_text("utf-8"))
+        except (ValueError, OSError):
+            existing = {}
+    g = dict(existing.get("global_defaults") or {})
+    p = payload or {}
+
+    def put_int(key: str, lo: int, hi: int) -> None:
+        if key not in p:
+            return
+        try:
+            v = int(p[key])
+        except (TypeError, ValueError):
+            return
+        g[key] = max(lo, min(hi, v))
+    put_int("reply_max_tokens", 40, 4096)     # 40 floor：别低到截断正常两句话
+    put_int("incall_max_turns", 4, 60)
+    put_int("budget_chars", 2000, 64000)
+    put_int("memory_depth", 0, 30)
+    if "world_refresh_hours" in p:
+        try:
+            wh = float(p["world_refresh_hours"])
+            g["world_refresh_hours"] = max(1.0, min(168.0, wh))   # [1h, 1 周]
+        except (TypeError, ValueError):
+            pass
+    existing["global_defaults"] = g
+    tmp = OVERRIDES_PATH.with_name(OVERRIDES_PATH.name + ".tmp")
+    tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
+    tmp.replace(OVERRIDES_PATH)
+
+
+# ── 手动拉取联网脑（世界库）：运营点一下就【真的】跑一遍 open-meteo 天气 + 联网脑话题，亮出真实结果 ──
+def admin_world_refresh() -> dict:
+    """立即跑一次全站世界库刷新（与每日定时同一条路），返回【真实拉到的】话题池 + 各城天气，让运营当场看效果。
+    它会更新进程内共享世界库（与通话主链路同一份内存），故拉完角色立刻能用。失败/未配联网脑 → 诚实回带。"""
+    import asyncio
+    import datetime
+
+    from ..offline import refresh_world, topics_now, weather_for
+    from ..offline.world_context import clean_city
+    from ..providers import make_search_llm
+    from .characters_admin import effective_specs
+
+    cfg = load_config()
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    cities = sorted({clean_city((s.get("identity") or {}).get("residence", ""))
+                     for s in effective_specs().values()} - {""})
+    search = make_search_llm(cfg)
+    try:
+        res = asyncio.run(refresh_world(cities, now, search))
+    except Exception as e:
+        log.warning("手动世界库刷新失败：%r", e)
+        return {"ok": False, "error": str(e)[:300], "search_configured": search is not None}
+    weather = {}
+    for c in cities:
+        w = weather_for(c, now)
+        if w:
+            weather[c] = w
+    return {
+        "ok": True,
+        "search_configured": search is not None,   # 联网脑没配 → 只拉到天气、话题为空，前端据此提示
+        "cities_total": len(cities), "weather_cities": int(res.get("cities", 0)),
+        "topics_count": int(res.get("topics", 0)),
+        "topics": topics_now(now), "weather": weather,
+    }
 
 
 # ── 邀请奖励（后台「邀请裂变」）读写：存 admin_overrides.json 的 invite 段，改完即对新注册生效 ──
@@ -467,6 +621,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, {"voices": lib, "engine": "MiniMax"})
         if self._route() == "/admin/cost-config":
             return self._json(200, read_cost_for_admin())
+        if self._route() == "/admin/limits-config":
+            return self._json(200, read_limits_for_admin())
         if self._route() == "/admin/default-character":
             from .characters_admin import load_default_character
             return self._json(200, {"id": load_default_character()})
@@ -531,6 +687,12 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True})
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if self._route() == "/admin/limits-config":
+            try:
+                write_limits_from_admin(self._body())
+                return self._json(200, {"ok": True})
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if self._route() == "/admin/default-character":
             try:
                 from .characters_admin import set_default_character
@@ -556,6 +718,11 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/api-config/test":
             b = self._body()
             return self._json(200, test_section(b.get("section", ""), b.get("config", {}) or {}))
+        if route == "/admin/world-refresh":      # 手动拉取联网脑（世界库）：真跑一遍，亮出真实话题+天气
+            try:
+                return self._json(200, admin_world_refresh())
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if route == "/admin/redeem-codes":      # 自定义码 + 份数 + 时长
             if _REPO is None:
                 return self._json(200, {"ok": False, "error": "no repo"})

@@ -475,13 +475,56 @@
                 <div onClick="{{ a.test }}" style="font-size:13.5px;font-weight:600;color:#5A5E6B;background:#F2F3F5;border-radius:10px;padding:10px 20px;cursor:pointer;" style-active="transform:scale(.97)">测试连接</div>
                 <div onClick="{{ a.save }}" style="font-size:13.5px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(110,92,255,.26);transition:background .12s ease,box-shadow .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.97)" style-hover="background:#7B6AFF;box-shadow:0 8px 18px rgba(110,92,255,.32)">保存配置</div>
               </div>
+              <sc-if value="{{ a.hasTestDetail }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;border-radius:10px;padding:11px 13px;background:{{ a.testDetailBg }};border:1px solid rgba(0,0,0,.05);">
+                  <div style="font-size:11.5px;font-weight:700;color:{{ a.testDetailColor }};margin-bottom:5px;">{{ a.testDetailTag }}</div>
+                  <div style="font-size:12.5px;color:#3A3D47;line-height:1.6;white-space:pre-wrap;word-break:break-word;">{{ a.testDetailText }}</div>
+                </div>
+              </sc-if>
             </div>
           </sc-for>
 
 
+          <div style="background:#fff;border:1px solid #F4E3C4;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+              <div style="min-width:0;">
+                <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;">联网脑 · 立即拉取世界库<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">看效果</span></div>
+                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">真跑一遍：open-meteo 各城天气 + 联网脑当下时事话题（过安全闸）。拉到的会立刻进全站世界库，角色下一通就能用。</div>
+              </div>
+              <div onClick="{{ pullWorld }}" style="flex:none;font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
+            </div>
+            <sc-if value="{{ worldErr }}" hint-placeholder-val="{{ '' }}">
+              <div style="margin-top:13px;border-radius:10px;padding:11px 13px;background:rgba(224,89,79,.06);border:1px solid rgba(224,89,79,.18);font-size:12.5px;color:#C0453B;">拉取失败：{{ worldErr }}</div>
+            </sc-if>
+            <sc-if value="{{ worldHasResult }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:14px;">
+                <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:.5px;margin-bottom:9px;">本次拉取 · {{ worldSummary }}</div>
+                <sc-if value="{{ worldSearchOff }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-bottom:11px;border-radius:9px;padding:9px 12px;background:rgba(224,149,79,.08);font-size:12px;color:#B07B36;">联网脑未配 API Key → 只拉到天气、话题为空。去上方「联网脑」卡填 grok-4-all + apiyi key 再拉。</div>
+                </sc-if>
+                <sc-if value="{{ hasWorldWeather }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实天气（open-meteo）</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:13px;">
+                    <sc-for list="{{ worldWeather }}" as="w" hint-placeholder-count="3">
+                      <span style="font-size:12px;color:#2E6B4F;background:rgba(31,169,113,.08);border:1px solid rgba(31,169,113,.18);border-radius:8px;padding:5px 11px;"><b>{{ w.city }}</b> · {{ w.line }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ hasWorldTopics }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">时事话题（联网脑 · 已过安全闸 · 全站共享）</div>
+                  <div style="display:flex;flex-direction:column;gap:6px;">
+                    <sc-for list="{{ worldTopics }}" as="t" hint-placeholder-count="5">
+                      <div style="font-size:12.5px;color:#3A3D47;background:#FAFAFB;border-radius:8px;padding:8px 12px;line-height:1.5;">· {{ t }}</div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
             <div style="font-size:14px;font-weight:600;margin-bottom:6px;">角色级覆盖</div>
-            <div style="font-size:12.5px;color:#7A7E8A;line-height:1.7;">每个角色可覆盖自己的 voice_id、TTS 模型、表情视频库、实时 prompt、记忆深度与回复长度。优先级 <b>用户自定义 &gt; 角色配置 &gt; 全局默认</b>。</div>
+            <div style="font-size:12.5px;color:#7A7E8A;line-height:1.7;">每个角色可覆盖自己的 voice_id、TTS 模型、实时 prompt、记忆深度与回复长度。优先级 <b>用户自定义 &gt; 角色配置 &gt; 全局默认</b>。</div>
           </div>
           </div>
         </div>
@@ -508,6 +551,24 @@
               <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">TTS（$ / 1k 字符）</div><input value="{{ ccTts }}" onInput="{{ onCcTts }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
               <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">ASR（$ / 分钟）</div><input value="{{ ccAsr }}" onInput="{{ onCcAsr }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
               <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">字符 / token（中文约 2）</div><input value="{{ ccCpt }}" onInput="{{ onCcCpt }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <div style="font-size:15px;font-weight:600;">运行限流（真实生效）</div>
+              <div onClick="{{ saveRunLimits }}" style="font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:10px;padding:8px 18px;cursor:pointer;box-shadow:0 6px 14px rgba(110,92,255,.26);transition:transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.97)">保存</div>
+            </div>
+            <div style="font-size:12.5px;color:#9A9DA7;margin-bottom:16px;">这些是【真正在管线里生效】的旋钮（存 global_defaults，改完下一通即生效，不用重启）。回复上限是控制角色话长的真知柄——快脑卡里那个 maxTokens 对实时回复其实不生效。</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+              <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">AI 单次回复上限（tokens）</div><input value="{{ rlReply }}" onInput="{{ onRlReply }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
+              <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">通话内记忆轮数</div><input value="{{ rlTurns }}" onInput="{{ onRlTurns }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
+              <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">上下文预算（字符）</div><input value="{{ rlBudget }}" onInput="{{ onRlBudget }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
+              <div><div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">联网脑/天气刷新（小时）</div><input value="{{ rlWorldHours }}" onInput="{{ onRlWorldHours }}" style="width:100%;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" /></div>
+            </div>
+            <div style="margin-top:16px;border-top:1px solid #F0F0F3;padding-top:14px;display:grid;grid-template-columns:repeat(2,1fr);gap:9px 20px;">
+              <sc-for list="{{ limitItems }}" as="li" hint-placeholder-count="8">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;"><span style="color:#878B95;">{{ li.k }}</span><span style="color:#16161A;font-weight:600;text-align:right;">{{ li.v }}</span></div>
+              </sc-for>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
