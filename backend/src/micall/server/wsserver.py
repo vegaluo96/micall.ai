@@ -376,10 +376,25 @@ class SignalingServer:
         # 角色级覆盖优先（runtime_overrides.memory_depth）：让记忆型角色召回更多旧事、轻量角色更少。
         _ro = char.runtime_overrides or {}
         _mem_depth = int(_ro.get("memory_depth") or self.config.global_defaults.get("memory_depth", 5))
+        autonomous = effective_autonomous(self.repo, char.character_id)  # §4.1 TA 今天的状态（无 DB 状态时用出厂初始近况）
+        # A1 现居地天气以【此刻共享世界库】为准（零延迟内存读），覆盖上次推进时烘焙进去的【旧】天气——
+        # 否则隔几天才来电的用户会听到角色报几天前的天气。dataclasses.replace 出新对象、不污染仓储里那份。
+        try:
+            import dataclasses
+
+            from ..offline import weather_for, weather_trend
+            from ..offline.world_context import clean_city
+            _now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+            _w = weather_for(clean_city((char.identity or {}).get("residence", "")), _now)
+            if _w:
+                _t = weather_trend(clean_city((char.identity or {}).get("residence", "")), _now)
+                autonomous = dataclasses.replace(autonomous, local_context=(f"{_w}（{_t}）" if _t else _w))
+        except Exception:
+            pass
         assembler = ContextAssembler(
             char,
             profile=profile,
-            autonomous=effective_autonomous(self.repo, char.character_id),  # §4.1 TA 今天的状态（无 DB 状态时用出厂初始近况）
+            autonomous=autonomous,
             memory=self.repo,
             memory_top_k=_mem_depth,
             # 上下文总预算（系统前缀+滑窗历史）：膨胀的人设/画像会吃光预算饿死历史 → 放宽并 config 化。
@@ -584,10 +599,13 @@ class SignalingServer:
 
 
 async def _world_refresh_loop(config: Config) -> None:
-    """全站每日世界库刷新：枚举所有角色的不同现居城市 → open-meteo 逐城拉【真实天气】(免费) +
-    联网脑拉一池【安全时事话题】(1 次/天，全站共享)。开机即刷、之后每 world_refresh_hours(默认24h)。
-    成本=城市数次免费天气 + 1 次联网话题/天，与通话量无关、完全可预测。失败不影响任何实时路径。"""
-    from ..config import _REPO_DEFAULT
+    """全站世界库刷新：枚举所有角色的不同现居城市 → open-meteo 逐城拉【真实天气】(免费) +
+    联网脑拉一池【安全时事话题】(全站共享)。开机即刷、之后每 world_refresh_hours 刷一次。
+    成本=城市数次免费天气 + 1 次联网话题/周期，与通话量无关、可预测。失败不影响任何实时路径。
+    【轮询+每轮重载配置】：后台改了拉取间隔/联网脑 key/角色现居城，最多一个轮询周期(≈10min)后即生效，不用重启。"""
+    import time as _time
+
+    from ..config import _REPO_DEFAULT, load_config
     from ..offline import configure_store, refresh_world
     from ..offline.world_context import clean_city
     from ..providers import make_search_llm
@@ -596,16 +614,22 @@ async def _world_refresh_loop(config: Config) -> None:
     # 默认存到 config 目录（与 admin_overrides.json 同处，必可写）；可由 global_defaults.world_store_path 覆盖。
     store_path = str(config.global_defaults.get("world_store_path", "") or "").strip()
     configure_store(store_path or str(_REPO_DEFAULT.parent / "world_store.json"))
-    interval = max(3600.0, float(config.global_defaults.get("world_refresh_hours", 24) or 24) * 3600)
+    _POLL_S = 600.0          # 每 10 分钟看一次是否到点（让后台改的「拉取间隔」最多 10min 后生效）
+    last_mono: float | None = None
     while True:
         try:
-            now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
-            cities = sorted({clean_city((s.get("identity") or {}).get("residence", ""))
-                             for s in effective_specs().values()} - {""})
-            await refresh_world(cities, now, make_search_llm(config))
+            cfg = load_config()  # 每轮重载，拾取后台改的间隔/联网脑/角色现居城（不用重启）
+            interval = max(1.0, float(cfg.global_defaults.get("world_refresh_hours", 24) or 24)) * 3600.0
+            now_mono = _time.monotonic()
+            if last_mono is None or (now_mono - last_mono) >= interval:   # 开机即刷 + 到点才刷
+                last_mono = now_mono
+                now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+                cities = sorted({clean_city((s.get("identity") or {}).get("residence", ""))
+                                 for s in effective_specs().values()} - {""})
+                await refresh_world(cities, now, make_search_llm(cfg))
         except Exception as e:   # 离线刷新失败绝不影响通话
             log.warning("世界库刷新失败：%r", e)
-        await asyncio.sleep(interval)
+        await asyncio.sleep(_POLL_S)
 
 
 async def serve_forever(config: Config) -> None:

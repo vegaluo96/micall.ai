@@ -66,7 +66,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, limitsCfg: null,
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, searchCheck: null, searchChecking: false, limitsCfg: null,
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -479,6 +479,27 @@ export class AdminLogic {
     else if (res.ok === false) this.toastMsg("拉取失败：" + (res.error || "未知错误"));
     else if (!res.search_configured) this.toastMsg(`拉到天气 ${res.weather_cities || 0} 城；联网脑未配 → 话题为空`);
     else this.toastMsg(`联网脑拉到 ${res.topics_count || 0} 条话题 · 天气 ${res.weather_cities || 0} 城`);
+  }
+
+  /** 联网检测：一键发实时问题（今天某城天气+要来源），亮模型真实答案 + ✅真搜网/⚠️在编 判定。不用上服务器。 */
+  async checkSearch() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (this.state.searchChecking) return;
+    this.setState({ searchChecking: true, searchCheck: null });
+    const res = await testApiSection("search", this.state.apiCfg.search);
+    this.setState({ searchChecking: false, searchCheck: res });
+    if (res.ok === false) this.toastMsg("联网检测失败：" + (res.error || "未知错误"));
+    else if (res.answer != null) this.toastMsg(res.live ? "✅ 真在联网搜索" : "⚠️ 连上了但没在搜网（话题多半是编的）");
+    else this.toastMsg("已检测（无答案返回）");
+  }
+
+  /** 自定义自动拉取间隔（小时）：写进 global_defaults.world_refresh_hours，约 10 分钟内生效（不用重启）。 */
+  async saveWorldInterval() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const h = parseFloat((this.state.limitsCfg || {}).world_refresh_hours);
+    const ok = await saveLimits({ world_refresh_hours: h });
+    if (ok) { const lim = await loadLimits(); if (lim) this.setState({ limitsCfg: lim }); }
+    this.toastMsg(ok ? `已设为每 ${h} 小时自动拉取（约 10 分钟内生效）` : "保存失败");
   }
 
   setLimit(k: string, v: string) {
@@ -961,6 +982,17 @@ export class AdminLogic {
         : (!worldFresh && worldDate ? `当前是 ${worldDate} 的库（今天还没刷新，点「立即拉取」更新）`
           : ((wp && wp.ok && !wp.search_configured) ? "联网脑未配 API Key → 只有天气、没有话题" : "")));
     const worldSummary = worldHasResult ? `话题 ${worldTopics.length} 条 · 天气 ${worldWeather.length} 城` : "";
+    // 联网检测（在世界库面板一键判真假，不用上服务器）
+    const sc = s.searchCheck;
+    const searchLive = !!(sc && sc.live);
+    const hasSearchCheck = !!(sc && (sc.answer != null || sc.error));
+    const searchVerdict = !sc ? "" : (sc.ok === false ? ("检测失败：" + (sc.error || "未知错误"))
+      : (sc.answer != null ? (searchLive ? "✅ 真在联网搜索 · 话题可信"
+        : "⚠️ 连上了但没在搜网 · 话题多半是模型编的（建议把联网脑 model 换成 grok-4-all）") : "已连通"));
+    const _scOk = sc && sc.ok !== false;
+    const searchVColor = !sc ? "#878B95" : (!_scOk ? "#E0594F" : (searchLive ? "#1FA971" : "#E0954F"));
+    const searchVBg = !sc ? "#F0F0F3" : (!_scOk ? "rgba(224,89,79,.08)" : (searchLive ? "rgba(31,169,113,.08)" : "rgba(224,149,79,.1)"));
+    const searchAnswer = (sc && sc.answer) || "";
 
     const titles: Record<string, [string, string]> = {
       dashboard: ["数据概览", "MiCall.ai 运营核心指标"],
@@ -1102,6 +1134,11 @@ export class AdminLogic {
       worldHasResult, worldErr, worldSummary, worldDate, worldFresh, worldPersisted, worldNote, hasWorldNote: !!worldNote,
       worldTopics, worldWeather, hasWorldTopics: worldTopics.length > 0, hasWorldWeather: worldWeather.length > 0,
       pullWorld: () => this.pullWorld(),
+      // 联网检测（一键判真假）+ 自定义自动拉取间隔
+      checkSearch: () => this.checkSearch(), searchChecking: !!s.searchChecking,
+      searchCheckLabel: s.searchChecking ? "检测中…" : "联网检测",
+      hasSearchCheck, searchVerdict, searchVColor, searchVBg, searchAnswer, hasSearchAnswer: !!searchAnswer,
+      saveWorldInterval: () => this.saveWorldInterval(),
       ioOpen: s.ioOpen, exportSample,
       openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), closeIO: () => this.setState({ ioOpen: false }),
       runExport: () => this.exportChars(),

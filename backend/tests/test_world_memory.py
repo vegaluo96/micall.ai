@@ -7,10 +7,12 @@ import tempfile
 import unittest
 
 import micall.offline.world_context as wc
+from micall.context.assembler import _world_topics_line
 from micall.context.models import AutonomousState, CharacterRuntime, UserProfile
 from micall.memory import InMemoryRepository
 from micall.offline import AutonomyEngine, build_autonomy_prompt, merge_profile
 from micall.offline.understanding import build_understanding_prompt
+from micall.offline.world_context import fetch_topics
 from micall.providers import StubLLM
 
 TZ = datetime.timezone(datetime.timedelta(hours=8))
@@ -142,6 +144,33 @@ class TestSharedRefsDecay(unittest.TestCase):
         merge_profile(prof, {"relationship": {"shared_refs": many}})
         self.assertLessEqual(len(prof.relationship.shared_refs), 12)
         self.assertEqual(prof.relationship.shared_refs[0], "梗0")   # 保序、留前面（最鲜活）
+
+
+# ───────────────────── 话题：维度扩容（池子更大）+ 每通轮换 + 防编造护栏 ─────────────────────
+class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
+    async def test_fetch_cap_raised_to_14(self):
+        many = {"topics": [f"具体话题{i}，带个小细节" for i in range(20)]}
+        out = await fetch_topics(StubLLM([json.dumps(many, ensure_ascii=False)]),
+                                 datetime.datetime(2026, 6, 28, tzinfo=TZ))
+        self.assertLessEqual(len(out), 14)
+        self.assertGreaterEqual(len(out), 10)   # 没被旧的 8 上限砍
+
+    def test_big_pool_samples_subset(self):
+        pool = [f"话题{chr(0x4E00 + i)}" for i in range(12)]   # 12 个互不相同的中文话题
+        line = _world_topics_line(pool)
+        items = [x for x in line.split("）：")[-1].strip().split("；") if x.strip()]  # 取真正的话题段、按；切
+        self.assertEqual(len(items), 8)                       # 大池每通只抽 8 条（不尬、不重样）
+        self.assertTrue(set(items).issubset(set(pool)))       # 抽出来的都来自池子
+
+    def test_small_pool_all_shown_with_safeguard(self):
+        line = _world_topics_line(["杨梅季正火", "新番开播"])
+        self.assertIn("杨梅季正火", line)
+        self.assertIn("新番开播", line)
+        self.assertIn("别咬死", line)           # A2 护栏：当模糊印象、不硬编细节
+        self.assertIn("印象", line)
+
+    def test_empty_pool(self):
+        self.assertEqual(_world_topics_line([]), "")
 
 
 if __name__ == "__main__":

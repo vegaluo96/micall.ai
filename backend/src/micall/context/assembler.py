@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import datetime
+import random
 import re
 from typing import Any
 
@@ -555,15 +556,24 @@ def _autonomous_block(s: AutonomousState) -> str:
     )
 
 
+_TOPICS_SHOWN = 8   # 每通最多给角色看几条（池子更大时每通随机抽一小撮 → 不同通/不同角色各取所需、不重样）
+
+
 def _world_topics_line(topics: list[str]) -> str:
     """全站共享的「最近大家在聊的」时事话题池，折进开场轮 user（不进缓存）。角色按【自己性子】挑感兴趣的
-    自然带出/反问 TA——相关性在说话时免费发生，不靠每角色单独联网。空池 → 空串。纯函数，便于测试。"""
-    ts = [t for t in (topics or []) if str(t).strip()][:6]
-    if not ts:
+    自然带出/反问 TA——相关性在说话时免费发生，不靠每角色单独联网。空池 → 空串。
+    池子大就每通【随机抽一小撮】（变量、不尬、不重样）；小池全给。"""
+    pool = [t for t in (topics or []) if str(t).strip()]
+    if not pool:
         return ""
+    ts = random.sample(pool, _TOPICS_SHOWN) if len(pool) > _TOPICS_SHOWN else list(pool)
     return (
-        "（最近外面大家都在聊的几件事——挑一两件【合你性子、你真会感兴趣】的，自然地带出来或顺口问问 TA，"
-        "别全聊、别一条条念、别像播新闻；都不感兴趣就不用提）：" + "；".join(ts) + "\n"
+        "（最近外面大家都在聊的几件事，你【好像在哪刷到过、隐约有点印象】的那种——挑一两件【合你性子、你真会感"
+        "兴趣】的，自然地带出来或顺口问问 TA，别全聊、别一条条念、别像播新闻；都不感兴趣就不用提。"
+        # 防编造护栏：当成模糊印象，绝不赌真假、不硬编细节——即使源不准也不穿帮、不尬
+        "⚠这些只是你模糊的印象、未必准：【别咬死具体的名字/数字、别赌咒它千真万确】；TA 要是没听过或纠正你，"
+        "就轻松「哦可能我记串了」带过、顺着 TA 聊，绝不为了证明自己而硬掰细节）："
+        + "；".join(ts) + "\n"
     )
 
 

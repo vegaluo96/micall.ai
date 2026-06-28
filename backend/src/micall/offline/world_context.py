@@ -141,20 +141,23 @@ async def fetch_weather(city: str) -> dict | None:
 def _topics_prompt(date_str: str) -> list[dict]:
     sys = (
         "你是给一群虚拟陪伴角色提供『最近大家都在聊什么』的联网助手。用你的【网络检索】查当下中文互联网上"
-        "【轻松、大众、安全】、真实正在发生或正火的话题，**覆盖多个领域**（美食/影视综艺/生活方式/季节时令/"
-        "科技数码/运动健身/二次元/音乐/旅行/游戏 等），好让不同性格的角色各取所需。\n"
+        "【轻松、大众、安全】、真实正在发生或正火的话题。\n"
+        "【维度要广】尽量铺开、别扎堆在吃的——覆盖尽量多的【不同领域】，每个领域最多一两条："
+        "美食 / 影视综艺 / 生活方式 / 季节时令 / 科技数码 / 运动健身 / 二次元动漫 / 音乐 / 旅行出游 / 游戏 / "
+        "读书 / 萌宠 / 穿搭时尚 / 家居好物 / 职场打工 / 星座玄学 / 养生健康 / 亲子 / 文化展览 / 小众爱好 等，"
+        "好让不同性格的角色都能找到自己感兴趣的、聊起来不尬。\n"
         "【最关键·要具体、有细节、有画面】每条【绝不能】是干巴巴一个标签——"
         "✗ 反例：『有部新番开播了』『最近流行一种美食』『某游戏更新了』（太空泛，没法聊）。"
         "✓ 正例：要带一个【具体的抓手】，像你跟朋友随口讲八卦那样：是什么 + 一个能接着聊的细节/为什么大家在聊"
         "（『XX那部新番开播了，画风特别复古，弹幕都在刷说像小时候看的』；"
         "『最近好多人去打卡XX的限定杨梅季，说酸得眯眼睛但根本停不下来』；"
         "『XX出了新口味，网上吵翻了说像把整个夏天塞嘴里』）。每条 20~45 字、口语、自带一个具体细节，别像新闻标题。\n"
-        "严格只输出一个 JSON 对象：{topics:[...]}，6~8 条，每条都要具体到能直接拿去跟人聊。\n"
+        "严格只输出一个 JSON 对象：{topics:[...]}，10~14 条、尽量分布在不同领域，每条都要具体到能直接拿去跟人聊。\n"
         "【硬规矩】绝对避开：政治时政、领导人、灾难事故、死亡伤亡、疫情、战争冲突、股市经济、犯罪丑闻、"
         "维权敏感、任何负面/猎奇/血腥/低俗内容。宁可少给几条，也绝不碰这些。查不到就给空数组。"
     )
-    user = (f"今天：{date_str}。请联网给我 6~8 条【具体、有细节、有画面、能直接聊起来】的当下轻松话题，"
-            "每条都带一个真实的小细节，别空泛。")
+    user = (f"今天：{date_str}。请联网给我 10~14 条【具体、有细节、有画面、能直接聊起来】、且【尽量覆盖不同领域】"
+            "的当下轻松话题，每条都带一个真实的小细节，别空泛、别全扎堆在吃喝。")
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
 
@@ -165,7 +168,7 @@ async def fetch_topics(search_llm: Any, now: datetime.datetime) -> list[str]:
     try:
         async def _run() -> str:
             return "".join([t async for t in search_llm.stream(
-                _topics_prompt(_date(now)), max_tokens=1200, response_format={"type": "json_object"})])
+                _topics_prompt(_date(now)), max_tokens=2000, response_format={"type": "json_object"})])
         raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
         d = parse_profile_update(raw)
         out: list[str] = []
@@ -173,7 +176,7 @@ async def fetch_topics(search_llm: Any, now: datetime.datetime) -> list[str]:
             ts = str(t).strip()
             if ts and _is_safe(ts):
                 out.append(ts[:90])   # 留足空间给「具体细节」，别把有画面的话题截断
-            if len(out) >= 8:
+            if len(out) >= 14:        # 池子大些：维度更广，角色每通随机抽一小撮聊，不重样、不尬
                 break
         return out
     except Exception as e:
