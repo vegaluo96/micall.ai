@@ -6,6 +6,10 @@ html,
 body {
   height: 100%;
   margin: 0;
+  /* 根文档底色：真机未开 viewport-fit=cover 时，底部安全区(home-indicator)那条由「根文档背景」
+     来画。给它一个与 App 底边同色的默认深色(=默认主题)，根治首屏白条；JS(syncRootTheme) 随后会
+     按实际主题把它刷成深/浅对应色。见 MiCallLogic.syncRootTheme。 */
+  background-color: #070709;
 }
 #dc-root {
   min-height: 100%;

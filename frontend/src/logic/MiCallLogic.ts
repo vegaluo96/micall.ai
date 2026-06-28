@@ -169,6 +169,7 @@ export class MiCallLogic {
     } catch { /* 缓存坏了就用内置兜底 */ }
     this.state.favorites = this.loadFavs();   // 收藏持久化：刷新不丢（按角色 id 存）
     this.loadPrefs();                         // 个人偏好持久化：主题/语言/外放/音色/自定义场景/自动挂断（刷新不丢）
+    this.syncRootTheme(this.state.theme ?? "dark");   // 启动即把根文档底色刷成当前主题色，根治真机底部白条
   }
 
   // ── 个人偏好持久化（micall_prefs）：用户改过的设置刷新后仍在，不再「设了等于没设」──
@@ -194,6 +195,24 @@ export class MiCallLogic {
         voiceByChar: s.voiceByChar,
         customHistory: s.customHistory, autoHangupMin: s.autoHangupMin,
       }));
+    } catch { /* noop */ }
+  }
+
+  // ── 根文档底色（真机底部「白条」根治）────────────────────────────────────────
+  // 我们刻意不开 viewport-fit=cover（否则要在顶部刘海再补一圈安全区，见 index.css 注释）。
+  // 代价是：真机（尤其微信/iOS）会把 App 内容限制在安全区内，底部 home-indicator 那条由浏览器
+  // 用「根文档背景」来画——而 html/body 此前没设背景（透明=系统白）→ 每屏底部都露出一条突兀白条。
+  // 主题色 var(--bg) 只挂在 .phone/.screen 上，根文档够不着；这里直接给 html/body 兜一层与 App
+  // 底边同色的纯色，安全区那条就与 App 融为一体。深色≈底边近黑(#070709)，浅色≈渐变末端(#E2ECF9)。
+  private _rootBgTheme = "";
+  private syncRootTheme(theme: "light" | "dark") {
+    if (this._rootBgTheme === theme) return;
+    this._rootBgTheme = theme;
+    try {
+      if (typeof document === "undefined") return;
+      const base = theme === "dark" ? "#070709" : "#E2ECF9";
+      document.documentElement.style.backgroundColor = base;
+      if (document.body) document.body.style.backgroundColor = base;
     } catch { /* noop */ }
   }
 
@@ -1546,9 +1565,9 @@ export class MiCallLogic {
       cancelReset: () => this.setState({ resetOpen: false }),
       toast: this.state.toast,
       showToast: !!this.state.toast,
-      themeToggle: () => { this.setState({ theme: theme === "dark" ? "light" : "dark" }); this.savePrefs(); },
+      themeToggle: () => { const nt = theme === "dark" ? "light" : "dark"; this.setState({ theme: nt }); this.savePrefs(); this.syncRootTheme(nt); },
       themeLabel: theme === "dark" ? "深色" : "浅色",
-      appVersion: (typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "v1.0.0"),   // 构建期注入：版本+日期+hash，发布即更新
+      appVersion: (typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "v1.0.0"),   // 构建期注入：版本+构建日期，发布即更新
       menuOpen: this.state.menuOpen,
       menuToggle: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
       menuClose: () => this.setState({ menuOpen: false }),
