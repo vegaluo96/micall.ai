@@ -32,8 +32,10 @@ def _now_line(now: datetime.datetime | None = None) -> str:
             else "下午" if h < 17 else "傍晚" if h < 19 else "晚上" if h < 23 else "深夜")
     return (
         f"（现实时间：{now.year}年{now.month}月{now.day}日 周{_CN_WEEKDAY[now.weekday()]}{part}，{now:%H:%M}。"
-        "你有正常的时间观念，自然相关时可体现（如深夜关心 TA 怎么还不睡、早上道早安、节假日应应景），"
-        "但别刻意报时、别每句都提。）"
+        f"这是此刻【真实】的时间，以它为准——按现在是「{part}」来说话和起话题。"
+        "【别】凭自己的心情、场景或人设把时段搞错（现在是中午就当成中午，别假设成深夜、"
+        "别张口就问对方是不是睡不着/熬夜/这么晚还没睡）。你自己可以困、可以昼夜颠倒，但那改变不了现在几点。"
+        "自然相关时再体现时间感（深夜真的晚了关心 TA 怎么还不睡、早上道早安、节假日应景），别刻意报时、别每句都提。）"
     )
 
 
@@ -313,6 +315,51 @@ def _probe_guard_line(text: str) -> str:
     )
 
 
+# 通话中「现学」用户事实：保守抽取高置信信号（宁可漏、不要错），折进当轮让角色当场就用上。
+# 只认明确的自述句式，避免把噪声当事实。值长度封顶、过滤常见误捕。
+_FACT_TAIL = r"(?:[，,。.！!？?、…~ ]|$)"
+_FACT_PATS = [
+    ("名字", re.compile(r"(?:我叫|我的名字(?:是|叫)|可以叫我|你(?:可以)?叫我|就叫我)\s*([一-龥A-Za-z][一-龥A-Za-z·]{0,7})")),
+    ("在做", re.compile(r"我(?:在|正在|刚在|这会儿在|这会在|刚刚在)\s*([一-龥A-Za-z][一-龥A-Za-z]{0,11}?)" + _FACT_TAIL)),
+    ("喜欢", re.compile(r"我(?:很|超|特别|真的|就|还挺|挺|蛮)?(?:喜欢|爱|最爱)\s*([一-龥A-Za-z][一-龥A-Za-z]{0,9}?)" + _FACT_TAIL)),
+    ("不喜欢", re.compile(r"我(?:很|超|特别|真的|就)?(?:讨厌|不喜欢|最烦|受不了)\s*([一-龥A-Za-z][一-龥A-Za-z]{0,9}?)" + _FACT_TAIL)),
+    ("身份", re.compile(r"我是(?:一个|一名|个)?\s*([一-龥A-Za-z]{2,8}?)" + _FACT_TAIL)),
+]
+# 「我是…」最易误捕（我是说/我是不是/我是真的）。值整体落这些里、或含下列字（代词/否定/情态/「说」），
+# 多半是动词短语而非事实 → 丢弃。宁可漏，不要错。
+_FACT_STOP = {"说", "不是", "真的", "认真", "故意", "想", "觉得", "谁", "你", "在", "为", "因为",
+              "这样", "那样", "怎么", "知道", "看", "听", "来", "去", "问", "讲", "想说"}
+_FACT_REJECT = set("你我他她它们别不没甭要会想说是有这那就都还")
+
+
+def _extract_user_facts(text: str) -> dict[str, str]:
+    """从用户一句话里保守抽取显著自述事实。返回 {类别: 值}；抽不到返回空。纯函数，便于测试。"""
+    t = (text or "").strip()
+    out: dict[str, str] = {}
+    if not t or len(t) > 400:
+        return out
+    for key, pat in _FACT_PATS:
+        m = pat.search(t)
+        if not m:
+            continue
+        val = m.group(1).strip("的了吧呢啊呀嘛 ")
+        if not val or val in _FACT_STOP or any(c in _FACT_REJECT for c in val):
+            continue
+        out[key] = val[:12]
+    return out
+
+
+def _live_facts_line(facts: dict[str, str]) -> str:
+    """把本通现学到的用户事实拼成一行，折进当轮 user。措辞软、自我纠偏（可能听岔），别复述成档案。"""
+    if not facts:
+        return ""
+    bits = "；".join(f"{k}：{v}" for k, v in facts.items())
+    return (
+        "（这通你从 TA 话里听到的——可能听岔了，不确定就别当真、别生硬复述，"
+        "但该自然地放在心上、顺着接（比如记住 TA 的名字、惦记 TA 刚说在忙的事）：" + bits + "）\n"
+    )
+
+
 def _emotion_instruction(emotion_map: dict[str, str]) -> str:
     # 逐句情绪 + 拟声 + 停顿（精简版，控前缀长度=控延迟）。标签/拟声/停顿只给语音引擎，用户看不到。
     return (
@@ -357,7 +404,11 @@ def _autonomous_block(s: AutonomousState) -> str:
     ) if b]
     if not bits:
         return ""
-    return "你今天的状态（独立于 TA 的需求，可以流露，有时甚至和 TA 的期待不一致）：\n" + "\n".join(bits)
+    return (
+        "你今天的状态（独立于 TA 的需求，可以流露，有时甚至和 TA 的期待不一致；但这只是你自己的内心处境，"
+        "【不能用来推断现在几点】、也不能和上面的真实时间矛盾——你可以困、可以昼夜颠倒，但那不代表现在就是半夜）：\n"
+        + "\n".join(bits)
+    )
 
 
 class ContextAssembler:
@@ -377,6 +428,9 @@ class ContextAssembler:
         self.memory = memory
         self.budget_chars = budget_chars
         self.memory_top_k = memory_top_k
+        # 通话中实时了解：本通从用户话里现学到的显著事实（名字/在做/喜欢/不喜欢/身份）。
+        # 折进每轮末条 user（不进 prefix 缓存），让角色当通就开始「懂你」——游客、第一通也生效。
+        self._live_facts: dict[str, str] = {}
 
     def prefix(self, scenario: str) -> str:
         """通话内不变的前缀（L1 人设 + 原则 + 情绪指令 + L2 画像/关系/自主/策略 + 情境）。
@@ -450,6 +504,13 @@ class ContextAssembler:
         last_user_text = next((m["content"] for m in reversed(hist) if m.get("role") == "user"), "")
         guard = _probe_guard_line(last_user_text)
 
+        # 通话中实时了解 TA：扫窗口内所有 user 句抽显著事实，累积进会话级 live_facts（即使之后滑出窗口也记得），
+        # 折进当轮 user（不进 prefix 缓存）→ 角色当通就开始懂你，游客/第一通也生效。
+        for _m in hist:
+            if _m.get("role") == "user":
+                self._live_facts.update(_extract_user_facts(_m.get("content", "")))
+        live = _live_facts_line(self._live_facts)
+
         # 「真实感」上下文：现实时间（每轮新算）+ 距上次通话的间隔感 + 当天节日。
         # 间隔感/节日是**开场寒暄**提示（「TA又拨进来了，开场可轻轻带一句」「今天是XX节」），只该在第一轮给；
         # 过去每轮都折进末轮 user → AI 每轮都再寒暄一次（用户实测：「我正想着你呢你就打来了」反复重复）。
@@ -459,7 +520,7 @@ class ContextAssembler:
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": human + guard + "\n" + recall_preamble + last["content"]})
+            messages.append({"role": "user", "content": human + guard + "\n" + recall_preamble + live + last["content"]})
         else:
             messages.extend(hist)
             content = human + guard if guard else human

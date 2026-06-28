@@ -147,6 +147,30 @@ class TestAssembler(unittest.TestCase):
         }))
         self.assertNotIn("你的内核", bare)
 
+    def test_extract_user_facts_conservative(self):
+        from micall.context.assembler import _extract_user_facts
+        self.assertEqual(_extract_user_facts("我叫小明，今天有点累")["名字"], "小明")
+        self.assertEqual(_extract_user_facts("其实我喜欢爬山")["喜欢"], "爬山")
+        self.assertEqual(_extract_user_facts("我讨厌加班")["不喜欢"], "加班")
+        self.assertEqual(_extract_user_facts("我在准备考试")["在做"], "准备考试")
+        self.assertEqual(_extract_user_facts("我是设计师")["身份"], "设计师")
+        # 噪声不当事实：「我是说/我是不是」不该捕成身份
+        self.assertNotIn("身份", _extract_user_facts("我是说你别熬夜了"))
+        self.assertEqual(_extract_user_facts("今天天气不错"), {})
+
+    def test_within_call_learning_injected_into_turn(self):
+        # 通话中现学：用户说了名字/在做，下一轮 system+user 里应带上，让角色当通就懂你（不进缓存）。
+        a = ContextAssembler(CharacterRuntime.from_spec({
+            "identity": {"character_id": "x", "name": "小语"}, "persona": {"core_traits": ["温柔"]},
+        }))
+        hist = [{"role": "user", "content": "我叫阿哲，刚下班"},
+                {"role": "assistant", "content": "辛苦啦"},
+                {"role": "user", "content": "嗯，有点累"}]
+        msgs = a.build(character_id="x", scenario="", history=hist)
+        turn = msgs[-1]["content"]
+        self.assertIn("阿哲", turn)          # 名字被现学并折进当轮
+        self.assertIn("这通你从 TA 话里听到的", turn)
+
     def test_window_trims_oldest(self):
         a = ContextAssembler(CharacterRuntime("c", "N", {}), budget_chars=300)
         hist = [{"role": "user", "content": "x" * 50} for _ in range(20)]
@@ -166,6 +190,19 @@ class TestAssembler(unittest.TestCase):
         morning = _now_line(datetime.datetime(2026, 6, 24, 8, 5, tzinfo=tz))
         self.assertIn("周三上午", morning)
         self.assertIn("08:05", morning)
+        # 时间是【权威】——不再是「可体现」的软建议，而要压过角色自己心情/场景对时段的暗示
+        # （bug：白苓夜店人设，中午也假设对方深夜睡不着才打来）。
+        noon = _now_line(datetime.datetime(2026, 6, 28, 12, 5, tzinfo=tz))
+        self.assertIn("真实", noon)
+        self.assertIn("以它为准", noon)
+        self.assertIn("睡不着", noon)   # 明确禁止「这么晚还没睡/睡不着」式的误判
+
+    def test_autonomous_state_must_not_override_real_time(self):
+        # 自主状态（如「昼夜颠倒」）是角色内心处境，不能用来推断现在几点、不得和真实时间矛盾。
+        from micall.context.assembler import _autonomous_block
+        from micall.context.models import AutonomousState
+        block = _autonomous_block(AutonomousState(energy="有点困，昼夜颠倒"))
+        self.assertIn("不能用来推断现在几点", block)
 
     def test_time_line_when_no_last_user(self):
         # 开场白（无末轮 user）：时间作为一条 system 追加，至少让模型知道现在几点。

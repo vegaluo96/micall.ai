@@ -1238,7 +1238,8 @@ export class MiCallLogic {
     // 乐章②+⑦ 气场与暗场：整屏氛围染上「这个角色」的色（换角色换气氛），叠一层暗角让球更聚光；
     // 通话时更浓、更私密。纯背景层叠在 var(--bg) 之上，不影响内容；未就绪用中性 tint 不抢色。
     const isDark = theme === "dark";
-    const auraA = (isDark ? 0.20 : 0.12) + (connected ? 0.05 : 0);
+    // 有头像时把整屏气场色压淡（头像为主角，避免整屏也「球化」）；无头像的渐变球保持原浓度。
+    const auraA = ((isDark ? 0.20 : 0.12) + (connected ? 0.05 : 0)) * (orbAvatar ? 0.55 : 1);
     const auraColor = this.charsReady ? this.rotA(tint, char.hue, auraA) : this.hexA(tint, auraA * 0.5);
     const vignette = isDark
       ? `radial-gradient(125% 115% at 50% 33%, transparent 50%, rgba(0,0,0,${connected ? 0.36 : 0.24}))`

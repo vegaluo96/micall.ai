@@ -87,6 +87,19 @@ class SignalingServer:
         self.config = config
         self.repo = repo or make_repository(config)   # 配了 database.dsn → Postgres 持久化，否则内存
         self.characters = _load_characters()
+        # 「了解你」诊断（一眼看清跨通记忆为何不生效）：画像/记忆要真正持久 + 离线理解要能跑。
+        # 缺任一，角色就「每通从头、记不住你」——grep 🧠 即可定位是没配库还是没配慢脑。
+        _persisted = type(self.repo).__name__ != "InMemoryRepository"
+        _slow = self.config.node("llm_slow")
+        _slow_ok = bool(_slow.api_key.strip() and _slow.endpoint.strip())
+        log.info(
+            "🧠 跨通记忆诊断：持久化=%s（%s）| 离线理解(慢脑 llm_slow)=%s。%s",
+            "✅Postgres" if _persisted else "❌内存(重启即丢)",
+            type(self.repo).__name__,
+            "✅已配" if _slow_ok else "❌未配",
+            "" if (_persisted and _slow_ok) else
+            "→ 二者缺一，登录用户的画像就长不出来/留不住，角色会「不了解你」。配 database.dsn + llm_slow 即修。",
+        )
         # 出厂角色写入存储（facts/profile 的 FK 前置）；内存实现为 no-op。
         try:
             from .characters_admin import effective_specs
