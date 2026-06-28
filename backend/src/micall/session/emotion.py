@@ -107,9 +107,19 @@ _PROSODY: dict[str, tuple[str, float, int, float]] = {
 }
 
 
-def prosody_for(tag: str) -> tuple[str, float, int, float]:
-    """情绪标签 → (emotion, speed, pitch, vol)。未知标签回退中性（安全：等于现状）。"""
-    return _PROSODY.get((tag or "").strip().lower(), _PROSODY["neutral"])
+def prosody_for(tag: str, emotion_map: dict[str, str] | None = None) -> tuple[str, float, int, float]:
+    """情绪标签 → (emotion, speed, pitch, vol)。未知标签回退中性（安全：等于现状）。
+
+    角色卡 voice.emotion_map 在此【重路由】这个标签到另一档韵律预设——让同一个情绪在不同角色身上
+    有不同念法（如 vega 冷峻：caring→sad 念得克制低沉、tender→gentle；温柔角色可让 caring→comfort）。
+    映射值用 _PROSODY 的键（neutral/sad/gentle/comfort/happy…）；没配或未知键则按原标签，等于现状、绝不变差。"""
+    t = (tag or "").strip().lower()
+    if emotion_map:
+        # emotion_map 的键大小写/原样都兼容；命中则把 t 换成映射后的目标档。
+        mapped = emotion_map.get(t) or emotion_map.get(tag or "")
+        if mapped and str(mapped).strip().lower() in _PROSODY:
+            t = str(mapped).strip().lower()
+    return _PROSODY.get(t, _PROSODY["neutral"])
 
 
 # MiniMax 2.8-turbo 支持的拟声/气口标签（正文内行内）：喂 TTS 念成真实的笑/叹/呼吸声，但不进字幕。

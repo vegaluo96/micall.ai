@@ -674,7 +674,8 @@ export class MiCallLogic {
     if (this.connectTimer) clearTimeout(this.connectTimer);
     this.connectTimer = setTimeout(() => { this.connectTimer = null; this.setState({ justConnected: false }); }, 900);
     // 告诉后端「传输已就绪」→ AI 接起来主动开口（开场白走在已就绪传输上）。phase 守卫保证整通只发一次。
-    try { this.ensureSignaling().send({ type: "ready" }); } catch { /* noop */ }
+    // 带上客户端真实时区（UTC 偏移分钟，UTC+8=480）→ 后端「现在几点」按用户本地算，出海用户不再被当成 UTC+8。
+    try { this.ensureSignaling().send({ type: "ready", tz: -new Date().getTimezoneOffset() }); } catch { /* noop */ }
     this.armAutoHangup();      // 进入可对话才开始静默计时
     this.maybeEarphoneTip();   // 首通一次性提示：戴耳机打断更灵
   }

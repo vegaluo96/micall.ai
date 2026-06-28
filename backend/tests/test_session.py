@@ -104,6 +104,17 @@ class TestSentenceEmotion(unittest.TestCase):
         self.assertTrue(all(prosody_for(e)[2] == 0 for e in ("sad", "happy", "excited", "playful", "angry")))
         self.assertEqual(prosody_for("没这个情绪"), prosody_for("neutral"))  # 未知 → 中性兜底
 
+    def test_prosody_emotion_map_reroutes_per_character(self):
+        # 角色卡 voice.emotion_map 把同一情绪标签按本角色重路由到不同韵律档（vega: caring→sad 念得低沉）。
+        from micall.session.emotion import prosody_for
+        vega_map = {"caring": "sad", "tender": "gentle"}
+        self.assertEqual(prosody_for("caring", vega_map), prosody_for("sad"))     # caring 被路由成 sad
+        self.assertEqual(prosody_for("tender", vega_map), prosody_for("gentle"))
+        # 没配 / 未知映射键 → 按原标签，等于现状（绝不变差）。
+        self.assertEqual(prosody_for("happy", vega_map), prosody_for("happy"))
+        self.assertEqual(prosody_for("caring", {"caring": "不存在的档"}), prosody_for("caring"))
+        self.assertEqual(prosody_for("caring", None), prosody_for("caring"))
+
     def test_take_sentence_emotion_inherit(self):
         from micall.session.emotion import take_sentence_emotion
         self.assertEqual(take_sentence_emotion("[emotion:sad]难受", "neutral"), ("sad", "难受"))

@@ -204,6 +204,23 @@ class TestAssembler(unittest.TestCase):
         block = _autonomous_block(AutonomousState(energy="有点困，昼夜颠倒"))
         self.assertIn("不能用来推断现在几点", block)
 
+    def test_client_timezone_override(self):
+        import re
+        a = ContextAssembler(self._char())
+        a.set_client_timezone(0)
+        self.assertEqual(a._client_tz_min, 0)
+        a.set_client_timezone(9999)          # 超范围 → 忽略，回退默认
+        self.assertIsNone(a._client_tz_min)
+        a.set_client_timezone("bad")         # 非法 → 安全
+        self.assertIsNone(a._client_tz_min)
+        # 同一真实时刻、UTC+8 vs UTC（差 8 小时）→ now-line 的 HH:MM 必不同。
+        a.set_client_timezone(480)
+        msg8 = a.build(character_id="lin_wan", scenario="", history=[])[-1]["content"]
+        a.set_client_timezone(0)
+        msg0 = a.build(character_id="lin_wan", scenario="", history=[])[-1]["content"]
+        self.assertNotEqual(re.search(r"\d\d:\d\d", msg8).group(0),
+                            re.search(r"\d\d:\d\d", msg0).group(0))
+
     def test_time_line_when_no_last_user(self):
         # 开场白（无末轮 user）：时间作为一条 system 追加，至少让模型知道现在几点。
         a = ContextAssembler(self._char())

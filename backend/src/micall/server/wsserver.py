@@ -282,12 +282,15 @@ class SignalingServer:
         )
         profile = self.repo.get_profile(user_id, char.character_id)
         from .characters_admin import effective_autonomous
+        # 角色级覆盖优先（runtime_overrides.memory_depth）：让记忆型角色召回更多旧事、轻量角色更少。
+        _ro = char.runtime_overrides or {}
+        _mem_depth = int(_ro.get("memory_depth") or self.config.global_defaults.get("memory_depth", 5))
         assembler = ContextAssembler(
             char,
             profile=profile,
             autonomous=effective_autonomous(self.repo, char.character_id),  # §4.1 TA 今天的状态（无 DB 状态时用出厂初始近况）
             memory=self.repo,
-            memory_top_k=int(self.config.global_defaults.get("memory_depth", 5)),
+            memory_top_k=_mem_depth,
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。
         remaining = (self.repo.remaining_seconds(user_id) if user_id != _ANON
@@ -371,6 +374,9 @@ class SignalingServer:
                 # 已就绪传输上：不切通道、AEC 已热、loading 已盖住建连）。begin_conversation 幂等，重复/已结束安全。
                 if isinstance(d, dict) and d.get("type") == "ready":
                     if session is not None:
+                        tz = d.get("tz")        # 客户端 UTC 偏移分钟（UTC+8=480）：让「现在几点」按用户本地算
+                        if isinstance(tz, (int, float)):
+                            session.set_client_timezone(int(tz))
                         session.begin_conversation()
                     continue
                 if isinstance(d, dict) and d.get("type") in ("rtc_offer", "rtc_ice", "rtc_close"):

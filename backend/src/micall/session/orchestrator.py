@@ -193,6 +193,8 @@ class CallSession:
         self.scenario = scenario                              # 短标签：通话记录/统计用（前端传 key，如 heart/sc0）
         self.scenario_prompt = scenario_prompt or scenario    # 完整情境指令：喂 LLM（缺省回退标签，向后兼容）
         self.voice_id = voice_id
+        # 角色卡 voice.emotion_map：把逐句情绪标签按本角色重路由到不同韵律档（见 prosody_for）。
+        self.emotion_map = (getattr(assembler.character, "emotion_map", None) or {})
         # has_facts 一通电话内不变（事实由离线引擎在挂断后才写）→ 开场算一次缓存，
         # 省掉每轮思考前那次查库往返。查库失败按「无记忆」处理（仅退关键词召回，安全）。
         self._mem_has_facts = False
@@ -260,7 +262,10 @@ class CallSession:
         self._aec_warmup_until = 0.0
         # 安全上限（防跑飞）兼顾不长篇：语音单轮该短，2048 会让模型偶尔长篇大论→越聊越卡。默认 400 留足
         # 正常回复（1~3 句）余量、只砍异常长篇；想更短/更长改 global_defaults.reply_max_tokens。
-        self._reply_max_tokens = int(config.global_defaults.get("reply_max_tokens", 400))
+        # 角色级覆盖优先（runtime_overrides.reply_max_tokens）：让话痨型角色多说几句、惜字型更短。
+        _ro = (getattr(assembler.character, "runtime_overrides", None) or {})
+        self._reply_max_tokens = int(_ro.get("reply_max_tokens")
+                                     or config.global_defaults.get("reply_max_tokens", 400))
         # 通话内历史滑窗条数：长聊时每轮喂快脑的历史越短→首字越快、不越聊越慢。默认 20 条(10 轮)，更久远
         # 上下文交给 L3 记忆召回兜底。想更连贯调大、想更快调小（global_defaults.incall_max_turns）。
         self._incall_max_turns = max(2, int(config.global_defaults.get("incall_max_turns", 20)))
@@ -571,7 +576,7 @@ class CallSession:
             tts_text = humanize_for_tts(tts_text, emo)   # 「哈哈」→(laughs)、「唉」→(sighs) 真人声（字幕不动）
             if not tts_text and not sub_text:
                 return None
-            m_emo, speed, pitch, vol = prosody_for(emo)
+            m_emo, speed, pitch, vol = prosody_for(emo, self.emotion_map)
             return {"emotion": emo, "speed": speed, "pitch": pitch, "vol": vol, "tts": tts_text, "sub": sub_text}
 
         _first_token = True
@@ -771,6 +776,13 @@ class CallSession:
     def set_scene(self, scene: str) -> None:
         # 切场景：更新喂 LLM 的情境（assembler 下轮读取）；记录标签 self.scenario 不动（统计稳定）。画面不变（固定背景）。
         self.scenario_prompt = scene
+
+    def set_client_timezone(self, offset_min) -> None:
+        """前端 ready 下发客户端 UTC 偏移分钟 → 让「现在几点」按用户本地时区算。转交 assembler。"""
+        try:
+            self.assembler.set_client_timezone(offset_min)
+        except Exception as e:  # 容错：时区下发失败绝不影响通话，退 UTC+8
+            log.warning("set_client_timezone 失败，按 UTC+8：%r", e)
 
     def set_full_duplex(self, on: bool) -> None:
         """RTC 媒体面连上/断开 → 标记是否处于全双工硬件 AEC。

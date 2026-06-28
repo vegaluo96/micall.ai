@@ -41,7 +41,7 @@ export type ClientMessage =
   | { type: "set_scene"; scene: string }
   | { type: "text_input"; text: string }
   | { type: "reset_memory"; character_id: string }
-  | { type: "ready" };   // 传输就绪（RTC 连上/回退 WS、loading 结束）→ 让后端 AI 接起来主动开口
+  | { type: "ready"; tz?: number };   // 传输就绪（RTC 连上/回退 WS、loading 结束）→ 让后端 AI 接起来主动开口；tz=客户端 UTC 偏移分钟(UTC+8=480)
 
 export type ServerHandler = (ev: ServerEvent) => void;
 /** 下行二进制音频帧（TTS PCM）。媒体归媒体、控制归控制（后端规格 §1.1）。 */

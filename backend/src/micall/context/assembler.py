@@ -431,6 +431,9 @@ class ContextAssembler:
         # 通话中实时了解：本通从用户话里现学到的显著事实（名字/在做/喜欢/不喜欢/身份）。
         # 折进每轮末条 user（不进 prefix 缓存），让角色当通就开始「懂你」——游客、第一通也生效。
         self._live_facts: dict[str, str] = {}
+        # 客户端真实时区（UTC 偏移分钟，如 UTC+8=480）：前端 ready 时下发，让「现在几点」按用户本地算，
+        # 而非一律服务器 UTC+8。None=按 UTC+8（国内用户无差）。见 _human_context。
+        self._client_tz_min: int | None = None
 
     def prefix(self, scenario: str) -> str:
         """通话内不变的前缀（L1 人设 + 原则 + 情绪指令 + L2 画像/关系/自主/策略 + 情境）。
@@ -527,12 +530,24 @@ class ContextAssembler:
             messages.append({"role": "system", "content": content})
         return messages
 
+    def set_client_timezone(self, offset_min: int | None) -> None:
+        """前端 ready 下发的客户端 UTC 偏移（分钟，UTC+8=480）。让「现在几点」按用户本地算。
+        合理范围 [-840, 840]（±14h）外忽略，回退 UTC+8。"""
+        try:
+            o = int(offset_min)
+            self._client_tz_min = o if -840 <= o <= 840 else None
+            self._human_static = None   # 时间相关静态缓存作废，下轮重算
+        except (TypeError, ValueError):
+            self._client_tz_min = None
+
     def _human_context(self, character_id: str, *, opening: bool = True,
                        now: datetime.datetime | None = None) -> str:
         """现实时间 + 间隔感 + 节日，拼成给末轮 user 的「真实感」前缀。
         时间每轮新算；间隔/节日是开场寒暄、只在 opening 轮给（否则 AI 每轮都再寒暄一次、反复重复）。"""
         if now is None:
-            now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+            # 优先用客户端真实时区（出海用户不再被当成 UTC+8）；未下发则回退 UTC+8（国内无差）。
+            off = self._client_tz_min if self._client_tz_min is not None else 480
+            now = datetime.datetime.now(datetime.timezone(datetime.timedelta(minutes=off)))
         if not opening:
             return _now_line(now)   # 非开场轮：只给时间感，不再重复「又拨进来/节日」的开场话
         static = getattr(self, "_human_static", None)
