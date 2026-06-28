@@ -141,24 +141,33 @@ async def fetch_weather(city: str) -> dict | None:
 #    【grounded 改写】成口语闲聊。第一性原理：真实性来自【真实数据源】，不靠模型"联网"——
 #    让 LLM 凭空"联网找热点"只会编（grok-4.3/qwen-long 都没有真·网络检索）。这里 LLM 只当【改写器】：
 #    输入真实标题、输出口语说法，绝不新增/编造事实。每条都带【原文链接】，后台可点开核对、铁证是真的。
-# 一批【免费、无注册、长期稳定】的热点/内容源（都是资产，越多越广越不尬；某个挂了其它顶上）。
-# 全部返回 JSON 且含 title/url；由 _iter_hot_records 通吃。可在 global_defaults.hot_api_endpoints 增删。
+# 一批【免费、无注册、稳定】的热点/内容源（都是资产，越多越广越不尬；某个挂了其它顶上）。
+# 关键：以【全球可达·不挑地区语言】的国际源为主——国产域名(vvhan/imsyy)从香港机房常解析不到(DNS)，
+# 而国际源全球可达；外文内容由【改写脑】翻译成中文口语并兼做安全闸。全部含 title/url、由 _iter_hot_records 通吃。
 _HOT_ENDPOINTS_DEFAULT = (
-    "https://api.vvhan.com/api/hotlist/all",        # vvhan 聚合多平台热榜（独立源·域1）
-    "https://api-hot.imsyy.top/all",                # 今日热榜 DailyHot 聚合（独立源·域2）
-    "https://api-hot.imsyy.top/bilibili",           # B站热门（生活/二次元/知识）
-    "https://api-hot.imsyy.top/douyin",             # 抖音热点
-    "https://api-hot.imsyy.top/zhihu",              # 知乎热榜
-    "https://api-hot.imsyy.top/douban-movie",       # 豆瓣电影（影视）
-    "https://api-hot.imsyy.top/weread",             # 微信读书（书）
-    "https://api-hot.imsyy.top/sspai",              # 少数派（数码/生活方式）
-    "https://api-hot.imsyy.top/ithome",             # IT之家（科技数码）
-    "https://api-hot.imsyy.top/juejin",             # 掘金（科技）
-    "https://api-hot.imsyy.top/hupu",               # 虎扑（运动/体育）
+    # 国际·全球可达·免 key（主力）
+    "https://dev.to/api/articles?top=7",                          # 科技/开发
+    "https://lobste.rs/hottest.json",                             # 科技
+    "https://www.reddit.com/r/movies/hot.json?limit=12",          # 影视
+    "https://www.reddit.com/r/books/hot.json?limit=12",           # 读书
+    "https://www.reddit.com/r/food/hot.json?limit=12",            # 美食
+    "https://www.reddit.com/r/gaming/hot.json?limit=12",          # 游戏
+    "https://www.reddit.com/r/science/hot.json?limit=12",         # 科学
+    "https://www.reddit.com/r/todayilearned/hot.json?limit=12",   # 冷知识
+    "https://www.reddit.com/r/space/hot.json?limit=10",           # 太空
+    "https://www.reddit.com/r/Music/hot.json?limit=10",           # 音乐
+    "https://www.reddit.com/r/television/hot.json?limit=10",      # 剧集
+    # 国产·DNS 能解析到时才用（香港机房常解析不到 → 自动跳过，不影响其它源）
+    "https://api.vvhan.com/api/hotlist/all",
+    "https://api-hot.imsyy.top/all",
 )
-# 维基百科（REST v1，免 key，香港可直连）：隽永/知识类素材，独立于热榜，真实可核对。
-_WIKI_ONTHISDAY = "https://zh.wikipedia.org/api/rest_v1/feed/onthisday/selected/{mm}/{dd}"  # 历史上的今天
-_WIKI_FEATURED = "https://zh.wikipedia.org/api/rest_v1/feed/featured/{yyyy}/{mm}/{dd}"        # 今日热门词条等
+# Hacker News（Firebase，全球可达、免 key、极稳）：需两步（topstories→item）。
+_HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
+_HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
+# 维基百科（REST v1，免 key，全球可达）：隽永/知识类素材，中英双语，真实可核对。
+_WIKI_ONTHISDAY = "https://{lang}.wikipedia.org/api/rest_v1/feed/onthisday/selected/{mm}/{dd}"  # 历史上的今天
+_WIKI_FEATURED = "https://{lang}.wikipedia.org/api/rest_v1/feed/featured/{yyyy}/{mm}/{dd}"        # 今日热门词条
+_WIKI_LANGS = ("zh", "en")
 _HOT_TIMEOUT_S = 12.0
 # 维基百科强制要求【带联系方式】的 User-Agent，否则 403（policy: meta.wikimedia.org/wiki/User-Agent_policy）。
 _UA = "MiCallBot/1.0 (+https://zsky.com; AI companion world-context) python-httpx"
@@ -202,10 +211,38 @@ def _parse_wiki_onthisday(data: Any) -> list[dict]:
     return out
 
 
+def _has_cjk(s: str) -> bool:
+    """含中日韩汉字 → True。没改写脑(不翻译)时只用中文标题；外文无法翻译/无法用中文关键词闸 vet，丢弃。"""
+    return bool(re.search(r"[一-鿿]", s or ""))
+
+
 async def _fetch_generic(cl: Any, ep: str) -> list[dict]:
     r = await asyncio.wait_for(cl.get(ep, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
     r.raise_for_status()
     return list(_iter_hot_records(r.json()))
+
+
+async def _fetch_hackernews(cl: Any, top_n: int = 15) -> list[dict]:
+    """Hacker News：先取 topstories 的 id 列表，再【并发】取每条 item 的 {title,url}。全球可达、免 key、极稳。"""
+    r = await asyncio.wait_for(cl.get(_HN_TOP, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
+    r.raise_for_status()
+    ids = (r.json() or [])[:top_n]
+
+    async def _one(i: int) -> dict | None:
+        try:
+            ri = await asyncio.wait_for(cl.get(_HN_ITEM.format(id=i), headers={"User-Agent": _UA}),
+                                        timeout=_HOT_TIMEOUT_S)
+            ri.raise_for_status()
+            d = ri.json() or {}
+            t = str(d.get("title") or "").strip()
+            if t:
+                return {"title": t[:120], "url": str(d.get("url") or f"https://news.ycombinator.com/item?id={i}")}
+        except Exception:
+            return None
+        return None
+
+    got = await asyncio.gather(*[_one(i) for i in ids])
+    return [x for x in got if x]
 
 
 def _parse_wiki_mostread(data: Any) -> list[dict]:
@@ -225,32 +262,40 @@ def _parse_wiki_mostread(data: Any) -> list[dict]:
     return out
 
 
-async def _fetch_wiki(cl: Any, now: datetime.datetime) -> list[dict]:
-    url = _WIKI_ONTHISDAY.format(mm=f"{now.month:02d}", dd=f"{now.day:02d}")
+async def _fetch_wiki(cl: Any, now: datetime.datetime, lang: str = "zh") -> list[dict]:
+    url = _WIKI_ONTHISDAY.format(lang=lang, mm=f"{now.month:02d}", dd=f"{now.day:02d}")
     r = await asyncio.wait_for(cl.get(url, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
     r.raise_for_status()
     return _parse_wiki_onthisday(r.json())
 
 
-async def _fetch_wiki_mostread(cl: Any, now: datetime.datetime) -> list[dict]:
-    url = _WIKI_FEATURED.format(yyyy=now.year, mm=f"{now.month:02d}", dd=f"{now.day:02d}")
+async def _fetch_wiki_mostread(cl: Any, now: datetime.datetime, lang: str = "zh") -> list[dict]:
+    url = _WIKI_FEATURED.format(lang=lang, yyyy=now.year, mm=f"{now.month:02d}", dd=f"{now.day:02d}")
     r = await asyncio.wait_for(cl.get(url, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
     r.raise_for_status()
     return _parse_wiki_mostread(r.json())
 
 
+def _world_jobs(cl: Any, endpoints: Any, now: datetime.datetime | None, wiki: bool):
+    """构造所有数据源的 (标签, 协程) 任务列表（热榜 + Hacker News + 维基中英）。供并发抓取/逐源体检共用。"""
+    jobs: list[tuple[str, Any]] = [(ep, _fetch_generic(cl, ep)) for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT)]
+    jobs.append(("Hacker News", _fetch_hackernews(cl)))
+    if wiki and now is not None:
+        for lang in _WIKI_LANGS:
+            jobs.append((f"维基{lang}·历史上的今天", _fetch_wiki(cl, now, lang)))
+            jobs.append((f"维基{lang}·今日热门词条", _fetch_wiki_mostread(cl, now, lang)))
+    return jobs
+
+
 async def fetch_hot_items(endpoints: Any = None, limit: int = 60,
                           now: datetime.datetime | None = None, wiki: bool = True) -> list[dict]:
-    """【并发】拉所有免费数据源真实素材 → [{title, url}]（按标题去重）：多个热榜 API + 维基(历史上的今天/今日热门词条)。
+    """【并发】拉所有免费数据源真实素材 → [{title, url}]（按标题去重）：国际热榜 + Hacker News + 维基(中英)。
     并发(gather)让源再多也不慢；某个挂了 return_exceptions 兜住、其它顶上。无 httpx/全失败 → []。免 key、免注册。"""
     if httpx is None:
         return []
     cl = _client()
-    coros = [_fetch_generic(cl, ep) for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT)]
-    if wiki and now is not None:
-        coros.append(_fetch_wiki(cl, now))
-        coros.append(_fetch_wiki_mostread(cl, now))
-    results = await asyncio.gather(*coros, return_exceptions=True)
+    jobs = _world_jobs(cl, endpoints, now, wiki)
+    results = await asyncio.gather(*[c for _, c in jobs], return_exceptions=True)
     seen: set[str] = set()
     items: list[dict] = []
     for res in results:
@@ -275,67 +320,67 @@ async def probe_sources(endpoints: Any = None, now: datetime.datetime | None = N
         return [{"source": "httpx", "ok": False, "error": "缺少 httpx 依赖"}]
     cl = _client()
     when = now or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
-    targets: list[tuple[str, str, str]] = [("generic", ep, ep) for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT)]
-    targets.append(("wiki_otd", "维基·历史上的今天", ""))
-    targets.append(("wiki_most", "维基·今日热门词条", ""))
 
-    async def _probe(kind: str, label: str, ep: str) -> dict:
+    async def _probe(label: str, coro: Any) -> dict:
         try:
-            if kind == "wiki_otd":
-                recs = await _fetch_wiki(cl, when)
-            elif kind == "wiki_most":
-                recs = await _fetch_wiki_mostread(cl, when)
-            else:
-                recs = await _fetch_generic(cl, ep)
+            recs = await coro
             safe = [r for r in recs if _is_safe(r.get("title", ""))]
             return {"source": label, "ok": True, "count": len(recs), "safe": len(safe),
                     "sample": [{"text": r["title"][:60], "url": r.get("url", "")} for r in safe[:2]]}
         except Exception as e:
             return {"source": label, "ok": False, "error": str(e)[:200]}
 
-    return list(await asyncio.gather(*[_probe(k, lbl, ep) for k, lbl, ep in targets]))
+    jobs = _world_jobs(cl, endpoints, when, True)
+    return list(await asyncio.gather(*[_probe(lbl, c) for lbl, c in jobs]))
 
 
 def _rewrite_prompt(titles: list[str]) -> list[dict]:
     numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
     sys = (
-        "你把今天【真实的热搜标题】改写成轻松口语的闲聊，给一群虚拟陪伴角色当聊天话题。"
-        "【铁律】只换个说法、绝不新增事实、绝不编造细节、绝不夸大——必须忠于原标题的意思；"
-        "看不懂或不适合闲聊的，那一条就原样精简保留、不要删、不要编。每条 15~40 字、像跟朋友随口提一句，别像新闻标题。"
-        "严格只输出一个 JSON 对象：{lines:[...]}，lines 的【条数和顺序必须与输入完全一致】，逐条一一对应。"
+        "下面是今天来自各处的【真实热搜/热门标题】（中英文混合），给一群【中文】虚拟陪伴角色当聊天话题。逐条处理：\n"
+        "• 适合轻松闲聊的 → 【翻译成中文（若是外文）并改写成口语闲聊】，15~40 字，忠于原意、绝不新增/编造/夸大；\n"
+        "• 涉及政治/时政/领导人/灾难/事故/死亡/暴力/血腥/色情/犯罪/疾病/股市/负面/敏感的 → 那一条输出空字符串 \"\""
+        "（直接丢弃，不要翻译、不要改写）；\n"
+        "• 看不懂、太小众、或不适合闲聊的 → 也输出 \"\"。\n"
+        "严格只输出 JSON：{lines:[...]}，lines 的【条数和顺序必须与输入完全一致】，逐条一一对应（丢弃的位置放 \"\"）。"
     )
-    user = f"今天的真实热搜（按编号）：\n{numbered}\n\n逐条改写成口语闲聊，条数和顺序与上面完全一致。"
+    user = f"真实标题（按编号）：\n{numbered}\n\n逐条处理（翻译+改写或丢弃），条数顺序与上面完全一致。"
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
 
 async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any = None) -> list[dict]:
-    """真实热点话题池（全站共享）：免费热榜 API 抓真实热点 → 过安全闸 → 有 LLM 则 grounded 改写成口语。
-    返回 [{text, url}]（最多 14，带原文链接）。LLM 只负责改写、不负责"找热点"——拉不到真实热点就返回空，绝不编。"""
+    """真实热点话题池（全站共享）：免费数据源抓真实热点 → 过安全闸 → 改写脑【翻译成中文口语 + 兼做安全闸】。
+    返回 [{text, url}]（最多 14，带原文链接）。改写脑只翻译/改写、不"找热点"——真实性来自数据源，绝不编。
+    没配改写脑：外文无法翻译、也无法用中文关键词闸 vet → 只用中文标题原样（仍真实、仍安全）。"""
     items = await fetch_hot_items(endpoints, now=now)
-    safe = [it for it in items if _is_safe(it["title"])][:16]   # 先过安全闸（去政治/灾难/负面等）
+    safe = [it for it in items if _is_safe(it["title"])]        # 先过中文关键词安全闸（对外文几乎不拦，靠下面改写脑兜）
+
+    def _cn_only(src: list[dict]) -> list[dict]:
+        return [{"text": it["title"][:90], "url": it["url"]} for it in src if _has_cjk(it["title"])][:14]
+
     if not safe:
         return []
-    titles = [it["title"] for it in safe]
-    texts = list(titles)                                         # 默认用真实标题原样（不丢真实性）
-    if rewrite_llm is not None:
-        try:
-            async def _run() -> str:
-                return "".join([t async for t in rewrite_llm.stream(
-                    _rewrite_prompt(titles), max_tokens=1600, response_format={"type": "json_object"})])
-            raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
-            lines = [str(x).strip() for x in (parse_profile_update(raw).get("lines") or [])]
-            if len(lines) == len(titles) and all(lines):         # 严格对齐才用改写，否则回退真实标题
-                texts = lines
-        except Exception as e:
-            log.info("热点改写失败（用真实标题原样）：%r", e)
-    out: list[dict] = []
-    for text, it in zip(texts, safe):
-        tt = text[:90]
-        if tt and _is_safe(tt):                                  # 改写后再过一道安全闸
-            out.append({"text": tt, "url": it["url"]})
-        if len(out) >= 14:
-            break
-    return out
+    if rewrite_llm is None:
+        return _cn_only(safe)                                   # 无改写脑 → 只用中文标题（外文丢弃，安全）
+    cand = safe[:24]                                            # 多给候选，改写脑会丢掉不安全/不合适的，留够 ~14
+    titles = [it["title"] for it in cand]
+    try:
+        async def _run() -> str:
+            return "".join([t async for t in rewrite_llm.stream(
+                _rewrite_prompt(titles), max_tokens=2000, response_format={"type": "json_object"})])
+        raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
+        lines = [str(x).strip() for x in (parse_profile_update(raw).get("lines") or [])]
+        if len(lines) == len(titles):                          # 对齐成功：丢弃的位置是 ""，跳过它、其余配 URL
+            out: list[dict] = []
+            for text, it in zip(lines, cand):
+                if text and _is_safe(text):                    # 改写后再过一道中文关键词闸
+                    out.append({"text": text[:90], "url": it["url"]})
+                if len(out) >= 14:
+                    break
+            return out
+    except Exception as e:
+        log.info("热点改写失败（回退中文真实标题）：%r", e)
+    return _cn_only(cand)                                       # 改写失败/不对齐 → 回退中文真实标题（外文没翻译没法用）
 
 
 # ── 全站共享世界库（内存，按天）：每天批量刷一次，角色只读、零联网 ────────────────────────

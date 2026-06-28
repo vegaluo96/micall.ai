@@ -103,30 +103,34 @@ class TestFetchTopics(unittest.IsolatedAsyncioTestCase):
             return items
         wc.fetch_hot_items = fake
 
-    async def test_safety_url_and_rewrite(self):
-        self._stub_items([{"title": "杨梅季正火", "url": "http://a"},
-                          {"title": "某地地震多人遇难", "url": "http://b"},
-                          {"title": "新番开播", "url": "http://c"}])
-        llm = StubLLM([json.dumps({"lines": ["刷到杨梅季正火", "看到新番开播"]}, ensure_ascii=False)])
+    async def test_translate_drop_unsafe_english_and_url(self):
+        # 英文不安全内容【绕过中文关键词闸】(它只拦中文) → 全交给改写脑：翻译合适的、置空丢弃不安全的，URL 逐条对齐
+        self._stub_items([{"title": "New Pixar movie tops box office", "url": "http://a"},
+                          {"title": "Shooting leaves several dead", "url": "http://b"},   # 英文·不安全·中文闸拦不住
+                          {"title": "杨梅季正火", "url": "http://c"}])
+        llm = StubLLM([json.dumps({"lines": ["皮克斯新片票房登顶了", "", "刷到杨梅季正火"]}, ensure_ascii=False)])
         out = await fetch_topics(llm, NOW)
         texts = [o["text"] for o in out]
         urls = [o["url"] for o in out]
-        self.assertIn("刷到杨梅季正火", texts)            # grounded 改写
-        self.assertNotIn("某地地震多人遇难", "".join(texts))  # 安全闸滤
-        self.assertIn("http://a", urls)                  # 原文链接保留
+        self.assertIn("皮克斯新片票房登顶了", texts)        # 外文翻译成中文
+        self.assertIn("刷到杨梅季正火", texts)
+        self.assertEqual(len(out), 2)                    # 不安全的英文被改写脑置空丢掉
+        self.assertIn("http://a", urls)                  # URL 与改写后逐条对齐
         self.assertNotIn("http://b", urls)
 
-    async def test_no_llm_uses_real_titles(self):
-        self._stub_items([{"title": "杨梅季正火", "url": "http://a"}])
-        out = await fetch_topics(None, NOW)              # 没改写脑 → 真实标题原样（仍真实）
-        self.assertEqual(out[0]["text"], "杨梅季正火")
-        self.assertEqual(out[0]["url"], "http://a")
+    async def test_no_llm_chinese_only(self):
+        # 没改写脑：外文无法翻译/无法 vet → 丢；只留中文标题原样
+        self._stub_items([{"title": "English headline only", "url": "http://en"},
+                          {"title": "杨梅季正火", "url": "http://cn"}])
+        out = await fetch_topics(None, NOW)
+        self.assertEqual([o["text"] for o in out], ["杨梅季正火"])
+        self.assertEqual(out[0]["url"], "http://cn")
 
-    async def test_rewrite_mismatch_falls_back(self):
+    async def test_rewrite_mismatch_falls_back_chinese(self):
         self._stub_items([{"title": "A话题", "url": "u1"}, {"title": "B话题", "url": "u2"}])
         llm = StubLLM([json.dumps({"lines": ["只有一条"]}, ensure_ascii=False)])   # 条数不匹配
         out = await fetch_topics(llm, NOW)
-        self.assertEqual([o["text"] for o in out], ["A话题", "B话题"])             # 回退真实标题
+        self.assertEqual([o["text"] for o in out], ["A话题", "B话题"])             # 回退中文真实标题
 
     async def test_empty_when_no_items(self):
         self._stub_items([])
