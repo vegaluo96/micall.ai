@@ -6,6 +6,7 @@ endpoint/key 全配置（铁律2）。endpoint 形如 https://api.minimax.chat/v
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import AsyncIterator
@@ -54,7 +55,7 @@ def _is_param_error(e: Exception) -> bool:
 _RICH_OK = True
 
 
-from ._http import loop_client
+from ._http import is_retryable, loop_client, retry_backoff_s
 
 
 def _shared_client() -> "httpx.AsyncClient":
@@ -85,6 +86,11 @@ class MiniMaxTTS(TTSProvider):
         self._pron_dict = [str(x) for x in pd] if isinstance(pd, list) else []
         vm = p.get("voice_modify") or {}                                     # 音色微调 {pitch,intensity,timbre,sound_effects}；默认空=不动
         self._voice_modify = dict(vm) if isinstance(vm, dict) else {}
+        # 瞬时错误重试（铁律2，走配置）：上游限流/网关抖/连接超时时，「首块音频出来前」退避重试，
+        # 别让一句话因一次瞬时抖动而失声。已出音频则不重试（防整段重复念）。默认重试 1 次、0.4s 起步。
+        from ..config import as_float
+        self._max_retries = max(0, int(p.get("max_retries", 1) or 0))
+        self._retry_base_s = as_float(p.get("retry_base_s"), 0.4)
 
     async def synthesize(
         self, text: str, *, voice_id: str, emotion: str = "",
@@ -165,43 +171,55 @@ class MiniMaxTTS(TTSProvider):
             "Authorization": f"Bearer {self.node.api_key}",
             "Content-Type": "application/json",
         }
-        async with _shared_client().stream(
-            "POST", self.node.endpoint, headers=headers, json=body
-        ) as resp:
-            if resp.status_code >= 400:
-                detail = (await resp.aread()).decode("utf-8", "ignore")[:400]
-                raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
+        # 瞬时错误（限流/网关抖/连接超时）在【首块音频出来前】退避重试；一旦出过音频就只能抛（重连会整段重念）。
+        for attempt in range(self._max_retries + 1):
             got = False
-            last_resp = None
-            tail: list[str] = []
-            async for line in resp.aiter_lines():
-                if not line:
-                    continue
-                # 兼容非 SSE 的错误响应：data: 开头取负载，否则整行当 JSON 试。
-                payload = line[5:] if line.startswith("data:") else line
-                try:
-                    evt = json.loads(payload)
-                except ValueError:
-                    tail.append(line[:200])
-                    continue
-                data = evt.get("data") or {}
-                chunk = data.get("audio", "")
-                # status==2 / 带 extra_info 是末尾汇总事件：会把整段音频再发一遍 →
-                # 已有增量块就跳过，否则音频翻倍（合成的语音会重复念一遍）。
-                is_summary = data.get("status") == 2 or "extra_info" in evt
-                if chunk and not (is_summary and got):
-                    got = True
-                    yield bytes.fromhex(chunk)
-                br = evt.get("base_resp")
-                if br:
-                    last_resp = br
-                    code = br.get("status_code")
-                    if code not in (0, None) and not got:
-                        # voice id 不存在 / 余额 / 鉴权 / token not match group 等：报错带出原因。
-                        raise RuntimeError(f"MiniMax base_resp · {br}")
-            if not got:
-                # 没出过音频也别静默：把能拿到的原因抛出来（国内/国际 GroupId-key 不配对最常见）。
-                reason = last_resp or " ".join(tail)[:400] or (
-                    "无音频且无错误体——检查 endpoint 是否国内 t2a_v2、GroupId 是否拼在 query、"
-                    "国内域名要配国内账号的 key")
-                raise RuntimeError(f"MiniMax 未返回音频 · {reason}")
+            try:
+                async with _shared_client().stream(
+                    "POST", self.node.endpoint, headers=headers, json=body
+                ) as resp:
+                    if resp.status_code >= 400:
+                        detail = (await resp.aread()).decode("utf-8", "ignore")[:400]
+                        raise RuntimeError(f"HTTP {resp.status_code} · {detail}")
+                    last_resp = None
+                    tail: list[str] = []
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        # 兼容非 SSE 的错误响应：data: 开头取负载，否则整行当 JSON 试。
+                        payload = line[5:] if line.startswith("data:") else line
+                        try:
+                            evt = json.loads(payload)
+                        except ValueError:
+                            tail.append(line[:200])
+                            continue
+                        data = evt.get("data") or {}
+                        chunk = data.get("audio", "")
+                        # status==2 / 带 extra_info 是末尾汇总事件：会把整段音频再发一遍 →
+                        # 已有增量块就跳过，否则音频翻倍（合成的语音会重复念一遍）。
+                        is_summary = data.get("status") == 2 or "extra_info" in evt
+                        if chunk and not (is_summary and got):
+                            got = True
+                            yield bytes.fromhex(chunk)
+                        br = evt.get("base_resp")
+                        if br:
+                            last_resp = br
+                            code = br.get("status_code")
+                            if code not in (0, None) and not got:
+                                # voice id 不存在 / 余额 / 鉴权 / token not match group 等：报错带出原因。
+                                raise RuntimeError(f"MiniMax base_resp · {br}")
+                    if not got:
+                        # 没出过音频也别静默：把能拿到的原因抛出来（国内/国际 GroupId-key 不配对最常见）。
+                        reason = last_resp or " ".join(tail)[:400] or (
+                            "无音频且无错误体——检查 endpoint 是否国内 t2a_v2、GroupId 是否拼在 query、"
+                            "国内域名要配国内账号的 key")
+                        raise RuntimeError(f"MiniMax 未返回音频 · {reason}")
+                return
+            except Exception as e:
+                # 已出音频 / 重试用尽 / 非瞬时错误（参数·鉴权·余额）→ 抛给上层（synthesize 分级兜底处理）。
+                if got or attempt >= self._max_retries or not is_retryable(e):
+                    raise
+                delay = retry_backoff_s(attempt, self._retry_base_s)
+                log.warning("TTS 瞬时错误，%.1fs 后重试(%d/%d)：%r",
+                            delay, attempt + 1, self._max_retries, e)
+                await asyncio.sleep(delay)

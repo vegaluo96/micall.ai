@@ -511,8 +511,8 @@ async def serve_forever(config: Config) -> None:
     try:
         from .userapi import run_user_http
 
-        run_user_http(repo, admin_host, user_port)
-        print(f"[micall] 用户账号 API http://{admin_host}:{user_port}/api/auth/*")
+        run_user_http(repo, admin_host, user_port, config=config)
+        print(f"[micall] 用户账号 API http://{admin_host}:{user_port}/api/auth/* · 健康检查 /api/health")
     except Exception as e:  # 账号 API 起不来不影响通话主链路（游客仍可用）
         log.warning("用户账号 API 启动失败：%r", e)
     print(f"[micall] 信令服务器监听 ws://{host}:{port}{path}")

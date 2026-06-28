@@ -289,7 +289,9 @@ class CallSession:
         self._incall_max_turns = max(2, int(config.global_defaults.get("incall_max_turns", 20)))
         # LLM 首 token 墙钟超时：连上后若卡住（不吐 token），不要干等 httpx 读超时(30s)才解脱 →
         # 表现为"一直在思考/突然卡死"。只卡首 token（宽松，不误杀慢而有效的长回复）。
-        self._llm_first_token_timeout = float(turn.get("llm_first_token_timeout_s", 8.0))
+        # 8s→6s：真·静默卡死时少 2s 死寂；瞬时报错已由 provider 层退避重试兜住（在此超时窗内完成），
+        # 故收紧不误杀重试。想更稳可调回 8、想更激进可调小（turn.llm_first_token_timeout_s）。
+        self._llm_first_token_timeout = float(turn.get("llm_first_token_timeout_s", 6.0))
         # 嵌入召回的接话提速旋钮（都不影响语音/VAD）：
         #   embed_min_chars —— 短话（"嗯""好的""是啊"）不嵌入：嵌一两个字本就没语义、召回多是噪声，
         #     却白加一次往返（最多 embed_timeout_s）拖慢接话。短话走关键词召回足矣。低于此长度跳过嵌入。
@@ -476,7 +478,20 @@ class CallSession:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            log.warning("生成一轮失败：%r", e)
+            # provider 报错（上游限流/网关抖/超时，重试也没救回）会从 _generate_turn 抛到这里——
+            # 此时还停在 THINKING/SPEAKING。绝不能把通话【卡在「思考中」】：回 listening，让用户能接着说。
+            log.warning("生成一轮失败，回 listening 不卡死：%r", e)
+            await self._recover_to_listening()
+
+    async def _recover_to_listening(self) -> None:
+        """一轮异常后把通话从 THINKING/SPEAKING 拉回 LISTENING（正常结束路径在 _generate_turn 末尾，
+        但异常会跳过它 → 不补这一手用户就永远停在「思考中」）。本身绝不抛错。"""
+        try:
+            if self.sm.phase in (Phase.SPEAKING, Phase.THINKING) and self.sm.can(Phase.LISTENING):
+                self.sm.to(Phase.LISTENING)
+                await self._emit(ServerEvent.state(Phase.LISTENING.value))
+        except Exception:
+            pass
 
     # ── task B + C（骨架内联；真实拆成常驻协程经 tts_queue 解耦）──
     async def on_user_text(self, text: str) -> None:
@@ -484,8 +499,14 @@ class CallSession:
         text = (text or "").strip()
         if not text or self.sm.phase in (Phase.IDLE, Phase.ENDED):
             return
-        async with self._turn_lock:
-            await self._generate_turn(text)
+        try:
+            async with self._turn_lock:
+                await self._generate_turn(text)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:   # 文字模式同样别卡死在「思考中」
+            log.warning("生成一轮失败（文字），回 listening 不卡死：%r", e)
+            await self._recover_to_listening()
 
     def begin_conversation(self) -> None:
         """前端发来 ready（RTC 已真连上 或 已回退 WS）→ 此刻才【开始计时/计费】+ 让 AI 主动开口：

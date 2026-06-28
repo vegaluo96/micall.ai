@@ -33,7 +33,36 @@ def _user_allowed_origins() -> set:
 
 log = logging.getLogger("micall.userapi")
 _REPO = None  # run_user_http 注入；与 SignalingServer.repo 同一实例
+_CONFIG = None  # run_user_http 注入；供 /api/health 读各节点配置状态
 GUEST_TRIAL_SECONDS = 60   # 与 wsserver._GUEST_TRIAL_SECONDS 保持一致（游客试用 1 分钟，按 IP 计）
+
+# ── 运维健康检查：抓「部署后某节点 key 没注入→静默退 stub（角色变哑/失忆）」这类故障 ──
+_HEALTH_NODES = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "llm_eval")
+_HEALTH_CRITICAL = ("asr", "llm_fast", "tts")   # 这三个没配，通话本身就跑不起来（退 stub）
+
+
+def health_snapshot(config, repo) -> dict:
+    """健康快照（纯数据，便于测、被 /api/health 复用）：各节点是否真配了 endpoint+key、是否持久化。
+    监控轮询此端点即可【先于用户】发现「某 key 部署后没生效」。注意：只查【是否配置】，查不出
+    「key 配了但过期/失效」——那要真打一次上游（成本高），不放进健康检查。"""
+    nodes: dict[str, bool] = {}
+    for k in _HEALTH_NODES:
+        try:
+            nodes[k] = bool(config.node(k).configured)
+        except Exception:
+            nodes[k] = False
+    try:
+        persisted = type(repo).__name__ != "InMemoryRepository"
+    except Exception:
+        persisted = False
+    degraded = [k for k in _HEALTH_CRITICAL if not nodes.get(k)]
+    return {
+        "ok": True,
+        "status": "ok" if not degraded else "degraded",
+        "degraded": degraded,      # 哪些关键节点没配（空=三件套齐活）
+        "nodes": nodes,            # 全部 6 节点的 configured 状态
+        "persisted": persisted,    # 跨通记忆是否在（false=内存模式，重启即忘）
+    }
 
 # ── 按 IP 限流（防刷：批量注册薅免费时长、登录/兑换码爆破）。进程内滑动窗口，单机足够 ──
 _RATE: dict[tuple[str, str], list[float]] = {}
@@ -44,12 +73,32 @@ _RATE_RULES = {
     "login":    (15, 300),   # 5 分钟内 15 次（防密码爆破）
     "redeem":   (15, 300),   # 5 分钟内 15 次（防兑换码猜测）
 }
+# _RATE 只增不清会随独立 IP 数【无界增长】→ 慢性内存泄漏 → 终致 OOM 重启（在线通话全断）。
+# 故每隔 _RATE_SWEEP_INTERVAL 顺手清一次「窗口内已无有效命中」的陈旧条目（锁内 O(条目数)，偶发）。
+_RATE_SWEEP_INTERVAL = 600.0
+_RATE_LAST_SWEEP = [0.0]   # 可变 cell 存上次清理时刻，免在热函数里写 global
+
+
+def _rate_sweep(now: float) -> int:
+    """清掉所有「窗口内已无有效命中」的 (ip,key) 条目。调用方须持 _RATE_LOCK。返回清掉条数（便于测/诊断）。"""
+    dead = []
+    for k, ts in _RATE.items():
+        rule = _RATE_RULES.get(k[1])
+        window = rule[1] if rule else 0
+        if not any(now - t < window for t in ts):
+            dead.append(k)
+    for k in dead:
+        _RATE.pop(k, None)
+    return len(dead)
 
 
 def _rate_ok(ip: str, key: str) -> bool:
     limit, window = _RATE_RULES[key]
     now = time.time()
     with _RATE_LOCK:
+        if now - _RATE_LAST_SWEEP[0] > _RATE_SWEEP_INTERVAL:
+            _RATE_LAST_SWEEP[0] = now
+            _rate_sweep(now)
         hits = [t for t in _RATE.get((ip, key), []) if now - t < window]
         if len(hits) >= limit:
             _RATE[(ip, key)] = hits
@@ -150,6 +199,13 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         route = self._route()
+        if route == "/api/health":          # 公开：运维健康检查（节点配置/持久化），无鉴权，供监控轮询
+            try:
+                from ..config import load_config
+                cfg = _CONFIG or load_config()
+                return self._json(200, health_snapshot(cfg, _REPO))
+            except Exception as e:
+                return self._json(200, {"ok": False, "status": "error", "error": str(e)[:200]})
         if route == "/api/characters":      # 公开：用户端角色卡列表（含运营新建、剔除已删除）
             try:
                 from .characters_admin import public_characters
@@ -335,9 +391,10 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
-def run_user_http(repo, host: str = "127.0.0.1", port: int = 8789) -> ThreadingHTTPServer:
-    global _REPO
+def run_user_http(repo, host: str = "127.0.0.1", port: int = 8789, config=None) -> ThreadingHTTPServer:
+    global _REPO, _CONFIG
     _REPO = repo
+    _CONFIG = config   # 供 /api/health 读节点配置（None 则按需 load_config 兜底）
     httpd = ThreadingHTTPServer((host, port), _Handler)
     threading.Thread(target=httpd.serve_forever, name="micall-user-http", daemon=True).start()
     return httpd

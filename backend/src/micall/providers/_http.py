@@ -53,3 +53,40 @@ def loop_client(factory: "Callable[[], httpx.AsyncClient]") -> "httpx.AsyncClien
     client = factory()
     _CLIENTS[key] = (weakref.ref(loop) if loop is not None else None, client)
     return client
+
+
+# ── provider 瞬时错误重试（LLM/TTS 共用）：一通电话最怕「上游抖一下就把这一轮/这通话打死」。 ──
+# 限流(429)/网关抖动(502/504)/上游过载(503/500)/连接·读超时都是【瞬时】的，退避后重试常立刻成功；
+# 鉴权(401/403)/请求错(400)/余额是【确定性】的，重试纯属浪费、还拖慢降级。仅在「尚未吐出任何字节」时
+# 才可重试——流式一旦开吐，重连会重复输出，必须直接抛给上层兜底。
+_RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+
+
+def is_retryable(exc: Exception) -> bool:
+    """瞬时可重试错误判定（纯函数，便于测）。识别 httpx 的连接/读/池超时与 5xx/429；
+    也兜底匹配 provider 自抛 RuntimeError 文案里的 HTTP 状态码（如 minimax 的 "HTTP 503 · ..."）。"""
+    if httpx is not None:
+        if isinstance(exc, (
+            httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+            httpx.PoolTimeout, httpx.WriteTimeout, httpx.RemoteProtocolError, httpx.ReadError,
+        )):
+            return True
+        if isinstance(exc, httpx.HTTPStatusError):
+            try:
+                return exc.response.status_code in _RETRYABLE_STATUS
+            except Exception:  # pragma: no cover
+                return False
+        if isinstance(exc, httpx.TimeoutException):  # 其它超时子类兜底
+            return True
+    s = repr(exc)
+    return any((f"HTTP {c}" in s) or (f" {c} " in s) or (f"'{c}'" in s) for c in _RETRYABLE_STATUS)
+
+
+def retry_backoff_s(attempt: int, base: float = 0.4, cap: float = 4.0) -> float:
+    """第 attempt 次重试（0 基）的退避秒：base·2^attempt，封顶 cap。实时路径要短——默认 0.4→0.8→1.6…
+    纯函数（无随机/无时钟，便于测）。"""
+    try:
+        d = float(base) * (2 ** max(0, int(attempt)))
+    except Exception:  # pragma: no cover
+        d = base
+    return min(float(cap), d)
