@@ -65,6 +65,35 @@ class TestHotRecords(unittest.TestCase):
         self.assertEqual(recs[0]["url"], "http://b/1")
 
 
+class TestParseRss(unittest.TestCase):
+    """RSS/Atom 订阅源解析（媒体源主力，免注册、全球可达）。"""
+
+    def test_rss_item(self):
+        xml = """<?xml version="1.0"?><rss version="2.0"><channel>
+            <title>The Verge</title>
+            <item><title>New phone launches today</title><link>https://x/1</link></item>
+            <item><title>Studio Ghibli film returns</title><link>https://x/2</link></item>
+        </channel></rss>"""
+        out = wc._parse_rss(xml)
+        self.assertEqual([o["title"] for o in out], ["New phone launches today", "Studio Ghibli film returns"])
+        self.assertEqual(out[0]["url"], "https://x/1")
+        self.assertNotIn("The Verge", [o["title"] for o in out])   # channel 标题不当条目
+
+    def test_atom_entry_href_link(self):
+        xml = """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+            <title>Ars</title>
+            <entry><title>Mars rover finds new rock</title>
+                   <link rel="alternate" href="https://a/1"/></entry>
+        </feed>"""
+        out = wc._parse_rss(xml)
+        self.assertEqual(out[0]["title"], "Mars rover finds new rock")
+        self.assertEqual(out[0]["url"], "https://a/1")             # Atom 取 link 的 href 属性
+
+    def test_garbage_returns_empty(self):
+        self.assertEqual(wc._parse_rss("not xml at all <<<"), [])
+        self.assertEqual(wc._parse_rss(""), [])
+
+
 class TestWikiParse(unittest.TestCase):
     """维基『历史上的今天』/『今日热门词条』解析（带真实词条链接）。"""
 

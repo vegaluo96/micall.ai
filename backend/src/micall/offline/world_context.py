@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import xml.etree.ElementTree as ET
 from typing import Any
 
 from .understanding import parse_profile_update
@@ -143,20 +144,25 @@ async def fetch_weather(city: str) -> dict | None:
 #    输入真实标题、输出口语说法，绝不新增/编造事实。每条都带【原文链接】，后台可点开核对、铁证是真的。
 # 一批【免费、无注册、稳定】的热点/内容源（都是资产，越多越广越不尬；某个挂了其它顶上）。
 # 关键：以【全球可达·不挑地区语言】的国际源为主——国产域名(vvhan/imsyy)从香港机房常解析不到(DNS)，
-# 而国际源全球可达；外文内容由【改写脑】翻译成中文口语并兼做安全闸。全部含 title/url、由 _iter_hot_records 通吃。
+# Reddit 的 .json 从机房 IP 常被 403 拦——故主力换成【RSS 订阅源】：几乎每家媒体都有、免注册、全球可达、
+# 维度极广（科技/影视/游戏/科学/音乐/美食/旅行/趣闻…）。RSS 是 XML，_fetch_generic 先试 JSON、失败再当 RSS 解。
+# 外文内容由【改写脑】翻译成中文口语并兼做安全闸。全部含 title/url、由 _iter_hot_records / _parse_rss 通吃。
 _HOT_ENDPOINTS_DEFAULT = (
-    # 国际·全球可达·免 key（主力）
+    # JSON·全球可达·免 key
     "https://dev.to/api/articles?top=7",                          # 科技/开发
     "https://lobste.rs/hottest.json",                             # 科技
-    "https://www.reddit.com/r/movies/hot.json?limit=12",          # 影视
-    "https://www.reddit.com/r/books/hot.json?limit=12",           # 读书
-    "https://www.reddit.com/r/food/hot.json?limit=12",            # 美食
-    "https://www.reddit.com/r/gaming/hot.json?limit=12",          # 游戏
-    "https://www.reddit.com/r/science/hot.json?limit=12",         # 科学
-    "https://www.reddit.com/r/todayilearned/hot.json?limit=12",   # 冷知识
-    "https://www.reddit.com/r/space/hot.json?limit=10",           # 太空
-    "https://www.reddit.com/r/Music/hot.json?limit=10",           # 音乐
-    "https://www.reddit.com/r/television/hot.json?limit=10",      # 剧集
+    # RSS·全球可达·免注册·维度广（主力，每家媒体都有、极稳）
+    "https://www.theverge.com/rss/index.xml",                     # 科技/数码
+    "https://feeds.arstechnica.com/arstechnica/index",           # 科技/科学
+    "https://www.sciencedaily.com/rss/top/science.xml",          # 科学
+    "https://www.polygon.com/rss/index.xml",                     # 游戏
+    "https://feeds.feedburner.com/ign/games-all",                # 游戏
+    "https://pitchfork.com/feed/feed-news/rss",                  # 音乐
+    "https://www.eater.com/rss/index.xml",                       # 美食
+    "https://www.atlasobscura.com/feeds/latest",                 # 旅行/趣闻
+    "https://www.mentalfloss.com/feeds/all",                     # 冷知识/趣闻
+    "https://lithub.com/feed/",                                   # 读书/文学
+    "https://www.smithsonianmag.com/rss/latest_articles/",       # 人文/科普
     # 国产·DNS 能解析到时才用（香港机房常解析不到 → 自动跳过，不影响其它源）
     "https://api.vvhan.com/api/hotlist/all",
     "https://api-hot.imsyy.top/all",
@@ -216,10 +222,41 @@ def _has_cjk(s: str) -> bool:
     return bool(re.search(r"[一-鿿]", s or ""))
 
 
+def _local(tag: str) -> str:
+    """剥掉 XML 命名空间前缀，只留本地标签名（RSS/Atom 命名空间五花八门，按 local-name 匹配最稳）。"""
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def _parse_rss(text: str) -> list[dict]:
+    """解析 RSS/Atom XML → [{title, url}]。兼容 RSS<item><title><link>text 与 Atom<entry><title><link href>。
+    命名空间无关（按 local-name 匹配）。无法解析/无条目 → []。纯函数、便于测试。"""
+    try:
+        root = ET.fromstring(text)
+    except Exception:
+        return []
+    out: list[dict] = []
+    for node in root.iter():
+        if _local(node.tag) not in ("item", "entry"):
+            continue
+        title, url = "", ""
+        for ch in node:
+            lt = _local(ch.tag)
+            if lt == "title" and not title:
+                title = "".join(ch.itertext()).strip()
+            elif lt == "link" and not url:
+                url = (ch.get("href") or ch.text or "").strip()   # Atom 用 href 属性、RSS 用文本
+        if title:
+            out.append({"title": title[:120], "url": url})
+    return out
+
+
 async def _fetch_generic(cl: Any, ep: str) -> list[dict]:
     r = await asyncio.wait_for(cl.get(ep, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
     r.raise_for_status()
-    return list(_iter_hot_records(r.json()))
+    try:
+        return list(_iter_hot_records(r.json()))   # 先按 JSON 热榜解
+    except Exception:
+        return _parse_rss(r.text)                   # 失败 → 当 RSS/Atom XML 解（媒体订阅源）
 
 
 async def _fetch_hackernews(cl: Any, top_n: int = 15) -> list[dict]:
