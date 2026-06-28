@@ -1,7 +1,7 @@
 import logging
 import os
 
-from .repository import InMemoryRepository, MemoryRepository
+from .repository import InMemoryRepository, MemoryRepository, stable_invite_code
 
 log = logging.getLogger("micall.memory")
 

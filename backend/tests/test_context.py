@@ -158,6 +158,38 @@ class TestAssembler(unittest.TestCase):
         self.assertNotIn("身份", _extract_user_facts("我是说你别熬夜了"))
         self.assertEqual(_extract_user_facts("今天天气不错"), {})
 
+    def test_extract_gender_when_self_reported(self):
+        # 语音里本该一耳朵听出的性别，ASR 丢了 → TA 一旦明说就抓住（治「把男用户叫小姐」）。
+        from micall.context.assembler import _extract_user_facts
+        self.assertEqual(_extract_user_facts("我是男的")["性别"], "男")
+        self.assertEqual(_extract_user_facts("我是个男生")["性别"], "男")
+        self.assertEqual(_extract_user_facts("人家是女孩子啦")["性别"], "女")
+        self.assertEqual(_extract_user_facts("我女的")["性别"], "女")
+        # 性别单列，不再污染成 身份=男
+        self.assertNotIn("身份", _extract_user_facts("我是男的"))
+        # 「我女朋友/我男同事」不是自述性别 → 不捕
+        self.assertNotIn("性别", _extract_user_facts("我女朋友今天生日"))
+        self.assertNotIn("性别", _extract_user_facts("我男同事说的"))
+        self.assertNotIn("性别", _extract_user_facts("今天天气不错"))
+
+    def test_addressee_guard_in_prefix(self):
+        # 「别替 TA 安身份」：看不见 TA → 不臆断性别、不安角色身份的约束进 prefix（治凌薇叫男用户「小姐」）。
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "凌薇"}, "persona": {}})
+        sysmsg = ContextAssembler(char).build(
+            character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("别替 TA 安身份", sysmsg)
+        self.assertIn("别臆断", sysmsg)
+        self.assertIn("小姐", sysmsg)   # 明确点名禁用的性别称呼之一
+
+    def test_autonomous_state_not_projected_onto_user(self):
+        # 自主态外溢治理：角色自己的事不能把 TA 拽进去当当事人（治「问用户自己封面拍摄的模特档期」）。
+        from micall.context.models import AutonomousState
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "凌薇"}, "persona": {}})
+        a = ContextAssembler(char, autonomous=AutonomousState(recent_experience="封面拍摄临时换模特"))
+        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("是【你自己】的事", sysmsg)
+        self.assertIn("更不是其中的一员", sysmsg)
+
     def test_within_call_learning_injected_into_turn(self):
         # 通话中现学：用户说了名字/在做，下一轮 system+user 里应带上，让角色当通就懂你（不进缓存）。
         a = ContextAssembler(CharacterRuntime.from_spec({

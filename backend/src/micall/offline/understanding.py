@@ -52,7 +52,8 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "new_facts(数组；每项可以是字符串，或 {text, importance} 对象，importance 取 0~1——"
         "TA 的重要事/在意的人事物/承诺给高分，闲聊寒暄给低分，便于日后优先想起要紧事)、"
         # fact_profile / interaction_prefs：过去 prompt 读了却没人写 → 永远空。现在补上，让角色跨通真记得你是谁、怎么待你舒服。
-        "fact_profile(对象{键:值}；TA 的客观信息——名字/称呼、职业、所在地、在忙的事、重要的人、纪念日等，"
+        "fact_profile(对象{键:值}；TA 的客观信息——名字/称呼、性别（只在 TA 明确说过、或对话里铁证如山时记，"
+        "如「男」「女」；一丝不确定就别写，宁可空着也别替 TA 猜性别）、职业、所在地、在忙的事、重要的人、纪念日等，"
         "只记 TA【明确说过】的，键用简短中文；在现有 fact_profile 上增改、别删，没新信息就原样返回或省略)、"
         "interaction_prefs(对象{键:值}；怎么对待 TA 更舒服——如 喜欢被鼓励/不爱被催/喜欢直接说重点，只记有依据的)、"
         "insights([{insight,confidence,evidence}]，印证或推翻旧判断、暴露新模式)、"

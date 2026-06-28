@@ -848,18 +848,30 @@ class PgRepository(MemoryRepository):
 
     # ── 邀请 ──
     def get_invite_code(self, user_id) -> str:
-        import secrets
+        # 「邀请码总是变来变去」根因：旧实现随机生成后直接 INSERT，但① user 行缺失会触发外键失败 →
+        # 整个 try 抛错、每次都现编一个新随机码；② 随机码只要某次没写成功就丢、下次又是新的。
+        # 改成：先按 inviter_id 读已存的（老用户已分享出去的码原样保留）；没有则用【确定性码】（同一个人永远同一个，
+        # 即便写库失败也不漂移）+ ensure_user 前置补外键 + ON CONFLICT 幂等写，再读回库里真正持久化的那个。
+        from .repository import stable_invite_code
         try:
             with self.pool.connection() as c:
                 r = c.execute("SELECT code FROM invites WHERE inviter_id=%s", (user_id,)).fetchone()
                 if r:
                     return r[0]
-                code = "MI" + secrets.token_hex(3).upper()
-                c.execute("INSERT INTO invites (code, inviter_id) VALUES (%s,%s)", (code, user_id))
-                return code
+                self.ensure_user(user_id)   # 外键前置：user 行缺失正是旧码反复重生成的元凶之一
+                for attempt in range(4):     # 确定性码；万一撞到别人已占用的 code 主键，加盐重算换一个
+                    code = stable_invite_code(user_id, attempt)
+                    c.execute(
+                        "INSERT INTO invites (code, inviter_id) VALUES (%s,%s) ON CONFLICT (code) DO NOTHING",
+                        (code, user_id),
+                    )
+                    r2 = c.execute("SELECT code FROM invites WHERE inviter_id=%s", (user_id,)).fetchone()
+                    if r2:
+                        return r2[0]
+                return stable_invite_code(user_id)   # 理论到不了；兜底也给确定码、绝不每次变
         except Exception as e:
             log.warning("get_invite_code 失败：%r", e)
-            return ""
+            return stable_invite_code(user_id)   # 出错也返回确定码（不再返回空/随机）
 
     def apply_invite(self, invitee_id, code, reward_seconds) -> tuple[bool, str]:
         code = (code or "").strip().upper()

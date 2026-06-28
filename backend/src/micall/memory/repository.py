@@ -21,6 +21,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def stable_invite_code(user_id: str, attempt: int = 0) -> str:
+    """邀请码 = 账号的【确定性函数】，不是随机值。第一性原理：随机码必须靠写库/内存才稳定，
+    一旦 user 行缺失(外键失败)、进程重启、或换了实例，旧码就丢、下次现编一个新的 → 用户看到「邀请码
+    总是变来变去」。改成从 user_id 派生：同一个人永远算出同一个码，天生不漂移、不依赖任何一次写库成功。
+    blake2b 4 字节 ≈ 40 亿空间，撞码概率可忽略；万一撞到别人已占用的码，调用方用 attempt 加盐重算换一个。
+    带固定盐避免直接从 user_id 枚举（邀请码本就公开分享，安全性要求低，够用）。"""
+    import hashlib
+    key = f"{user_id}#{attempt}".encode("utf-8") if attempt else str(user_id).encode("utf-8")
+    return "MI" + hashlib.blake2b(key, salt=b"micall-inv", digest_size=4).hexdigest().upper()
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
     """余弦相似度；维度不一致/零向量 → 0。"""
     if not a or not b or len(a) != len(b):
@@ -687,8 +698,14 @@ class InMemoryRepository(MemoryRepository):
     def get_invite_code(self, user_id) -> str:
         code = self._invite_by_user.get(user_id)
         if not code:
-            import secrets
-            code = "MI" + secrets.token_hex(3).upper()
+            # 确定性派生：重启/换实例也算出同一个码，不再「变来变去」。撞到别人的码就加盐重算。
+            for attempt in range(4):
+                cand = stable_invite_code(user_id, attempt)
+                if cand not in self._invite_owner or self._invite_owner[cand] == user_id:
+                    code = cand
+                    break
+            else:
+                code = stable_invite_code(user_id)
             self._invite_by_user[user_id] = code
             self._invite_owner[code] = user_id
         return code

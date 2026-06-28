@@ -127,5 +127,42 @@ class TestInviteRewardSeconds(unittest.TestCase):
         self.assertEqual(auth.invite_reward_seconds(), 60 * 60)
 
 
+class TestInviteCodeStable(unittest.TestCase):
+    """邀请码必须稳定（用户实测「总是变来变去」）。确定性派生 → 同一个人永远同一个码。"""
+
+    def test_same_user_same_code_across_calls(self):
+        from micall.memory import InMemoryRepository
+
+        r = InMemoryRepository()
+        c1 = r.get_invite_code("u1")
+        c2 = r.get_invite_code("u1")
+        self.assertEqual(c1, c2)
+        self.assertTrue(c1.startswith("MI") and len(c1) >= 6)
+
+    def test_survives_restart_new_instance(self):
+        # 「变来变去」根因：随机码靠持久化才稳定，重启/换实例即丢。确定性码跨实例一致。
+        from micall.memory import InMemoryRepository, stable_invite_code
+
+        r1, r2 = InMemoryRepository(), InMemoryRepository()   # 模拟进程重启 = 全新实例
+        self.assertEqual(r1.get_invite_code("u1"), r2.get_invite_code("u1"))
+        self.assertEqual(r1.get_invite_code("u1"), stable_invite_code("u1"))
+
+    def test_different_users_differ(self):
+        from micall.memory import InMemoryRepository
+
+        r = InMemoryRepository()
+        self.assertNotEqual(r.get_invite_code("alice"), r.get_invite_code("bob"))
+
+    def test_collision_resalts(self):
+        # 撞到别人已占用的码 → 加盐换一个，绝不把两人指向同一个码（否则邀请归属串号）。
+        from micall.memory import InMemoryRepository, stable_invite_code
+
+        r = InMemoryRepository()
+        r._invite_owner[stable_invite_code("victim")] = "someone_else"   # 预占 victim 的首选码
+        code = r.get_invite_code("victim")
+        self.assertNotEqual(code, stable_invite_code("victim"))
+        self.assertEqual(r._invite_owner[code], "victim")
+
+
 if __name__ == "__main__":
     unittest.main()
