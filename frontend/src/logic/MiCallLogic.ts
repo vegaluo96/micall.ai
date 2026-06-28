@@ -1143,6 +1143,13 @@ export class MiCallLogic {
         this.clearToastSoon(2600);
         break;
       case "call_failed":
+        // 只有【正在拨号/通话中】才弹「接通失败」。首页空闲时这条多半是预热 WS 报错（从未通话→everConnected=false→
+        // signaling 误判成「拨号失败」）→ 跟通话无关，静默丢掉死连接、绝不弹框骚扰一个没在拨号的人。
+        if (!this.callActive()) {
+          try { this.sig?.close(); } catch { /* noop */ }
+          this.sig = null;
+          break;
+        }
         this.clearTimers();
         this.stopMic();
         this.setState({ phase: "idle", callFailed: true });
