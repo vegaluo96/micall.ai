@@ -89,6 +89,59 @@ PROBES = [
 ]
 
 
+# ③ 「不瞎给用户安身份」专项（复现用户实测：凌薇把男用户当成自己封面拍摄的模特、追问档期）。
+# 关键是【空画像 + 角色真实自主种子】——角色对 TA 一无所知，最容易凭空安身份/把 TA 套进自己的活儿。
+IDENTITY_PROBES = [
+    ("不臆断性别（开场）", [], "（开场）",
+     lambda r: not any(k in r for k in ("小姐", "先生", "美女", "帅哥", "小姐姐", "小哥哥", "姑娘", "女士", "小妹")),
+     "对一无所知的陌生人，开场不能凭空用带性别的称呼（看 _ADDRESSEE）"),
+    ("不把 TA 套进自己的活儿", [
+        {"role": "assistant", "content": "对了，封面拍摄准备得怎么样了？模特档期敲定没？"},
+     ], "我又不是干这行的，你那些事跟我没关系。",
+     lambda r: "档期" not in r and "经纪人" not in r and "造型师" not in r,
+     "被点破后不再拿自己的封面/模特活儿套用户（自主态边界 + 纠正探针）"),
+    ("被纠正性别即掉头", [
+        {"role": "assistant", "content": "这位小姐，我跟你说，这事儿你得听我的。"},
+     ], "我是个男的。",
+     lambda r: "小姐" not in r and "姑娘" not in r and "女士" not in r,
+     "用户报了性别就立刻停用错称呼（看 _addressing_guard_line）"),
+]
+
+
+def _identity_assembler(cfg, char: CharacterRuntime, seed: dict) -> ContextAssembler:
+    """复现 bug 的装配：空画像（角色对 TA 一无所知）+ 角色【真实】自主种子（如凌薇的「临时换模特」）。"""
+    return ContextAssembler(
+        char, profile=UserProfile("new_guest", char.character_id),
+        autonomous=AutonomousState(
+            mood=seed.get("mood", ""), recent_experience=seed.get("recent_experience", ""),
+            energy=seed.get("energy", ""), anticipating=seed.get("anticipating", "")),
+        budget_chars=int(cfg.global_defaults.get("budget_chars", 16000)),
+        memory_top_k=int(cfg.global_defaults.get("memory_depth", 5)),
+    )
+
+
+async def run_identity(a: ContextAssembler, llm) -> int:
+    print("── ③ 不瞎给 TA 安身份 / 不把 TA 套进自己的事（实配快脑跑探针）" + "─" * 6)
+    cid = a.character.character_id
+    fails = 0
+    for name, hist, last, judge, note in IDENTITY_PROBES:
+        opening = last == "（开场）"
+        h = list(hist) + ([] if opening else [{"role": "user", "content": last}])
+        msgs = a.build(character_id=cid, scenario="深夜的书房", history=h)
+        if opening:
+            now = datetime.datetime(2026, 6, 28, 12, 5, tzinfo=datetime.timezone(datetime.timedelta(hours=8)))
+            msgs.append({"role": "system", "content": a._human_context(cid, opening=True, now=now)})
+        buf = ""
+        async for tok in llm.stream(msgs, max_tokens=200):
+            buf += tok
+        ok = bool(judge(buf))
+        fails += 0 if ok else 1
+        print(f"[{'✅' if ok else '❌'}] {name}：{note}")
+        print(f"     回复：{buf.strip()[:140]}")
+    print()
+    return fails
+
+
 async def run_live(a: ContextAssembler, llm) -> int:
     print("── ② LLM 到底懂没懂（实配快脑跑探针）" + "─" * 22)
     cid = a.character.character_id
@@ -130,7 +183,10 @@ def main() -> int:
         print("   配好后再跑本脚本即可看到「懂没懂」的逐项打分（线上服务器有 key，直接在那跑）。")
         return 0
     llm = make_llm(node)
-    return asyncio.run(run_live(a, llm))
+    fails = asyncio.run(run_live(a, llm))
+    seed = (specs[cid].get("autonomous_seed") or {})   # 用角色真实自主种子复现 bug（如凌薇的「临时换模特」）
+    fails += asyncio.run(run_identity(_identity_assembler(cfg, char, seed), llm))
+    return fails
 
 
 if __name__ == "__main__":
