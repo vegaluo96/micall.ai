@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import itertools
 import json
 import logging
 import os
@@ -150,17 +151,19 @@ async def fetch_weather(city: str) -> dict | None:
 _HOT_ENDPOINTS_DEFAULT = (
     # JSON·全球可达·免 key
     "https://dev.to/api/articles?top=7",                          # 科技/开发
-    "https://lobste.rs/hottest.json",                             # 科技
-    # RSS·全球可达·免注册·维度广（主力，每家媒体都有、极稳）
+    # RSS·全球可达·免注册·维度广（主力，每家媒体都有、极稳；实测香港机房全绿）
     "https://www.theverge.com/rss/index.xml",                     # 科技/数码
     "https://feeds.arstechnica.com/arstechnica/index",           # 科技/科学
+    "https://www.wired.com/feed/rss",                             # 科技/科学
     "https://www.sciencedaily.com/rss/top/science.xml",          # 科学
-    "https://www.polygon.com/rss/index.xml",                     # 游戏
+    "https://www.nasa.gov/feed/",                                 # 科学/太空
     "https://feeds.feedburner.com/ign/games-all",                # 游戏
+    "https://kotaku.com/rss",                                     # 游戏
     "https://pitchfork.com/feed/feed-news/rss",                  # 音乐
+    "https://variety.com/feed/",                                  # 影视
     "https://www.eater.com/rss/index.xml",                       # 美食
     "https://www.atlasobscura.com/feeds/latest",                 # 旅行/趣闻
-    "https://www.mentalfloss.com/feeds/all",                     # 冷知识/趣闻
+    "https://lifehacker.com/rss",                                 # 生活
     "https://lithub.com/feed/",                                   # 读书/文学
     "https://www.smithsonianmag.com/rss/latest_articles/",       # 人文/科普
     # 国产·DNS 能解析到时才用（香港机房常解析不到 → 自动跳过，不影响其它源）
@@ -220,6 +223,42 @@ def _parse_wiki_onthisday(data: Any) -> list[dict]:
 def _has_cjk(s: str) -> bool:
     """含中日韩汉字 → True。没改写脑(不翻译)时只用中文标题；外文无法翻译/无法用中文关键词闸 vet，丢弃。"""
     return bool(re.search(r"[一-鿿]", s or ""))
+
+
+# ── 话题维度（多元多维）：每条热点打一个【领域标签】，角色按【自己兴趣】检索引用 ──────────────
+# 第一性原理：真人只对【对味的】新鲜事来劲——美食号聊吃的、影迷聊电影。相关性在说话时免费发生。
+_CATS = ("科技", "科学", "影视", "剧集", "游戏", "音乐", "美食", "旅行", "读书", "动漫", "体育", "生活", "趣闻")
+# 源 URL 关键字 → 兜底领域（改写脑没给标签 / 无改写脑时用）。
+_SRC_CAT = (
+    ("dev.to", "科技"), ("theverge", "科技"), ("arstechnica", "科技"), ("wired", "科技"),
+    ("ycombinator", "科技"), ("hacker", "科技"), ("lobste", "科技"),
+    ("sciencedaily", "科学"), ("nasa", "科学"), ("smithsonian", "科学"),
+    ("ign", "游戏"), ("kotaku", "游戏"), ("polygon", "游戏"),
+    ("pitchfork", "音乐"), ("variety", "影视"),
+    ("eater", "美食"), ("atlasobscura", "旅行"), ("lifehacker", "生活"),
+    ("lithub", "读书"), ("mentalfloss", "趣闻"), ("wikipedia", "趣闻"), ("维基", "趣闻"),
+)
+
+
+def _cat_for(url: str, given: str = "") -> str:
+    """领域标签：优先用改写脑给的（须在白名单内），否则按源 URL 关键字兜底，再不行『生活』。纯函数。"""
+    g = (given or "").strip()
+    if g in _CATS:
+        return g
+    u = (url or "").lower()
+    for key, cat in _SRC_CAT:
+        if key in u:
+            return cat
+    return "生活"
+
+
+def _meaningful(text: str) -> bool:
+    """改写后的话题是否【有内容】：剔掉 ""/"."/"1%"/"—"/"100%" 这类残渣（截图里漏出来的垃圾改写）。
+    至少 3 字符且含中文或≥2 个字母（不是纯标点/数字/符号）。纯函数、便于测试。"""
+    t = (text or "").strip()
+    if len(t) < 3:
+        return False
+    return bool(re.search(r"[一-鿿]", t) or len(re.findall(r"[A-Za-z]", t)) >= 2)
 
 
 def _local(tag: str) -> str:
@@ -333,21 +372,26 @@ async def fetch_hot_items(endpoints: Any = None, limit: int = 60,
     cl = _client()
     jobs = _world_jobs(cl, endpoints, now, wiki)
     results = await asyncio.gather(*[c for _, c in jobs], return_exceptions=True)
-    seen: set[str] = set()
-    items: list[dict] = []
+    per_source: list[list[dict]] = []
     for res in results:
         if isinstance(res, BaseException):
             log.info("数据源拉取失败：%r", res)
             continue
-        for rec in res:
+        per_source.append(list(res))
+    # 【轮转交错·round-robin】：每源轮流取一条，池子才【多元】——不被单一大源(dev.to 一家 30 条)淹没
+    # （截图里就是被 dev.to 刷屏）。第一性原理：世界是多维的，话题池也该多维。
+    seen: set[str] = set()
+    items: list[dict] = []
+    for col in itertools.zip_longest(*per_source):
+        for rec in col:
+            if not isinstance(rec, dict):
+                continue
             t = rec.get("title", "")
             if t and t not in seen:
                 seen.add(t)
                 items.append(rec)
-            if len(items) >= limit:
-                break
-        if len(items) >= limit:
-            break
+                if len(items) >= limit:
+                    return items[:limit]
     return items[:limit]
 
 
@@ -371,17 +415,28 @@ async def probe_sources(endpoints: Any = None, now: datetime.datetime | None = N
     return list(await asyncio.gather(*[_probe(lbl, c) for lbl, c in jobs]))
 
 
+# 话题滚动池（会更新、会遗忘、可检索）：第一性原理——世界库该是【一池多维素材】供角色检索引用，
+# 而非每天一小撮即弃。不怕多、怕少：池子大、角色才有得挑得对味的；旧的几天后自然淡出（衰减遗忘）。
+_TOPIC_FETCH_CAP = 50      # 单次刷新最多沉淀几条（够大、够多维）
+_TOPIC_REWRITE_CAND = 60   # 送进改写脑的候选条数（它会丢掉不安全/不合适的，留够 ~50）
+_TOPIC_POOL_CAP = 120      # 滚动池封顶（再大也无妨，超了按新鲜度遗忘最旧的）
+_TOPIC_AGE_DAYS = 3        # 话题在池子里最多活几天（更老=旧闻，淡出；天气还看当天，话题看几天）
+
+
 def _rewrite_prompt(titles: list[str]) -> list[dict]:
     numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
+    cats = "/".join(_CATS)
     sys = (
         "下面是今天来自各处的【真实热搜/热门标题】（中英文混合），给一群【中文】虚拟陪伴角色当聊天话题。逐条处理：\n"
-        "• 适合轻松闲聊的 → 【翻译成中文（若是外文）并改写成口语闲聊】，15~40 字，忠于原意、绝不新增/编造/夸大；\n"
+        "• 适合轻松闲聊的 → 【翻译成中文（若是外文）并改写成口语闲聊】，15~40 字，忠于原意、绝不新增/编造/夸大，"
+        "并给它标一个【领域】（从这些里选一个：" + cats + "）；\n"
         "• 涉及政治/时政/领导人/灾难/事故/死亡/暴力/血腥/色情/犯罪/疾病/股市/负面/敏感的 → 那一条输出空字符串 \"\""
         "（直接丢弃，不要翻译、不要改写）；\n"
-        "• 看不懂、太小众、或不适合闲聊的 → 也输出 \"\"。\n"
-        "严格只输出 JSON：{lines:[...]}，lines 的【条数和顺序必须与输入完全一致】，逐条一一对应（丢弃的位置放 \"\"）。"
+        "• 看不懂、太小众、纯标点数字、或不适合闲聊的 → 也输出 \"\"。\n"
+        "严格只输出 JSON：{lines:[...], cats:[...]}，两个数组的【条数和顺序都必须与输入完全一致】，逐条一一对应"
+        "（丢弃的位置 lines 放 \"\"、cats 也放 \"\"）。"
     )
-    user = f"真实标题（按编号）：\n{numbered}\n\n逐条处理（翻译+改写或丢弃），条数顺序与上面完全一致。"
+    user = f"真实标题（按编号）：\n{numbered}\n\n逐条处理（翻译+改写+标领域，或丢弃），两数组条数顺序与上面完全一致。"
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
 
@@ -391,28 +446,33 @@ async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any 
     没配改写脑：外文无法翻译、也无法用中文关键词闸 vet → 只用中文标题原样（仍真实、仍安全）。"""
     items = await fetch_hot_items(endpoints, now=now)
     safe = [it for it in items if _is_safe(it["title"])]        # 先过中文关键词安全闸（对外文几乎不拦，靠下面改写脑兜）
+    date_str = _date(now)
 
-    def _cn_only(src: list[dict]) -> list[dict]:
-        return [{"text": it["title"][:90], "url": it["url"]} for it in src if _has_cjk(it["title"])][:14]
+    def _cn_only(src: list[dict]) -> list[dict]:                # 无改写脑：只用中文标题原样（外文没法翻译/vet，丢）
+        return [{"text": it["title"][:90], "url": it["url"], "cat": _cat_for(it["url"]), "date": date_str}
+                for it in src if _has_cjk(it["title"]) and _meaningful(it["title"])][:_TOPIC_FETCH_CAP]
 
     if not safe:
         return []
     if rewrite_llm is None:
-        return _cn_only(safe)                                   # 无改写脑 → 只用中文标题（外文丢弃，安全）
-    cand = safe[:24]                                            # 多给候选，改写脑会丢掉不安全/不合适的，留够 ~14
+        return _cn_only(safe)
+    cand = safe[:_TOPIC_REWRITE_CAND]                          # 多给候选，改写脑丢掉不安全/不合适的，留够一池
     titles = [it["title"] for it in cand]
     try:
         async def _run() -> str:
             return "".join([t async for t in rewrite_llm.stream(
-                _rewrite_prompt(titles), max_tokens=2000, response_format={"type": "json_object"})])
+                _rewrite_prompt(titles), max_tokens=4000, response_format={"type": "json_object"})])
         raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
-        lines = [str(x).strip() for x in (parse_profile_update(raw).get("lines") or [])]
-        if len(lines) == len(titles):                          # 对齐成功：丢弃的位置是 ""，跳过它、其余配 URL
+        upd = parse_profile_update(raw)
+        lines = [str(x).strip() for x in (upd.get("lines") or [])]
+        cats = [str(x).strip() for x in (upd.get("cats") or [])]
+        if len(lines) == len(titles):                          # 对齐成功：丢弃的位置是 ""，跳过它、其余配 URL+领域
             out: list[dict] = []
-            for text, it in zip(lines, cand):
-                if text and _is_safe(text):                    # 改写后再过一道中文关键词闸
-                    out.append({"text": text[:90], "url": it["url"]})
-                if len(out) >= 14:
+            for i, (text, it) in enumerate(zip(lines, cand)):
+                if text and _meaningful(text) and _is_safe(text):   # 改写后再过一道：垃圾残渣闸 + 中文关键词闸
+                    cat = cats[i] if i < len(cats) else ""
+                    out.append({"text": text[:90], "url": it["url"], "cat": _cat_for(it["url"], cat), "date": date_str})
+                if len(out) >= _TOPIC_FETCH_CAP:
                     break
             return out
     except Exception as e:
@@ -423,8 +483,8 @@ async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any 
 # ── 全站共享世界库（内存，按天）：每天批量刷一次，角色只读、零联网 ────────────────────────
 #  weather       : {city: line}            今天每城的天气一句话（快读）
 #  weather_hist  : {city: [{date,temp,code}…]}  最近几天的滚动观测——【天气连续性】的底料（昨天 vs 今天）
-#  topics        : [str]                   今天的真实热点话题池（已改写成口语，给 assembler/Layer C 用）
-#  topics_src     : [{text,url}]            同一池子带【原文链接】（后台展示、可点开核对真实性）
+#  topics        : [str]                   滚动话题池的文本（已改写成口语，给 assembler/Layer C 用）
+#  topics_src     : [{text,url,cat,date}]   同一【滚动池】带原文链接+领域标签+日期（后台核对真实性、角色按兴趣检索、衰减遗忘）
 _WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": [], "topics_src": []}
 _HIST_DAYS = 4   # 每城最多留几天观测（够算「这两天/前两天」的变化感即可，不堆历史）
 
@@ -495,13 +555,39 @@ async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: A
         if obs:
             weather[c] = obs["line"]
             _record_weather(c, date_str, obs)   # 连续性底料：记下今天的温度/天气码
-    topics_src = await fetch_topics(search_llm, now, hot_endpoints)   # [{text,url}] 真实热点
-    topics = [t["text"] for t in topics_src]
+    fresh = await fetch_topics(search_llm, now, hot_endpoints)   # 今天新抓的 [{text,url,cat,date}]
+    _merge_topics(fresh, now)                                    # 并进滚动池（去重）+ 衰减(丢旧闻) + 封顶(遗忘最旧)
+    pool = _WORLD["topics_src"]
     _WORLD["date"], _WORLD["weather"] = date_str, weather
-    _WORLD["topics"], _WORLD["topics_src"] = topics, topics_src
+    _WORLD["topics"] = [t["text"] for t in pool]
     _save_store()
-    log.info("🌍 世界库刷新：%d 城真实天气 + %d 条真实热点（date=%s）", len(weather), len(topics), date_str)
-    return {"cities": len(weather), "topics": len(topics)}
+    log.info("🌍 世界库刷新：%d 城真实天气 + 本次新增 %d 条 → 滚动池 %d 条（date=%s）",
+             len(weather), len(fresh), len(pool), date_str)
+    return {"cities": len(weather), "topics": len(pool), "fetched": len(fresh)}
+
+
+def _topic_age(t: dict, now: datetime.datetime) -> int:
+    """话题在池子里的天数（按 date 字段算）。无法解析 → 视为很旧（淘汰）。"""
+    try:
+        d = datetime.date.fromisoformat(str(t.get("date", "")))
+        return (now.date() - d).days
+    except (ValueError, TypeError):
+        return 999
+
+
+def _merge_topics(fresh: list[dict], now: datetime.datetime) -> None:
+    """把今天新抓的话题并进【滚动池】：按文本去重（新的覆盖、刷新日期），衰减（丢超龄旧闻），封顶（遗忘最旧）。
+    第一性原理：世界库是个【会更新会忘】的池子——今天的新鲜事进来、几天前的旧闻淡出，给角色一池可检索的素材。"""
+    by_text: dict[str, dict] = {}
+    for t in (_WORLD.get("topics_src") or []):
+        if isinstance(t, dict) and t.get("text"):
+            by_text[t["text"]] = t
+    for t in (fresh or []):                                      # 新抓的覆盖旧的（含刷新后的 date）
+        if isinstance(t, dict) and t.get("text"):
+            by_text[t["text"]] = t
+    merged = [t for t in by_text.values() if _topic_age(t, now) < _TOPIC_AGE_DAYS]   # 衰减：丢旧闻
+    merged.sort(key=lambda t: str(t.get("date", "")), reverse=True)                  # 封顶遗忘：留最新鲜的
+    _WORLD["topics_src"] = merged[:_TOPIC_POOL_CAP]
 
 
 def _fresh(now: datetime.datetime) -> bool:
@@ -545,23 +631,31 @@ def weather_for(city: str, now: datetime.datetime) -> str:
     return _WORLD["weather"].get(city, "") if (city and _fresh(now)) else ""
 
 
+def topics_pool_now(now: datetime.datetime) -> list[dict]:
+    """读滚动话题池里【还新鲜（<_TOPIC_AGE_DAYS 天）】的条目 [{text,url,cat,date}]：给角色按兴趣检索、给后台展示。
+    与天气不同：话题不按当天硬过期，而是多日滚动+衰减——跨过午夜也仍有一池可聊，旧闻才淡出。零联网。"""
+    return [t for t in (_WORLD.get("topics_src") or [])
+            if isinstance(t, dict) and t.get("text") and _topic_age(t, now) < _TOPIC_AGE_DAYS]
+
+
 def topics_now(now: datetime.datetime) -> list[str]:
-    """读共享库里今天的时事话题池（全站共享）；无/过期 → []。零联网。"""
-    return list(_WORLD["topics"]) if _fresh(now) else []
+    """读滚动话题池里还新鲜的话题文本（全站共享）；空 → []。零联网。"""
+    return [t["text"] for t in topics_pool_now(now)]
 
 
 def world_snapshot(now: datetime.datetime) -> dict:
     """给后台「世界库」面板的只读快照：当前【已保存】的日期/话题/各城天气 + 是否当天新鲜 + 是否已开持久化 +
     每城历史天数（连续性底料厚度）。读的是持久化那份，重启/重新部署都还在。零联网。"""
     fresh = _fresh(now)
+    pool = topics_pool_now(now)                  # 滚动池里还新鲜的（多日，跨午夜不空）
     return {
         "date": _WORLD.get("date", ""),
-        "fresh": bool(fresh),                    # 今天是否已刷新（过期=昨天的，前端提示该拉新的）
+        "fresh": bool(fresh),                    # 天气是否当天已刷新（过期=昨天的，前端提示该拉新的）
         "persisted": bool(_STORE_PATH),          # 是否已开磁盘持久化（开了才跨重启不丢）
-        "topics": list(_WORLD.get("topics") or []) if fresh else [],
-        # 带原文链接的真实热点（后台可点开核对——这是话题"真不真"的铁证）
-        "topics_src": [{"text": str(t.get("text", "")), "url": str(t.get("url", ""))}
-                       for t in (_WORLD.get("topics_src") or []) if isinstance(t, dict)] if fresh else [],
+        "topics": [t["text"] for t in pool],
+        # 带原文链接+领域标签的真实热点（后台可点开核对——话题"真不真"的铁证；标签便于一眼看多元度）
+        "topics_src": [{"text": str(t.get("text", "")), "url": str(t.get("url", "")),
+                        "cat": str(t.get("cat", "")), "date": str(t.get("date", ""))} for t in pool],
         "weather": [{"city": c, "line": ln} for c, ln in (_WORLD.get("weather") or {}).items()] if fresh else [],
         "hist_days": {c: len(v) for c, v in (_WORLD.get("weather_hist") or {}).items()},
     }

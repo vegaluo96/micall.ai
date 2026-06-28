@@ -559,21 +559,69 @@ def _autonomous_block(s: AutonomousState) -> str:
 _TOPICS_SHOWN = 8   # 每通最多给角色看几条（池子更大时每通随机抽一小撮 → 不同通/不同角色各取所需、不重样）
 
 
-def _world_topics_line(topics: list[str]) -> str:
-    """全站共享的「最近大家在聊的」时事话题池，折进开场轮 user（不进缓存）。角色按【自己性子】挑感兴趣的
-    自然带出/反问 TA——相关性在说话时免费发生，不靠每角色单独联网。空池 → 空串。
-    池子大就每通【随机抽一小撮】（变量、不尬、不重样）；小池全给。"""
-    pool = [t for t in (topics or []) if str(t).strip()]
-    if not pool:
+# 领域 → 角色兴趣关键词（命中即"对味"）：真人只对【对味的】新鲜事来劲——美食号聊吃的、影迷聊电影。
+_CAT_SYNS = {
+    "科技": ("科技", "数码", "编程", "程序", "技术", "极客", "互联网", "AI", "手机", "电脑"),
+    "科学": ("科学", "天文", "宇宙", "物理", "自然", "研究", "科普"),
+    "影视": ("电影", "影视", "影迷", "导演", "院线", "剧本"),
+    "剧集": ("剧", "追剧", "美剧", "电视剧", "综艺"),
+    "游戏": ("游戏", "玩家", "电竞", "主机", "二游"),
+    "音乐": ("音乐", "乐队", "唱歌", "歌", "乐迷", "专辑", "演唱会"),
+    "美食": ("美食", "吃", "厨", "菜", "烘焙", "吃货", "料理", "咖啡", "甜"),
+    "旅行": ("旅", "旅行", "旅游", "远方", "风景", "户外", "露营"),
+    "读书": ("读书", "书", "文学", "写作", "阅读", "诗"),
+    "动漫": ("动漫", "二次元", "番", "漫画", "动画"),
+    "体育": ("体育", "球", "健身", "运动", "跑步", "篮球", "足球"),
+    "生活": ("生活", "日常", "居家", "收纳", "好物"),
+    "趣闻": ("趣闻", "冷知识", "猎奇", "八卦", "好奇", "奇闻"),
+}
+
+
+def _character_interests(c: CharacterRuntime) -> str:
+    """把角色的兴趣面（爱好/喜欢/核心特质/性子/内核/来历）拼成一坨文本，供话题【按领域检索匹配】。"""
+    p = getattr(c, "persona", {}) or {}
+    parts: list[str] = []
+    for k in ("hobbies", "likes", "core_traits"):
+        v = p.get(k)
+        if isinstance(v, (list, tuple)):
+            parts.extend(str(x) for x in v)
+    for k in ("summary", "core", "background_story", "speaking_style"):
+        v = p.get(k)
+        if isinstance(v, str):
+            parts.append(v)
+    return " ".join(parts)
+
+
+def _pick_topics(items: list, interests: str, k: int) -> list:
+    """从话题池里【按角色兴趣】挑 k 条：领域对味的优先 + 一点随机（serendipity，偶尔也聊到圈外的）。
+    items 可为 [{text,cat}] 或 [str]；后者无领域 → 退化为随机抽样（与旧行为一致）。"""
+    blob = interests or ""
+
+    def score(it) -> float:
+        cat = it.get("cat", "") if isinstance(it, dict) else ""
+        hit = 1.0 if (cat and any(s in blob for s in _CAT_SYNS.get(cat, (cat,)))) else 0.0
+        return hit + random.random() * 0.6   # 对味+1，随机≤0.6 当 serendipity（高随机偶尔能把圈外的顶上来）
+    return sorted(items, key=score, reverse=True)[:k]
+
+
+def _world_topics_line(topics: list, interests: str = "") -> str:
+    """全站共享的滚动话题池，折进开场轮 user（不进缓存）。角色按【自己兴趣检索引用】对味的、像真人分享新闻那样
+    自然带出——相关性在说话时免费发生，不靠每角色单独联网。空池 → 空串。
+    池子大就每通【按兴趣抽一小撮】（对味、不尬、不重样）；小池全给。topics 可为 [{text,cat}] 或 [str]。"""
+    items = [t for t in (topics or []) if (t.get("text") if isinstance(t, dict) else str(t)).strip()]
+    if not items:
         return ""
-    ts = random.sample(pool, _TOPICS_SHOWN) if len(pool) > _TOPICS_SHOWN else list(pool)
+    chosen = _pick_topics(items, interests, _TOPICS_SHOWN) if len(items) > _TOPICS_SHOWN else list(items)
+    texts = [(t.get("text") if isinstance(t, dict) else str(t)) for t in chosen]
     return (
-        "（最近外面大家都在聊的几件事，你【好像在哪刷到过、隐约有点印象】的那种——挑一两件【合你性子、你真会感"
-        "兴趣】的，自然地带出来或顺口问问 TA，别全聊、别一条条念、别像播新闻；都不感兴趣就不用提。"
+        # 第一性原理·真人怎么分享新闻：先冒出自己的反应、再顺势勾连听者，一次一件、口语、不来电就不提。
+        "（你平时刷手机、跟人聊天会撞见外面这些新鲜事——下面是最近的一池。挑【最对你口味、你真有反应】的一两件，"
+        "像真人跟朋友分享那样自然带出来：先冒出你自己的反应或态度（觉得有意思、无语、想试试…），再顺势问问 TA "
+        "怎么看、或勾连上 TA 的事。口语、一次只聊一件、别像念稿/播新闻、别一条条报；这一池都不来电就跳过、别硬找话。"
         # 防编造护栏：当成模糊印象，绝不赌真假、不硬编细节——即使源不准也不穿帮、不尬
-        "⚠这些只是你模糊的印象、未必准：【别咬死具体的名字/数字、别赌咒它千真万确】；TA 要是没听过或纠正你，"
-        "就轻松「哦可能我记串了」带过、顺着 TA 聊，绝不为了证明自己而硬掰细节）："
-        + "；".join(ts) + "\n"
+        "⚠这些只是你模糊的印象、未必准：别咬死具体名字/数字、别赌它千真万确；TA 没听过或纠正你，就轻松一句"
+        "「我可能记串了」带过、顺着 TA 聊，绝不为了证明自己而硬掰细节）："
+        + "；".join(texts) + "\n"
     )
 
 
@@ -699,10 +747,11 @@ class ContextAssembler:
         topics_line = ""
         if opening:
             try:
-                from ..offline.world_context import topics_now
+                from ..offline.world_context import topics_pool_now
                 off = self._client_tz_min if self._client_tz_min is not None else 480
                 _now = datetime.datetime.now(datetime.timezone(datetime.timedelta(minutes=off)))
-                topics_line = _world_topics_line(topics_now(_now))
+                # 传【带领域标签的滚动池】+【本角色兴趣】→ 角色按兴趣检索引用对味的话题（不再随机念）。
+                topics_line = _world_topics_line(topics_pool_now(_now), _character_interests(self.character))
             except Exception:
                 topics_line = ""
         if hist and hist[-1].get("role") == "user":

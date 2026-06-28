@@ -422,11 +422,11 @@
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
                 <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">每日定时</span><span style="color:#C2C4CC;">→</span>
                 <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">真实天气 · open-meteo 按城</span><span style="color:#C2C4CC;">＋</span>
-                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">真实热点 · 免费热榜+维基(带原文链接)</span><span style="color:#C2C4CC;">→</span>
+                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">真实热点 · 多源RSS+HN+维基(轮转交错·多维)</span><span style="color:#C2C4CC;">→</span>
                 <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">安全闸过滤</span><span style="color:#C2C4CC;">→</span>
-                <span style="font-size:12px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:8px;padding:4px 9px;">热点改写脑 · 润成口语</span><span style="color:#C2C4CC;">→</span>
-                <span style="font-size:12px;font-weight:600;color:#F5A623;background:rgba(245,166,35,.1);border-radius:8px;padding:4px 9px;">世界库 · 全站共享</span><span style="color:#C2C4CC;">→</span>
-                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">注入 快脑 / 慢脑</span>
+                <span style="font-size:12px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:8px;padding:4px 9px;">热点改写脑 · 润成口语+标领域</span><span style="color:#C2C4CC;">→</span>
+                <span style="font-size:12px;font-weight:600;color:#F5A623;background:rgba(245,166,35,.1);border-radius:8px;padding:4px 9px;">世界库滚动池 · 多日衰减遗忘</span><span style="color:#C2C4CC;">→</span>
+                <span style="font-size:12px;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:8px;padding:4px 9px;">角色按兴趣检索 → 注入快脑</span>
               </div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;">
                 <span style="font-size:12px;font-weight:600;color:#9277F5;background:rgba(146,119,245,.1);border-radius:8px;padding:4px 9px;">评测脑</span><span style="font-size:11.5px;color:#A8ABB5;">AI 生成角色/内核 · 图灵测试裁判 · 偶发离线调用 · 留空回退慢脑</span>
@@ -541,11 +541,14 @@
                   </div>
                 </sc-if>
                 <sc-if value="{{ hasWorldTopics }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实热点话题（免费热榜 API · 已过安全闸 · 全站共享 · 点「原文」可核对真实性）</div>
+                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实热点话题池（多维领域·全站共享·已过安全闸 · 角色按自己兴趣检索引用、像真人分享新闻那样自然带出 · 多日滚动、旧闻自动淡出 · 点「原文」可核对真实性）</div>
                   <div style="display:flex;flex-direction:column;gap:6px;">
                     <sc-for list="{{ worldTopics }}" as="t" hint-placeholder-count="5">
                       <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:#3A3D47;background:#FAFAFB;border-radius:8px;padding:8px 12px;line-height:1.5;">
-                        <span style="flex:1;min-width:0;">· {{ t.text }}</span>
+                        <sc-if value="{{ t.hasCat }}" hint-placeholder-val="{{ false }}">
+                          <span style="flex:none;font-size:10.5px;font-weight:600;color:#7A5AF0;background:rgba(122,90,240,.09);border-radius:6px;padding:2px 7px;">{{ t.cat }}</span>
+                        </sc-if>
+                        <span style="flex:1;min-width:0;">{{ t.text }}</span>
                         <sc-if value="{{ t.hasUrl }}" hint-placeholder-val="{{ false }}">
                           <a href="{{ t.url }}" target="_blank" rel="noopener noreferrer" style="flex:none;font-size:11.5px;font-weight:600;color:#2E7BFF;text-decoration:none;">原文↗</a>
                         </sc-if>

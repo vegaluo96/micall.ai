@@ -94,6 +94,62 @@ class TestParseRss(unittest.TestCase):
         self.assertEqual(wc._parse_rss(""), [])
 
 
+class TestCategoryAndGarbage(unittest.TestCase):
+    """领域标签（多元可检索）+ 垃圾改写闸（剔掉 '.'/'1%' 残渣）。"""
+
+    def test_cat_for_by_source(self):
+        self.assertEqual(wc._cat_for("https://pitchfork.com/x"), "音乐")
+        self.assertEqual(wc._cat_for("https://www.eater.com/x"), "美食")
+        self.assertEqual(wc._cat_for("https://dev.to/x"), "科技")
+        self.assertEqual(wc._cat_for("https://unknown.example/x"), "生活")   # 兜底
+
+    def test_cat_for_prefers_given(self):
+        self.assertEqual(wc._cat_for("https://dev.to/x", "美食"), "美食")     # 改写脑给的优先
+        self.assertEqual(wc._cat_for("https://dev.to/x", "瞎填的"), "科技")   # 非白名单 → 回退源
+
+    def test_meaningful_drops_garbage(self):
+        self.assertFalse(wc._meaningful("."))
+        self.assertFalse(wc._meaningful("1%"))
+        self.assertFalse(wc._meaningful("—"))
+        self.assertFalse(wc._meaningful("100%"))          # 纯数字符号
+        self.assertTrue(wc._meaningful("杨梅季"))
+        self.assertTrue(wc._meaningful("New iPhone"))
+
+
+class TestRollingPool(unittest.IsolatedAsyncioTestCase):
+    """滚动话题池：多日去重并入 + 衰减(丢旧闻) + 封顶(遗忘最旧)。"""
+
+    def setUp(self):
+        self._snap = json.dumps(wc._WORLD, ensure_ascii=False)
+
+    def tearDown(self):
+        d = json.loads(self._snap)
+        for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
+            wc._WORLD[k] = d[k]
+
+    def test_merge_dedup_and_decay(self):
+        now = datetime.datetime(2026, 6, 28, 12, 0)
+        wc._WORLD["topics_src"] = [
+            {"text": "旧闻A", "url": "u", "cat": "科技", "date": "2026-06-24"},   # 4 天前 → 衰减丢
+            {"text": "近闻B", "url": "u", "cat": "音乐", "date": "2026-06-27"},   # 昨天 → 留
+        ]
+        wc._merge_topics([{"text": "新闻C", "url": "u", "cat": "美食", "date": "2026-06-28"},
+                          {"text": "近闻B", "url": "u2", "cat": "音乐", "date": "2026-06-28"}], now)  # B 去重刷新
+        texts = [t["text"] for t in wc._WORLD["topics_src"]]
+        self.assertNotIn("旧闻A", texts)              # 超龄淡出
+        self.assertIn("新闻C", texts)
+        self.assertEqual(texts.count("近闻B"), 1)     # 去重（不重复堆叠）
+        b = next(t for t in wc._WORLD["topics_src"] if t["text"] == "近闻B")
+        self.assertEqual(b["date"], "2026-06-28")     # 新的覆盖旧的（刷新日期）
+
+    def test_pool_cap(self):
+        now = datetime.datetime(2026, 6, 28, 12, 0)
+        wc._WORLD["topics_src"] = []
+        big = [{"text": f"话题{i}", "url": "u", "cat": "科技", "date": "2026-06-28"} for i in range(200)]
+        wc._merge_topics(big, now)
+        self.assertLessEqual(len(wc._WORLD["topics_src"]), wc._TOPIC_POOL_CAP)   # 封顶遗忘
+
+
 class TestWikiParse(unittest.TestCase):
     """维基『历史上的今天』/『今日热门词条』解析（带真实词条链接）。"""
 
@@ -185,8 +241,12 @@ class TestRefreshAndRead(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res["topics"], 2)
         self.assertEqual(topics_now(NOW), ["端午粽子上市", "新番开播"])  # 全站共享、当天可读
         self.assertEqual(wc.world_snapshot(NOW)["topics_src"][0]["url"], "http://a")  # 带原文链接
-        stale = datetime.datetime(2026, 6, 29, 12, 0)
-        self.assertEqual(topics_now(stale), [])            # 跨天即过期，不串味
+        self.assertTrue(wc.world_snapshot(NOW)["topics_src"][0]["cat"])               # 每条带领域标签
+        # 滚动池：话题不按当天硬过期，多日滚动+衰减——次日仍在（旧闻还能聊），3 天后才淡出。
+        nextday = datetime.datetime(2026, 6, 29, 12, 0)
+        self.assertEqual(topics_now(nextday), ["端午粽子上市", "新番开播"])   # 跨天仍有一池
+        stale = datetime.datetime(2026, 7, 2, 12, 0)       # +4 天 → 超 _TOPIC_AGE_DAYS，淡出
+        self.assertEqual(topics_now(stale), [])
         self.assertEqual(weather_for("没拉到的城", NOW), "")  # 未抓到的城 → 空，降级季节推测
 
 

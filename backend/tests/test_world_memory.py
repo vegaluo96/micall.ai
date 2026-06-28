@@ -44,8 +44,8 @@ class TestWorldStore(unittest.TestCase):
 
     def tearDown(self):
         d = json.loads(self._snap)
-        wc._WORLD["date"], wc._WORLD["weather"] = d["date"], d["weather"]
-        wc._WORLD["weather_hist"], wc._WORLD["topics"] = d["weather_hist"], d["topics"]
+        for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
+            wc._WORLD[k] = d[k]
         wc._STORE_PATH = self._path
 
     def test_weather_trend_reads_history(self):
@@ -76,10 +76,11 @@ class TestWorldStore(unittest.TestCase):
         now = datetime.datetime(2026, 6, 28, 12, tzinfo=TZ)
         wc._WORLD["date"] = wc._date(now)
         wc._WORLD["weather"] = {"上海": "今天上海晴，24°C"}
-        wc._WORLD["topics"] = ["杨梅季"]
+        wc._WORLD["topics_src"] = [{"text": "杨梅季", "url": "http://a", "cat": "美食", "date": wc._date(now)}]
         snap = wc.world_snapshot(now)
         self.assertTrue(snap["fresh"])
-        self.assertEqual(snap["topics"], ["杨梅季"])
+        self.assertEqual(snap["topics"], ["杨梅季"])                 # 文本从滚动池派生
+        self.assertEqual(snap["topics_src"][0]["cat"], "美食")      # 带领域标签
         self.assertEqual(snap["weather"], [{"city": "上海", "line": "今天上海晴，24°C"}])
 
 
@@ -148,8 +149,8 @@ class TestSharedRefsDecay(unittest.TestCase):
 
 # ───────────────────── 话题：维度扩容（池子更大）+ 每通轮换 + 防编造护栏 ─────────────────────
 class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
-    async def test_fetch_cap_raised_to_14(self):
-        # 真实热点 20 条（无改写脑→真实标题原样），上限 14
+    async def test_fetch_pool_under_cap(self):
+        # 真实热点 20 条（无改写脑→真实标题原样）：池子大、不怕多——20 < 上限，全留；每条带原文链接+领域标签
         orig = wc.fetch_hot_items
 
         async def fake(*a, **k):
@@ -159,8 +160,9 @@ class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
             out = await fetch_topics(None, datetime.datetime(2026, 6, 28, tzinfo=TZ))
         finally:
             wc.fetch_hot_items = orig
-        self.assertEqual(len(out), 14)               # 上限 14
+        self.assertEqual(len(out), 20)                    # 20 < _TOPIC_FETCH_CAP(50) → 全留（不怕内容多）
         self.assertTrue(all(o.get("url") for o in out))   # 每条都带原文链接
+        self.assertTrue(all(o.get("cat") for o in out))   # 每条都带领域标签（多元可检索）
 
     def test_big_pool_samples_subset(self):
         pool = [f"话题{chr(0x4E00 + i)}" for i in range(12)]   # 12 个互不相同的中文话题
@@ -178,6 +180,21 @@ class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
 
     def test_empty_pool(self):
         self.assertEqual(_world_topics_line([]), "")
+
+    def test_interest_matched_retrieval(self):
+        # 带领域的池子 + 角色兴趣（爱吃）→ 检索时美食类被顶到前面（真人只对对味的来劲）
+        from micall.context.assembler import _pick_topics
+        pool = [{"text": f"科技{i}", "cat": "科技"} for i in range(8)] + \
+               [{"text": "新出的烤肉店", "cat": "美食"}, {"text": "甜品教程", "cat": "美食"}]
+        picks = _pick_topics(pool, "我是个吃货，最爱研究美食和甜点", 4)
+        cats = [p["cat"] for p in picks]
+        self.assertIn("美食", cats)                    # 对味的被检索出来（不是随机淹没）
+        self.assertEqual(sum(1 for c in cats if c == "美食"), 2)   # 两条美食都对味、都顶上来
+
+    def test_pick_topics_strings_backcompat(self):
+        from micall.context.assembler import _pick_topics
+        out = _pick_topics([f"话题{i}" for i in range(12)], "", 8)   # 纯字符串、无兴趣 → 随机抽 8
+        self.assertEqual(len(out), 8)
 
 
 if __name__ == "__main__":

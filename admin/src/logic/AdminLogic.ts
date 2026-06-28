@@ -968,9 +968,10 @@ export class AdminLogic {
     // 世界库（持久化）常驻面板：主体读【已保存】的 worldLib（重启/重拉都在）；错误/未配提示沿用最近一次拉取结果。
     const wl = s.worldLib;
     const wp = s.worldPull;
-    // 真实热点：每条带【原文链接】（点开即可核对是不是真的——这是话题"真不真"的铁证）。
+    // 真实热点：每条带【原文链接】（点开即可核对是不是真的——这是话题"真不真"的铁证）+【领域标签】（看多元度）。
     const worldTopics = ((wl && wl.topics_src) || []).map((t: any) => ({
-      text: String(t.text || ""), url: String(t.url || ""), hasUrl: !!String(t.url || "") }));
+      text: String(t.text || ""), url: String(t.url || ""), hasUrl: !!String(t.url || ""),
+      cat: String(t.cat || ""), hasCat: !!String(t.cat || "") }));
     const worldWeather = (wl && wl.weather) || [];               // 后端已给 [{city,line}]
     const worldHasResult = !!(wl && (worldTopics.length || worldWeather.length));
     const worldErr = (wp && wp.ok === false) ? (wp.error || "拉取失败") : "";
