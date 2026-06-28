@@ -179,7 +179,27 @@ class TestAssembler(unittest.TestCase):
             character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
         self.assertIn("别替 TA 安身份", sysmsg)
         self.assertIn("别臆断", sysmsg)
-        self.assertIn("小姐", sysmsg)   # 明确点名禁用的性别称呼之一
+        self.assertIn("小姐", sysmsg)        # 明确点名禁用的性别称呼之一
+        self.assertIn("立刻彻底", sysmsg)    # 被纠正后必须彻底放下错设定（治「我是个男的」她还接着叫错）
+
+    def test_addressing_guard_fires_on_correction(self):
+        # 被纠正的当轮强力提醒（per-turn，权重高于上方静态块）：治「我是个男的/我又不是模特」却接着叫错。
+        from micall.context.assembler import _addressing_guard_line
+        self.assertTrue(_addressing_guard_line("我是个男的"))
+        self.assertTrue(_addressing_guard_line("我又不是模特"))
+        self.assertTrue(_addressing_guard_line("别叫我小姐"))
+        self.assertIn("立刻彻底", _addressing_guard_line("我是个男的"))
+        # 普通话不该误伤
+        self.assertEqual(_addressing_guard_line("今天天气不错"), "")
+        self.assertEqual(_addressing_guard_line("我不是很饿"), "")
+
+    def test_correction_guard_folded_into_turn(self):
+        # 纠正提醒要真折进当轮 user（不进缓存），角色当场就能改。
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "凌薇"}, "persona": {}})
+        a = ContextAssembler(char)
+        msgs = a.build(character_id="x", scenario="",
+                       history=[{"role": "user", "content": "我又不是模特"}])
+        self.assertIn("正在纠正你", msgs[-1]["content"])
 
     def test_autonomous_state_not_projected_onto_user(self):
         # 自主态外溢治理：角色自己的事不能把 TA 拽进去当当事人（治「问用户自己封面拍摄的模特档期」）。
@@ -187,8 +207,9 @@ class TestAssembler(unittest.TestCase):
         char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "凌薇"}, "persona": {}})
         a = ContextAssembler(char, autonomous=AutonomousState(recent_experience="封面拍摄临时换模特"))
         sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
-        self.assertIn("是【你自己】的事", sysmsg)
-        self.assertIn("更不是其中的一员", sysmsg)
+        self.assertIn("【你自己】私底下的事", sysmsg)
+        self.assertIn("毫无关系", sysmsg)
+        self.assertIn("档期敲定没", sysmsg)   # 明确点名禁止的「把自己的事拿去问 TA」
 
     def test_within_call_learning_injected_into_turn(self):
         # 通话中现学：用户说了名字/在做，下一轮 system+user 里应带上，让角色当通就懂你（不进缓存）。
