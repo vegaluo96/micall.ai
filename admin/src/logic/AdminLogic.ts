@@ -849,16 +849,20 @@ export class AdminLogic {
     ];
     const byNode = (cost && cost.by_node) || {};   // 今日各节点成本（micros）
     const nodeCost = (k: string) => usd(byNode[k] || 0);
+    // 节点状态：按【后台是否配了 key】判活/未配（之前一律写死「正常」会误导）。评测脑/联网脑是可选节点，未配=未配。
+    const nst = (sec: string) => stp(((s.apiCfg as any)[sec] && (s.apiCfg as any)[sec].key) ? "正常" : "未配置");
     const nodeCards = [
-      { name: "ASR · 语音识别", role: "听", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("asr") },
-      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("llm_fast") },
-      { name: "TTS · 语音合成", role: "说", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("tts") },
-      { name: "表情视频", role: "表情 · 预生成", model: "", ...stp("正常"), latency: "—", calls: "—", cost: "$0.00" },
-      { name: "LLM · 长记忆脑", role: "记 · 通话后", model: "", ...stp("正常"), latency: "—", calls: "—", cost: nodeCost("llm_slow") },
+      { name: "ASR · 语音识别", role: "听 · 通话中", model: "", ...nst("asr"), latency: "—", calls: "—", cost: nodeCost("asr") },
+      { name: "LLM · 快脑", role: "想 · 通话中", model: "", ...nst("fast"), latency: "—", calls: "—", cost: nodeCost("llm_fast") },
+      { name: "TTS · 语音合成", role: "说 · 通话中", model: "", ...nst("tts"), latency: "—", calls: "—", cost: nodeCost("tts") },
+      { name: "Embedding · 记忆检索", role: "记忆向量化/召回 · 通话后", model: "", ...nst("embed"), latency: "—", calls: "—", cost: nodeCost("embedding") },
+      { name: "LLM · 长记忆脑（慢脑）", role: "记 · 通话后", model: "", ...nst("memory"), latency: "—", calls: "—", cost: nodeCost("llm_slow") },
+      { name: "LLM · 评测脑", role: "分析/判定 · AI生成·图灵测试", model: "", ...nst("eval"), latency: "—", calls: "—", cost: nodeCost("llm_eval") },
+      { name: "LLM · 联网脑", role: "时事话题 · 每日离线", model: "", ...nst("search"), latency: "—", calls: "—", cost: nodeCost("llm_search") },
     ];
     const costKpis = [{ label: "今日总成本", value: usd((cost || {}).today_micros) }, { label: "本月总成本", value: usd((cost || {}).month_micros) }, { label: "每小时平均", value: usd((cost || {}).per_hour_micros) }, { label: "每 100 分钟", value: usd((cost || {}).per_100min_micros) }];
-    const NODE_LABEL: Record<string, string> = { llm_fast: "LLM 快脑", tts: "TTS 语音合成", asr: "ASR 语音识别", llm_slow: "记忆整理", embedding: "记忆检索" };
-    const NODE_C: Record<string, string> = { llm_fast: "#6E5CFF", tts: "#E0594F", asr: "#2E7BFF", llm_slow: "#1FA971", embedding: "#9277F5" };
+    const NODE_LABEL: Record<string, string> = { llm_fast: "LLM 快脑", tts: "TTS 语音合成", asr: "ASR 语音识别", llm_slow: "记忆整理", embedding: "记忆检索", llm_eval: "评测脑", llm_search: "联网脑" };
+    const NODE_C: Record<string, string> = { llm_fast: "#6E5CFF", tts: "#E0594F", asr: "#2E7BFF", llm_slow: "#1FA971", embedding: "#9277F5", llm_eval: "#9277F5", llm_search: "#E0954F" };
     const cbpTot = Object.values(byNode).reduce((a: number, b: any) => a + (b || 0), 0) as number;
     const costByProvider = Object.keys(byNode).filter((k) => byNode[k] > 0).sort((a, b) => byNode[b] - byNode[a]).map((k) => ({
       name: NODE_LABEL[k] || k, value: usd(byNode[k]), pct: cbpTot > 0 ? Math.round(byNode[k] / cbpTot * 100) + "%" : "0%", c: NODE_C[k] || "#878B95" }));
