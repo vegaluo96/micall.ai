@@ -369,6 +369,15 @@ def write_limits_from_admin(payload: dict) -> None:
     tmp.replace(OVERRIDES_PATH)
 
 
+# ── 世界库只读快照：后台常驻展示【已保存】的世界库（持久化那份，重启/重拉都在）──
+def read_world_for_admin() -> dict:
+    import datetime
+
+    from ..offline.world_context import world_snapshot
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    return world_snapshot(now)
+
+
 # ── 手动拉取联网脑（世界库）：运营点一下就【真的】跑一遍 open-meteo 天气 + 联网脑话题，亮出真实结果 ──
 def admin_world_refresh() -> dict:
     """立即跑一次全站世界库刷新（与每日定时同一条路），返回【真实拉到的】话题池 + 各城天气，让运营当场看效果。
@@ -623,6 +632,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, read_cost_for_admin())
         if self._route() == "/admin/limits-config":
             return self._json(200, read_limits_for_admin())
+        if self._route() == "/admin/world":
+            return self._json(200, read_world_for_admin())
         if self._route() == "/admin/default-character":
             from .characters_admin import load_default_character
             return self._json(200, {"id": load_default_character()})

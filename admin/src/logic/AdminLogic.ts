@@ -17,7 +17,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadDefaultCharacter, saveDefaultCharacter,
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
-         worldRefresh, loadLimits, saveLimits,
+         worldRefresh, loadWorld, loadLimits, saveLimits,
          generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
@@ -66,7 +66,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, limitsCfg: null,
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, limitsCfg: null,
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -433,6 +433,8 @@ export class AdminLogic {
     if (cc) this.setState({ costCfg: { chars_per_token: String(cc.chars_per_token), llm_fast: String(cc.llm_fast), llm_slow: String(cc.llm_slow), embedding: String(cc.embedding), tts: String(cc.tts), asr: String(cc.asr) } });
     const lim = await loadLimits();
     if (lim) this.setState({ limitsCfg: lim });
+    const wl = await loadWorld();
+    if (wl) this.setState({ worldLib: wl });
     if (dash || users || calls || orders || tickets || invites || codes) this.setState({});
   }
 
@@ -470,7 +472,9 @@ export class AdminLogic {
     if (this.state.worldPulling) return;
     this.setState({ worldPulling: true });
     const res = await worldRefresh();
-    this.setState({ worldPulling: false, worldPull: res });
+    // 拉完回读【已保存】的世界库快照刷新常驻面板（持久化那份，重启也在）。
+    const wl = await loadWorld();
+    this.setState({ worldPulling: false, worldPull: res, worldLib: wl || this.state.worldLib });
     if (res.ok === null) this.toastMsg("需接入后端");
     else if (res.ok === false) this.toastMsg("拉取失败：" + (res.error || "未知错误"));
     else if (!res.search_configured) this.toastMsg(`拉到天气 ${res.weather_cities || 0} 城；联网脑未配 → 话题为空`);
@@ -941,16 +945,22 @@ export class AdminLogic {
     ] : [["运行限流", "接入后端后显示真实生效值"]]).map(([k, v]) => ({ k, v }));
     const warnItems = ["单用户今日成本 > $20", "某模型失败率 > 5%", "TTS 成本环比上涨 > 30%", "通话平均时长异常波动", "单个 voice_id 调用量激增"];
 
-    // 手动拉取联网脑（世界库）的真实结果展示。
+    // 世界库（持久化）常驻面板：主体读【已保存】的 worldLib（重启/重拉都在）；错误/未配提示沿用最近一次拉取结果。
+    const wl = s.worldLib;
     const wp = s.worldPull;
-    const worldTopics: string[] = (wp && wp.topics) || [];
-    const worldWeather = (wp && wp.weather) ? Object.keys(wp.weather).map((c: string) => ({ city: c, line: wp.weather[c] })) : [];
-    const worldHasResult = !!(wp && wp.ok);
+    const worldTopics: string[] = (wl && wl.topics) || [];
+    const worldWeather = (wl && wl.weather) || [];               // 后端已给 [{city,line}]
+    const worldHasResult = !!(wl && (worldTopics.length || worldWeather.length));
     const worldErr = (wp && wp.ok === false) ? (wp.error || "拉取失败") : "";
-    const worldSearchOff = !!(wp && wp.ok && !wp.search_configured);
-    const worldSummary = worldHasResult
-      ? `话题 ${wp.topics_count || 0} 条 · 天气 ${wp.weather_cities || 0}/${wp.cities_total || 0} 城`
-      : (worldErr ? "拉取失败" : "");
+    const worldDate = (wl && wl.date) || "";
+    const worldFresh = !!(wl && wl.fresh);
+    const worldPersisted = !!(wl && wl.persisted);
+    // 持久化未开 / 当天还没刷新 / 联网脑未配 → 给一句诚实提示
+    const worldNote = !wl ? ""
+      : (!worldPersisted ? "⚠️ 未开持久化：重启后世界库会丢，建议在后端配 world_store_path"
+        : (!worldFresh && worldDate ? `当前是 ${worldDate} 的库（今天还没刷新，点「立即拉取」更新）`
+          : ((wp && wp.ok && !wp.search_configured) ? "联网脑未配 API Key → 只有天气、没有话题" : "")));
+    const worldSummary = worldHasResult ? `话题 ${worldTopics.length} 条 · 天气 ${worldWeather.length} 城` : "";
 
     const titles: Record<string, [string, string]> = {
       dashboard: ["数据概览", "MiCall.ai 运营核心指标"],
@@ -1086,10 +1096,10 @@ export class AdminLogic {
       rlBudget: String(L.budget_chars ?? ""), onRlBudget: (e: any) => this.setLimit("budget_chars", e.target.value),
       rlWorldHours: String(L.world_refresh_hours ?? ""), onRlWorldHours: (e: any) => this.setLimit("world_refresh_hours", e.target.value),
       saveRunLimits: () => this.saveRunLimits(),
-      // 手动拉取联网脑（世界库）—— 模板引擎不支持三元，按钮文案/底色在这里算好
+      // 世界库（持久化常驻面板）—— 模板引擎不支持三元，按钮文案/底色在这里算好
       worldPulling: !!s.worldPulling, worldPullLabel: s.worldPulling ? "拉取中…" : "立即拉取",
       worldPullBtnBg: s.worldPulling ? "#C9A86A" : "#E0954F",
-      worldHasResult, worldErr, worldSearchOff, worldSummary,
+      worldHasResult, worldErr, worldSummary, worldDate, worldFresh, worldPersisted, worldNote, hasWorldNote: !!worldNote,
       worldTopics, worldWeather, hasWorldTopics: worldTopics.length > 0, hasWorldWeather: worldWeather.length > 0,
       pullWorld: () => this.pullWorld(),
       ioOpen: s.ioOpen, exportSample,

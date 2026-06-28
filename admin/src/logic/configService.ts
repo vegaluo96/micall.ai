@@ -486,6 +486,19 @@ export async function worldRefresh(): Promise<WorldPull> {
   }
 }
 
+/** 读取【已保存】的世界库快照（持久化那份，重启/重拉都在）：日期/话题/各城天气/历史天数。无后端 → null。 */
+export type WorldLib = { date?: string; fresh?: boolean; persisted?: boolean;
+  topics?: string[]; weather?: { city: string; line: string }[]; hist_days?: Record<string, number> };
+export async function loadWorld(): Promise<WorldLib | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/world`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) return (await r.json()) as WorldLib;
+  } catch { /* noop */ }
+  return null;
+}
+
 /** 读取【真正生效】的运行限流（global_defaults 等）。无后端 → null。 */
 export async function loadLimits(): Promise<Record<string, number> | null> {
   const b = base();

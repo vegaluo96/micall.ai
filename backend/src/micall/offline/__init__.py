@@ -12,7 +12,13 @@ from .understanding import (
     merge_profile,
     parse_profile_update,
 )
-from .world_context import refresh_world, topics_now, weather_for
+from .world_context import (
+    configure_store,
+    refresh_world,
+    topics_now,
+    weather_for,
+    weather_trend,
+)
 
 __all__ = [
     "UnderstandingEngine",
@@ -25,5 +31,9 @@ __all__ = [
     "describe_gap",
     "due_to_advance",
     "parse_autonomous_state",
-    "fetch_world_context",
+    "refresh_world",
+    "topics_now",
+    "weather_for",
+    "weather_trend",
+    "configure_store",
 ]

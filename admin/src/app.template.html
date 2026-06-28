@@ -488,22 +488,22 @@
           <div style="background:#fff;border:1px solid #F4E3C4;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div style="min-width:0;">
-                <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;">联网脑 · 立即拉取世界库<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">看效果</span></div>
-                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">真跑一遍：open-meteo 各城天气 + 联网脑当下时事话题（过安全闸）。拉到的会立刻进全站世界库，角色下一通就能用。</div>
+                <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;">世界库 · 角色「活在世界里」的共享素材<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">{{ worldDate }}</span></div>
+                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">每天全站拉一批：open-meteo 各城真实天气 + 联网脑当下时事话题（过安全闸），所有角色共享、聊到了会沉淀成共同记忆。已持久化，重启/重新部署都不丢。点「立即拉取」即刻更新。</div>
               </div>
               <div onClick="{{ pullWorld }}" style="flex:none;font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
             </div>
             <sc-if value="{{ worldErr }}" hint-placeholder-val="{{ '' }}">
               <div style="margin-top:13px;border-radius:10px;padding:11px 13px;background:rgba(224,89,79,.06);border:1px solid rgba(224,89,79,.18);font-size:12.5px;color:#C0453B;">拉取失败：{{ worldErr }}</div>
             </sc-if>
+            <sc-if value="{{ hasWorldNote }}" hint-placeholder-val="{{ '' }}">
+              <div style="margin-top:13px;border-radius:10px;padding:10px 13px;background:rgba(224,149,79,.08);font-size:12px;color:#B07B36;">{{ worldNote }}</div>
+            </sc-if>
             <sc-if value="{{ worldHasResult }}" hint-placeholder-val="{{ false }}">
               <div style="margin-top:14px;">
-                <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:.5px;margin-bottom:9px;">本次拉取 · {{ worldSummary }}</div>
-                <sc-if value="{{ worldSearchOff }}" hint-placeholder-val="{{ false }}">
-                  <div style="margin-bottom:11px;border-radius:9px;padding:9px 12px;background:rgba(224,149,79,.08);font-size:12px;color:#B07B36;">联网脑未配 API Key → 只拉到天气、话题为空。去上方「联网脑」卡填 grok-4-all + apiyi key 再拉。</div>
-                </sc-if>
+                <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:.5px;margin-bottom:9px;">当前世界库 · {{ worldSummary }}</div>
                 <sc-if value="{{ hasWorldWeather }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实天气（open-meteo）</div>
+                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实天气（open-meteo · 各角色现居城）</div>
                   <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:13px;">
                     <sc-for list="{{ worldWeather }}" as="w" hint-placeholder-count="3">
                       <span style="font-size:12px;color:#2E6B4F;background:rgba(31,169,113,.08);border:1px solid rgba(31,169,113,.18);border-radius:8px;padding:5px 11px;"><b>{{ w.city }}</b> · {{ w.line }}</span>
@@ -511,7 +511,7 @@
                   </div>
                 </sc-if>
                 <sc-if value="{{ hasWorldTopics }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">时事话题（联网脑 · 已过安全闸 · 全站共享）</div>
+                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">时事话题（联网脑 · 已过安全闸 · 全站共享 · 角色按性子各取所需）</div>
                   <div style="display:flex;flex-direction:column;gap:6px;">
                     <sc-for list="{{ worldTopics }}" as="t" hint-placeholder-count="5">
                       <div style="font-size:12.5px;color:#3A3D47;background:#FAFAFB;border-radius:8px;padding:8px 12px;line-height:1.5;">· {{ t }}</div>

@@ -18,7 +18,7 @@ from typing import Any
 from ..context.models import AutonomousState, CharacterRuntime
 from ..providers.base import LLMProvider
 from .understanding import parse_profile_update    # 复用容错 JSON 抠取
-from .world_context import clean_city, weather_for  # 城市名清洗 + 读全站共享世界库里本城真实天气（零联网）
+from .world_context import clean_city, weather_for, weather_trend  # 城市清洗 + 本城真实天气 + 天气【变化】（零联网）
 
 _CN_WEEKDAY = "一二三四五六日"
 
@@ -50,9 +50,28 @@ def describe_gap(hours_since_last_call: float) -> str:
     return "一周多"
 
 
+def _continuity_block(prev: AutonomousState | None) -> str:
+    """自传式连续（Layer B）：把【上一次的自己】喂回去，让这次的近况【接着往下过】，而不是每次凭空重抽一个人生。
+    真人的日子是连续的——上次在忙的事这次该有进展/告一段落，上次惦记的该有个着落，心情顺着往前漂，而不是断片。"""
+    if prev is None:
+        return ""
+    bits = [b for b in (prev.mood, prev.recent_experience, prev.energy, prev.anticipating) if str(b).strip()]
+    if not bits:
+        return ""
+    return (
+        "\n你【上一次】的状态是——"
+        f"心情：{prev.mood or '（没记）'}；在经历：{prev.recent_experience or '（没记）'}；"
+        f"精力：{prev.energy or '（没记）'}；惦记着：{prev.anticipating or '（没记）'}。"
+        "这次请【接着往下过】，像真人连续的日子：心情可以从那个基础上自然变化（事情有进展/缓解/或起了新波澜），"
+        "别和上次完全脱节、也别原样照搬；上次在经历的事这次可以有进展或告一段落；上次惦记/期待的事可以有个着落。"
+        "（这是你自己生活的延续，不是给对方的汇报。）"
+    )
+
+
 def build_autonomy_prompt(character: CharacterRuntime, hours_since_last_call: float,
                           now: datetime.datetime | None = None,
-                          real_local: str | None = None) -> list[dict]:
+                          real_local: str | None = None,
+                          prev: AutonomousState | None = None) -> list[dict]:
     gap = describe_gap(hours_since_last_call)
     if now is None:
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
@@ -92,6 +111,7 @@ def build_autonomy_prompt(character: CharacterRuntime, hours_since_last_call: fl
         f"anticipating（你这阵子在期待或惦记的一件小事，给生活一个盼头，具体）{loc_field}}}。\n"
         f"距上次和对方通话已过去{gap}，间隔越久，你越可能攒了具体的近况想主动提起。"
         + loc
+        + _continuity_block(prev)
     )
     user = f"你的人设：{json.dumps(character.persona, ensure_ascii=False)}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -127,13 +147,19 @@ class AutonomyEngine:
     ) -> AutonomousState:
         """推进一次时间：生成 TA 这段时间的近况（含现居地此刻的真实/季节感）并持久化（per-character，独立于用户）。"""
         now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+        city = _city_of(character)
         # 读全站共享世界库里本城【真实天气】（open-meteo 每天批量拉的，零联网、零额外成本）；
         # 有就拿它给慢脑定心情/近况、并作为现居地近况；没有（库没刷到/拉失败）→ 慢脑按季节推测。
-        real = weather_for(_city_of(character), now)
+        real = weather_for(city, now)
+        # Layer A 天气连续性：真人注意的是天气怎么【变】了（「这两天总算晴了」），不是绝对值。把变化感并进现居地近况。
+        trend = weather_trend(city, now)
+        local = f"{real}（{trend}）" if (real and trend) else real
+        # Layer B 自传式连续：读【上一次的自己】喂回去，让这次近况接着往下过，而不是凭空重抽一个人生。
+        prev = self.repo.get_autonomous(character.character_id)
         raw = await self._run_llm(
-            build_autonomy_prompt(character, hours_since_last_call, now=now, real_local=real or None))
+            build_autonomy_prompt(character, hours_since_last_call, now=now, real_local=local or None, prev=prev))
         state = parse_autonomous_state(raw)
-        if real:
-            state.local_context = real   # 真实天气覆盖：现居地近况以真实为准
+        if local:
+            state.local_context = local   # 真实天气(含变化感)覆盖：现居地近况以真实为准
         self.repo.save_autonomous(character.character_id, state)
         return state

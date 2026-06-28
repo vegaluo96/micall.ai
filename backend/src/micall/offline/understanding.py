@@ -62,7 +62,22 @@ def _speaker_label(role: str) -> str:
     return "对方(TA)" if role == "user" else "角色本人"
 
 
-def build_understanding_prompt(profile: UserProfile, history: Sequence[Message]) -> list[Message]:
+def _world_today_block(world_today: Any) -> str:
+    """世界进共享记忆（Layer C）：把【今天外面的真实世界】（话题+本城天气）交给慢脑，让这次【真聊到】的那部分
+    沉淀成你俩的【共同经历】写进 shared_refs，带时令落款，日后能回味。共享的『此刻』→ 共享的『那时』。"""
+    items = [str(t).strip() for t in (world_today or []) if str(t).strip()][:8]
+    if not items:
+        return ""
+    return (
+        "\n\n【今天外面的真实世界（角色当时可能聊到的）】：" + "；".join(items) +
+        "。如果本次通话里你俩【确实聊到了】其中某件事（或当时的天气），把它当成你俩的一段【共同经历】，"
+        "写进 relationship.shared_refs，并带上时令落款（如『6月底一起聊到杨梅季』『那天上海下大雨时聊到的』），"
+        "日后能回味、能再提起；【没真聊到就别硬记】。"
+    )
+
+
+def build_understanding_prompt(profile: UserProfile, history: Sequence[Message],
+                               world_today: Any = None) -> list[Message]:
     transcript = "\n".join(f"{_speaker_label(m.get('role'))}: {m.get('content')}" for m in history)
     existing = {
         "fact_profile": profile.fact_profile,
@@ -95,7 +110,10 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "insights([{insight,confidence,evidence}]，印证或推翻旧判断、暴露新模式)、"
         "hypotheses([{guess,confidence,next}]，带着假设进下次对话去验证)、"
         "relationship({stage,last_topic,open_threads,last_mood,shared_refs}，"
-        "last_mood 用一句话概括 TA 这次的情绪基调与挂电话时的状态，供下次开场自然接住)、"
+        "last_mood 用一句话概括 TA 这次的情绪基调与挂电话时的状态，供下次开场自然接住；"
+        # Layer C+D：shared_refs 是你俩的活梗/共同经历（含这次一起聊到的当下真实世界话题/天气，带时令落款），会生长也会遗忘。
+        "shared_refs=你俩的活梗与共同经历（包括这次一起聊到的当下真实话题/天气，可带时令落款）——这次又呼应到/再提起的"
+        "留下并可更新，很【久没碰、这次也没提】的让它自然淡出（别无限堆）；最多保留十来个最鲜活的、按鲜活度排前)、"
         "next_strategy(string，下次开场接哪个线头、验证哪个假设、哪些话题小心、怎么回应)、"
         # bond：从【角色本人】视角看这段关系——填补「角色不生长」的洞（双向身份）。
         "bond(对象{feeling, changed_by, own_threads, closeness_delta}；这是从【角色本人】视角看你们的关系，不是用户的——"
@@ -122,7 +140,8 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "拿不准某件事是【对方】的还是【角色本人】的，就不记。"
         "证据不足就少写、宁缺毋滥；没有可靠新信息时 new_facts 可为空数组。"
     )
-    user = f"现有画像：{json.dumps(existing, ensure_ascii=False)}\n\n本次通话：\n{transcript}"
+    user = (f"现有画像：{json.dumps(existing, ensure_ascii=False)}\n\n本次通话：\n{transcript}"
+            + _world_today_block(world_today))
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -160,6 +179,7 @@ def _fact_text_importance(f: Any, default: float = 0.5) -> tuple[str, float]:
 
 
 _MAX_INSIGHTS = 20  # 画像洞察上限：无限堆叠会把人设块撑爆、稀释模型注意力 → 跨通话越聊越笨。
+_MAX_SHARED_REFS = 12  # 共同记忆（含世界话题沉淀）上限：超额按鲜活度淘汰，记忆要有遗忘才不噪。
 
 
 def _merge_kv(dst: dict[str, Any], src: Any, *, cap: int) -> None:
@@ -239,7 +259,8 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
         if rel.get("open_threads"):
             r.open_threads = list(rel["open_threads"])
         if rel.get("shared_refs"):
-            r.shared_refs = list(rel["shared_refs"])
+            # Layer D 显著性/遗忘：慢脑已按鲜活度排序并淡出久未提起的；这里硬性封顶，防共同记忆无限膨胀稀释注意力。
+            r.shared_refs = [str(x).strip()[:80] for x in rel["shared_refs"] if str(x).strip()][:_MAX_SHARED_REFS]
     if update.get("next_strategy"):
         profile.next_strategy = str(update["next_strategy"])
     # 前沿B 好奇缺口：角色最想弄明白 TA 的那一个点（驱动主动）。
@@ -296,12 +317,14 @@ class UnderstandingEngine:
         return [None] * len(texts)
 
     async def process_call(
-        self, user_id: str, character_id: str, history: Sequence[Message]
+        self, user_id: str, character_id: str, history: Sequence[Message],
+        *, world_today: Any = None,
     ) -> UserProfile:
-        """通话结束后跑一遍：写事实层（含向量化）+ 更新理解层。返回更新后的画像。"""
+        """通话结束后跑一遍：写事实层（含向量化）+ 更新理解层。返回更新后的画像。
+        world_today：今天的真实世界（话题+本城天气）——让这次真聊到的那部分沉淀成共同记忆（Layer C）。"""
         # 1. 理解层（推断与修正）—— 先跑慢脑，顺带拿到模型抽取的 new_facts。
         profile = self.repo.get_profile(user_id, character_id)
-        raw = await self._run_llm(build_understanding_prompt(profile, history))
+        raw = await self._run_llm(build_understanding_prompt(profile, history, world_today=world_today))
         update = parse_profile_update(raw)
 
         # 2. 事实层（只增）：用户原话（默认重要性）+ 模型抽取的新事实（可带 importance），

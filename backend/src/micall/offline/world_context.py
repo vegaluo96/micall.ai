@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import json
 import logging
+import os
 import re
 from typing import Any
 
@@ -100,10 +102,11 @@ def _client() -> "httpx.AsyncClient":
         timeout=httpx.Timeout(_WEATHER_TIMEOUT_S, connect=5.0), limits=pool_limits()))
 
 
-async def fetch_weather(city: str) -> str:
-    """open-meteo 查 city 当前真实天气 → 一句中文。无 httpx/city/失败 → ""（降级到季节推测）。免费、无 key。"""
+async def fetch_weather(city: str) -> dict | None:
+    """open-meteo 查 city 当前真实天气 → {line, temp, code}。无 httpx/city/失败 → None（降级到季节推测）。
+    返回结构化（不只一句话）：温度/天气码留着喂【天气连续性】（昨天 vs 今天的变化感）。免费、无 key。"""
     if httpx is None or not city:
-        return ""
+        return None
     try:
         cl = _client()
         g = await asyncio.wait_for(cl.get(
@@ -112,7 +115,7 @@ async def fetch_weather(city: str) -> str:
         g.raise_for_status()
         res = (g.json().get("results") or [])
         if not res:
-            return ""
+            return None
         lat, lon = res[0].get("latitude"), res[0].get("longitude")
         f = await asyncio.wait_for(cl.get(
             "https://api.open-meteo.com/v1/forecast",
@@ -125,23 +128,33 @@ async def fetch_weather(city: str) -> str:
             code = int(cur.get("weather_code", -1))
         except (TypeError, ValueError):
             code = -1
-        return _weather_line(city, temp, code)
+        line = _weather_line(city, temp, code)
+        if not line:
+            return None
+        return {"line": line, "temp": temp if isinstance(temp, (int, float)) else None, "code": code}
     except Exception as e:
         log.info("open-meteo 天气拉取失败 city=%s：%r", city, e)
-        return ""
+        return None
 
 
 # ── 时事话题：联网脑（grok 等，全站 1 次/天，多样且安全）────────────────────────────────
 def _topics_prompt(date_str: str) -> list[dict]:
     sys = (
-        "你是给一群虚拟陪伴角色提供『最近大家在聊什么』的联网助手。用你的【网络检索】查当下中文互联网上"
-        "【轻松、大众、安全】的热门话题，**覆盖多个不同领域**（美食/影视综艺/生活方式/季节时令/科技数码/"
-        "运动健身/二次元/音乐/旅行 等），好让不同性格的角色各取所需。"
-        "严格只输出一个 JSON 对象：{topics:[...]}，5~8 条，每条一句话、具体、轻松、口语。"
+        "你是给一群虚拟陪伴角色提供『最近大家都在聊什么』的联网助手。用你的【网络检索】查当下中文互联网上"
+        "【轻松、大众、安全】、真实正在发生或正火的话题，**覆盖多个领域**（美食/影视综艺/生活方式/季节时令/"
+        "科技数码/运动健身/二次元/音乐/旅行/游戏 等），好让不同性格的角色各取所需。\n"
+        "【最关键·要具体、有细节、有画面】每条【绝不能】是干巴巴一个标签——"
+        "✗ 反例：『有部新番开播了』『最近流行一种美食』『某游戏更新了』（太空泛，没法聊）。"
+        "✓ 正例：要带一个【具体的抓手】，像你跟朋友随口讲八卦那样：是什么 + 一个能接着聊的细节/为什么大家在聊"
+        "（『XX那部新番开播了，画风特别复古，弹幕都在刷说像小时候看的』；"
+        "『最近好多人去打卡XX的限定杨梅季，说酸得眯眼睛但根本停不下来』；"
+        "『XX出了新口味，网上吵翻了说像把整个夏天塞嘴里』）。每条 20~45 字、口语、自带一个具体细节，别像新闻标题。\n"
+        "严格只输出一个 JSON 对象：{topics:[...]}，6~8 条，每条都要具体到能直接拿去跟人聊。\n"
         "【硬规矩】绝对避开：政治时政、领导人、灾难事故、死亡伤亡、疫情、战争冲突、股市经济、犯罪丑闻、"
         "维权敏感、任何负面/猎奇/血腥/低俗内容。宁可少给几条，也绝不碰这些。查不到就给空数组。"
     )
-    user = f"今天：{date_str}。请联网给我 5~8 条跨领域、安全轻松的当下话题。"
+    user = (f"今天：{date_str}。请联网给我 6~8 条【具体、有细节、有画面、能直接聊起来】的当下轻松话题，"
+            "每条都带一个真实的小细节，别空泛。")
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
 
@@ -152,14 +165,14 @@ async def fetch_topics(search_llm: Any, now: datetime.datetime) -> list[str]:
     try:
         async def _run() -> str:
             return "".join([t async for t in search_llm.stream(
-                _topics_prompt(_date(now)), max_tokens=800, response_format={"type": "json_object"})])
+                _topics_prompt(_date(now)), max_tokens=1200, response_format={"type": "json_object"})])
         raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
         d = parse_profile_update(raw)
         out: list[str] = []
         for t in (d.get("topics") or []):
             ts = str(t).strip()
             if ts and _is_safe(ts):
-                out.append(ts[:60])
+                out.append(ts[:90])   # 留足空间给「具体细节」，别把有画面的话题截断
             if len(out) >= 8:
                 break
         return out
@@ -169,11 +182,65 @@ async def fetch_topics(search_llm: Any, now: datetime.datetime) -> list[str]:
 
 
 # ── 全站共享世界库（内存，按天）：每天批量刷一次，角色只读、零联网 ────────────────────────
-_WORLD: dict[str, Any] = {"date": "", "weather": {}, "topics": []}   # weather: {city: line}; topics: [str]
+#  weather       : {city: line}            今天每城的天气一句话（快读）
+#  weather_hist  : {city: [{date,temp,code}…]}  最近几天的滚动观测——【天气连续性】的底料（昨天 vs 今天）
+#  topics        : [str]                   今天的时事话题池（全站共享）
+_WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": []}
+_HIST_DAYS = 4   # 每城最多留几天观测（够算「这两天/前两天」的变化感即可，不堆历史）
+
+# 世界库落盘路径：让【天气滚动历史】跨进程重启存活——否则每次重启只有「今天」、永远算不出「昨天→今天」的变化。
+# 空=禁用持久化（默认；单测不落盘）。由 configure_store 启用（wsserver 启动时按 config 设）。
+_STORE_PATH: str = ""
+
+
+def configure_store(path: str) -> None:
+    """启用世界库磁盘持久化（天气滚动历史跨重启存活 → 连续性才真成立）。空路径=禁用。启用时立刻从盘载入既有历史。"""
+    global _STORE_PATH
+    _STORE_PATH = (path or "").strip()
+    _load_store()
+
+
+def _load_store() -> None:
+    if not _STORE_PATH:
+        return
+    try:
+        with open(_STORE_PATH, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return
+    if not isinstance(d, dict):
+        return
+    for k in ("date", "weather", "weather_hist", "topics"):
+        if k in d and isinstance(d[k], type(_WORLD[k])):
+            _WORLD[k] = d[k]
+
+
+def _save_store() -> None:
+    if not _STORE_PATH:
+        return
+    try:
+        parent = os.path.dirname(_STORE_PATH)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        tmp = _STORE_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_WORLD, f, ensure_ascii=False)
+        os.replace(tmp, _STORE_PATH)
+    except OSError as e:   # 落盘失败不影响运行（顶多重启后连续性少一天）
+        log.info("世界库落盘失败（不影响运行）：%r", e)
+
+
+def _record_weather(city: str, date_str: str, obs: dict) -> None:
+    """把今天这城的观测并进滚动历史（同日去重覆盖，最多留 _HIST_DAYS 天），供天气连续性比对。"""
+    hist = _WORLD["weather_hist"].setdefault(city, [])
+    hist[:] = [h for h in hist if h.get("date") != date_str]
+    hist.append({"date": date_str, "temp": obs.get("temp"), "code": obs.get("code")})
+    if len(hist) > _HIST_DAYS:
+        hist[:] = hist[-_HIST_DAYS:]
 
 
 async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: Any = None) -> dict:
-    """全站每日批量：逐城拉真实天气(open-meteo,免费) + 拉一池安全话题(联网脑,1 次) → 写共享库。返回计数。"""
+    """全站每日批量：逐城拉真实天气(open-meteo,免费,并入滚动历史) + 拉一池安全话题(联网脑,1 次) → 写共享库+落盘。返回计数。"""
     date_str = _date(now)
     weather: dict[str, str] = {}
     seen: set[str] = set()
@@ -182,17 +249,51 @@ async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: A
         if not c or c in seen:
             continue
         seen.add(c)
-        w = await fetch_weather(c)
-        if w:
-            weather[c] = w
+        obs = await fetch_weather(c)
+        if obs:
+            weather[c] = obs["line"]
+            _record_weather(c, date_str, obs)   # 连续性底料：记下今天的温度/天气码
     topics = await fetch_topics(search_llm, now)
     _WORLD["date"], _WORLD["weather"], _WORLD["topics"] = date_str, weather, topics
+    _save_store()
     log.info("🌍 世界库刷新：%d 城真实天气 + %d 条时事话题（date=%s）", len(weather), len(topics), date_str)
     return {"cities": len(weather), "topics": len(topics)}
 
 
 def _fresh(now: datetime.datetime) -> bool:
     return _WORLD["date"] == _date(now)
+
+
+# ── 天气连续性（Layer A）：真人注意的是天气怎么【变】了，不是绝对值 ──────────────────────────
+def _trend_phrase(pt: Any, pc: Any, t: Any, c: Any) -> str:
+    """纯函数：由（前一天温度/码, 今天温度/码）拼一句【变化感】。无明显变化 → ""。便于测试。"""
+    pr, nr = (pc in _RAINY), (c in _RAINY)
+    if pr and not nr:
+        return "前两天阴雨，今天总算放晴"
+    if not pr and nr:
+        return "昨天还好好的，今天又下起来了"
+    if pr and nr:
+        return "这雨断断续续下了好几天"
+    if isinstance(pt, (int, float)) and isinstance(t, (int, float)):
+        d = t - pt
+        if d >= 5:
+            return "比前两天暖和了不少"
+        if d <= -5:
+            return "比前两天凉了不少"
+    return ""
+
+
+def weather_trend(city: str, now: datetime.datetime) -> str:
+    """读滚动历史，把 city【今天 vs 前一天】的变化拼成一句连续感。不足两天/过期 → ""。零联网。"""
+    if not city or not _fresh(now):
+        return ""
+    hist = _WORLD["weather_hist"].get(city, [])
+    today_str = _date(now)
+    today = next((h for h in reversed(hist) if h.get("date") == today_str), None)
+    prev = next((h for h in reversed(hist) if h.get("date") != today_str), None)
+    if not today or not prev:
+        return ""
+    return _trend_phrase(prev.get("temp"), prev.get("code"), today.get("temp"), today.get("code"))
 
 
 def weather_for(city: str, now: datetime.datetime) -> str:
@@ -203,3 +304,17 @@ def weather_for(city: str, now: datetime.datetime) -> str:
 def topics_now(now: datetime.datetime) -> list[str]:
     """读共享库里今天的时事话题池（全站共享）；无/过期 → []。零联网。"""
     return list(_WORLD["topics"]) if _fresh(now) else []
+
+
+def world_snapshot(now: datetime.datetime) -> dict:
+    """给后台「世界库」面板的只读快照：当前【已保存】的日期/话题/各城天气 + 是否当天新鲜 + 是否已开持久化 +
+    每城历史天数（连续性底料厚度）。读的是持久化那份，重启/重新部署都还在。零联网。"""
+    fresh = _fresh(now)
+    return {
+        "date": _WORLD.get("date", ""),
+        "fresh": bool(fresh),                    # 今天是否已刷新（过期=昨天的，前端提示该拉新的）
+        "persisted": bool(_STORE_PATH),          # 是否已开磁盘持久化（开了才跨重启不丢）
+        "topics": list(_WORLD.get("topics") or []) if fresh else [],
+        "weather": [{"city": c, "line": ln} for c, ln in (_WORLD.get("weather") or {}).items()] if fresh else [],
+        "hist_days": {c: len(v) for c, v in (_WORLD.get("weather_hist") or {}).items()},
+    }
