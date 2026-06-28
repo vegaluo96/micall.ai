@@ -92,13 +92,17 @@ class SignalingServer:
         _persisted = type(self.repo).__name__ != "InMemoryRepository"
         _slow = self.config.node("llm_slow")
         _slow_ok = bool(_slow.api_key.strip() and _slow.endpoint.strip())
+        _emb = self.config.node("embedding")
+        _emb_ok = bool(_emb.api_key.strip() and _emb.endpoint.strip())
         log.info(
-            "🧠 跨通记忆诊断：持久化=%s（%s）| 离线理解(慢脑 llm_slow)=%s。%s",
+            "🧠 跨通记忆诊断：持久化=%s（%s）| 离线理解(慢脑 llm_slow)=%s | 语义记忆(embedding)=%s。%s",
             "✅Postgres" if _persisted else "❌内存(重启即丢)",
             type(self.repo).__name__,
             "✅已配" if _slow_ok else "❌未配",
+            "✅已配" if _emb_ok else "⚠️未配(退关键词召回)",
             "" if (_persisted and _slow_ok) else
-            "→ 二者缺一，登录用户的画像就长不出来/留不住，角色会「不了解你」。配 database.dsn + llm_slow 即修。",
+            "→ 持久化+慢脑缺一，登录用户画像就长不出来/留不住、角色「不了解你」，配 database.dsn + llm_slow 即修；"
+            "embedding 仅影响记忆召回精度，缺了退关键词、不致命。",
         )
         # 出厂角色写入存储（facts/profile 的 FK 前置）；内存实现为 no-op。
         try:

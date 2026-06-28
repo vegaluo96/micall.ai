@@ -90,6 +90,31 @@ class TestMerge(unittest.TestCase):
         merge_profile(p, {})
         self.assertEqual(p.next_strategy, "原策略")  # 空 update 不抹掉已有
 
+    def test_merge_fact_profile_and_interaction_prefs(self):
+        # 过去 prompt 读了没人写的两个死字段：现在增改落库、不删旧、防膨胀。
+        p = UserProfile("u", "c")
+        p.fact_profile = {"名字": "阿哲"}
+        merge_profile(p, {"fact_profile": {"职业": "设计师"}, "interaction_prefs": {"沟通": "喜欢直接说重点"}})
+        self.assertEqual(p.fact_profile["名字"], "阿哲")      # 旧的不删
+        self.assertEqual(p.fact_profile["职业"], "设计师")    # 新的增上
+        self.assertEqual(p.interaction_prefs["沟通"], "喜欢直接说重点")
+        # 防膨胀：灌 40 条只留最近 30
+        for i in range(40):
+            merge_profile(p, {"fact_profile": {f"k{i}": f"v{i}"}})
+        self.assertLessEqual(len(p.fact_profile), 30)
+
+    def test_process_call_heuristic_backfills_fact_profile(self):
+        # 慢脑没产出 fact_profile 时，启发式从用户原话兜底抽客观事实，跨通「记得你」不落空。
+        import asyncio
+        from micall.memory.repository import InMemoryRepository
+        repo = InMemoryRepository()
+        engine = UnderstandingEngine(StubLLM(["不是JSON"]), repo)  # 慢脑降级、无 fact_profile
+        history = [{"role": "user", "content": "我叫阿哲，我在做设计"},
+                   {"role": "assistant", "content": "辛苦"}]
+        profile = asyncio.run(engine.process_call("u", "c", history))
+        self.assertEqual(profile.fact_profile.get("名字"), "阿哲")
+        self.assertEqual(profile.fact_profile.get("在做"), "做设计")
+
 
 class TestFactImportance(unittest.TestCase):
     def test_normalize_string_and_dict(self):

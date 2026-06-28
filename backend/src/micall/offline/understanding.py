@@ -37,6 +37,8 @@ def extract_facts(history: Sequence[Message]) -> list[str]:
 def build_understanding_prompt(profile: UserProfile, history: Sequence[Message]) -> list[Message]:
     transcript = "\n".join(f"{m.get('role')}: {m.get('content')}" for m in history)
     existing = {
+        "fact_profile": profile.fact_profile,
+        "interaction_prefs": profile.interaction_prefs,
         "personality_model": [vars(i) for i in profile.personality_model],
         "open_hypotheses": [vars(h) for h in profile.open_hypotheses],
         "relationship": vars(profile.relationship),
@@ -46,6 +48,10 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "严格只输出一个 JSON 对象，字段："
         "new_facts(数组；每项可以是字符串，或 {text, importance} 对象，importance 取 0~1——"
         "TA 的重要事/在意的人事物/承诺给高分，闲聊寒暄给低分，便于日后优先想起要紧事)、"
+        # fact_profile / interaction_prefs：过去 prompt 读了却没人写 → 永远空。现在补上，让角色跨通真记得你是谁、怎么待你舒服。
+        "fact_profile(对象{键:值}；TA 的客观信息——名字/称呼、职业、所在地、在忙的事、重要的人、纪念日等，"
+        "只记 TA【明确说过】的，键用简短中文；在现有 fact_profile 上增改、别删，没新信息就原样返回或省略)、"
+        "interaction_prefs(对象{键:值}；怎么对待 TA 更舒服——如 喜欢被鼓励/不爱被催/喜欢直接说重点，只记有依据的)、"
         "insights([{insight,confidence,evidence}]，印证或推翻旧判断、暴露新模式)、"
         "hypotheses([{guess,confidence,next}]，带着假设进下次对话去验证)、"
         "relationship({stage,last_topic,open_threads,last_mood,shared_refs}，"
@@ -96,8 +102,24 @@ def _fact_text_importance(f: Any, default: float = 0.5) -> tuple[str, float]:
 _MAX_INSIGHTS = 20  # 画像洞察上限：无限堆叠会把人设块撑爆、稀释模型注意力 → 跨通话越聊越笨。
 
 
+def _merge_kv(dst: dict[str, Any], src: Any, *, cap: int) -> None:
+    """把 LLM 产出的 {键:值} 增改进 dst（不删旧、键值裁剪去空、防膨胀只留最近 cap 条）。"""
+    if not isinstance(src, dict):
+        return
+    for k, v in src.items():
+        ks, vs = str(k).strip()[:20], str(v).strip()[:100]
+        if ks and vs:
+            dst[ks] = vs
+    if len(dst) > cap:
+        for k in list(dst.keys())[:-cap]:
+            del dst[k]
+
+
 def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
     """把模型产出合并进画像：洞察去重累积（同条更新置信度，不重复堆叠）、假设替换、关系/策略更新。"""
+    # 客观事实 + 相处偏好：过去读了没人写的两个死字段，现在增改落库（跨通记得你是谁、怎么待你）。
+    _merge_kv(profile.fact_profile, update.get("fact_profile"), cap=30)
+    _merge_kv(profile.interaction_prefs, update.get("interaction_prefs"), cap=20)
     for ins in update.get("insights", []) or []:
         if isinstance(ins, dict) and ins.get("insight"):
             text = str(ins["insight"])
@@ -189,5 +211,12 @@ class UnderstandingEngine:
             self.repo.add_fact(user_id, character_id, text, importance=seen[text], vector=vec)
 
         merged = merge_profile(profile, update)
+        # 启发式兜底：从本通用户话里抽客观事实（名字/在做/喜欢…）补进 fact_profile，
+        # 即使慢脑漏抽也有确定性底座，让跨通「记得你」不落空。不覆盖慢脑更精确的同名值。
+        from ..context.assembler import _extract_user_facts
+        for m in history:
+            if m.get("role") == "user":
+                for k, v in _extract_user_facts(m.get("content", "")).items():
+                    merged.fact_profile.setdefault(k, v)
         self.repo.save_profile(merged)
         return merged
