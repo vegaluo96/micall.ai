@@ -278,7 +278,9 @@ def main() -> int:
     node = cfg.node("llm_fast")
     if not (node.api_key.strip() and node.endpoint.strip()):
         print("── ② 跳过：未配 llm_fast 的 api_key/endpoint。")
-        print("   配好后再跑本脚本即可看到「懂没懂」的逐项打分（线上服务器有 key，直接在那跑）。")
+        print("   线上服务器若仍跳过：密钥是给【服务】的，在 systemd 的 EnvironmentFile(config/micall.env)里，")
+        print("   手动跑本脚本的 shell 没加载它。先 source 同一份 env 再跑即可看到「懂没懂」逐项打分：")
+        print("     set -a; . config/micall.env; set +a; PYTHONPATH=src python3 scripts/persona_probe.py " + cid)
         return dead   # 覆盖自查仍是回归门：有死数据则非零退出
     llm = make_llm(node)
     fails = dead + asyncio.run(run_live(a, llm))
