@@ -137,58 +137,109 @@ async def fetch_weather(city: str) -> dict | None:
         return None
 
 
-# ── 时事话题：联网脑（grok 等，全站 1 次/天，多样且安全）────────────────────────────────
-def _topics_prompt(date_str: str) -> list[dict]:
+# ── 时事话题：从【免费无注册热榜 API】抓【真实热点】(标题+原文链接) → 过安全闸 → LLM(qwen-long)
+#    【grounded 改写】成口语闲聊。第一性原理：真实性来自【真实数据源】，不靠模型"联网"——
+#    让 LLM 凭空"联网找热点"只会编（grok-4.3/qwen-long 都没有真·网络检索）。这里 LLM 只当【改写器】：
+#    输入真实标题、输出口语说法，绝不新增/编造事实。每条都带【原文链接】，后台可点开核对、铁证是真的。
+_HOT_ENDPOINTS_DEFAULT = (
+    "https://api.vvhan.com/api/hotlist/all",    # vvhan 聚合多平台热榜，免 key、免注册
+    "https://api-hot.imsyy.top/all",            # 今日热榜 DailyHot，免 key（备用源）
+)
+_HOT_TIMEOUT_S = 12.0
+_TITLE_KEYS = ("title", "word", "query", "hotword", "keyword", "desc")
+_URL_KEYS = ("url", "mobileUrl", "mobilUrl", "link", "href")
+
+
+def _iter_hot_records(obj: Any):
+    """深度遍历任意热榜 API 的 JSON，抠出 {title, url} 条目。兼容 vvhan/imsyy/微博式等多种 schema。
+    只认 title/word/query… 当标题（不认 name/subtitle，避免把『平台名』当成热点）。纯函数、便于测试。"""
+    if isinstance(obj, dict):
+        title = next((obj[k] for k in _TITLE_KEYS if isinstance(obj.get(k), str) and obj[k].strip()), "")
+        if title:
+            url = next((obj[k] for k in _URL_KEYS if isinstance(obj.get(k), str) and obj[k].strip()), "")
+            yield {"title": title.strip()[:120], "url": str(url or "").strip()}
+        for v in obj.values():
+            if isinstance(v, (list, dict)):
+                yield from _iter_hot_records(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _iter_hot_records(v)
+
+
+async def fetch_hot_items(endpoints: Any = None, limit: int = 60) -> list[dict]:
+    """逐个免费热榜 API 拉真实热点 → [{title, url}]（按标题去重）。无 httpx/全失败 → []。免 key、免注册。"""
+    if httpx is None:
+        return []
+    cl = _client()
+    seen: set[str] = set()
+    items: list[dict] = []
+    for ep in (endpoints or _HOT_ENDPOINTS_DEFAULT):
+        try:
+            r = await asyncio.wait_for(
+                cl.get(ep, headers={"User-Agent": "Mozilla/5.0"}), timeout=_HOT_TIMEOUT_S)
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            log.info("热榜 API 拉取失败 ep=%s：%r", ep, e)
+            continue
+        for rec in _iter_hot_records(data):
+            t = rec["title"]
+            if t and t not in seen:
+                seen.add(t)
+                items.append(rec)
+            if len(items) >= limit:
+                return items
+    return items
+
+
+def _rewrite_prompt(titles: list[str]) -> list[dict]:
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
     sys = (
-        "你是给一群虚拟陪伴角色提供『最近大家都在聊什么』的联网助手。用你的【网络检索】查当下中文互联网上"
-        "【轻松、大众、安全】、真实正在发生或正火的话题。\n"
-        "【维度要广】尽量铺开、别扎堆在吃的——覆盖尽量多的【不同领域】，每个领域最多一两条："
-        "美食 / 影视综艺 / 生活方式 / 季节时令 / 科技数码 / 运动健身 / 二次元动漫 / 音乐 / 旅行出游 / 游戏 / "
-        "读书 / 萌宠 / 穿搭时尚 / 家居好物 / 职场打工 / 星座玄学 / 养生健康 / 亲子 / 文化展览 / 小众爱好 等，"
-        "好让不同性格的角色都能找到自己感兴趣的、聊起来不尬。\n"
-        "【最关键·要具体、有细节、有画面】每条【绝不能】是干巴巴一个标签——"
-        "✗ 反例：『有部新番开播了』『最近流行一种美食』『某游戏更新了』（太空泛，没法聊）。"
-        "✓ 正例：要带一个【具体的抓手】，像你跟朋友随口讲八卦那样：是什么 + 一个能接着聊的细节/为什么大家在聊"
-        "（『XX那部新番开播了，画风特别复古，弹幕都在刷说像小时候看的』；"
-        "『最近好多人去打卡XX的限定杨梅季，说酸得眯眼睛但根本停不下来』；"
-        "『XX出了新口味，网上吵翻了说像把整个夏天塞嘴里』）。每条 20~45 字、口语、自带一个具体细节，别像新闻标题。\n"
-        "严格只输出一个 JSON 对象：{topics:[...]}，10~14 条、尽量分布在不同领域，每条都要具体到能直接拿去跟人聊。\n"
-        "【硬规矩】绝对避开：政治时政、领导人、灾难事故、死亡伤亡、疫情、战争冲突、股市经济、犯罪丑闻、"
-        "维权敏感、任何负面/猎奇/血腥/低俗内容。宁可少给几条，也绝不碰这些。查不到就给空数组。"
+        "你把今天【真实的热搜标题】改写成轻松口语的闲聊，给一群虚拟陪伴角色当聊天话题。"
+        "【铁律】只换个说法、绝不新增事实、绝不编造细节、绝不夸大——必须忠于原标题的意思；"
+        "看不懂或不适合闲聊的，那一条就原样精简保留、不要删、不要编。每条 15~40 字、像跟朋友随口提一句，别像新闻标题。"
+        "严格只输出一个 JSON 对象：{lines:[...]}，lines 的【条数和顺序必须与输入完全一致】，逐条一一对应。"
     )
-    user = (f"今天：{date_str}。请联网给我 10~14 条【具体、有细节、有画面、能直接聊起来】、且【尽量覆盖不同领域】"
-            "的当下轻松话题，每条都带一个真实的小细节，别空泛、别全扎堆在吃喝。")
+    user = f"今天的真实热搜（按编号）：\n{numbered}\n\n逐条改写成口语闲聊，条数和顺序与上面完全一致。"
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
 
-async def fetch_topics(search_llm: Any, now: datetime.datetime) -> list[str]:
-    """联网脑拉一池跨领域安全话题（全站共享）。无 search_llm/失败 → []。过安全闸。"""
-    if search_llm is None:
+async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any = None) -> list[dict]:
+    """真实热点话题池（全站共享）：免费热榜 API 抓真实热点 → 过安全闸 → 有 LLM 则 grounded 改写成口语。
+    返回 [{text, url}]（最多 14，带原文链接）。LLM 只负责改写、不负责"找热点"——拉不到真实热点就返回空，绝不编。"""
+    items = await fetch_hot_items(endpoints)
+    safe = [it for it in items if _is_safe(it["title"])][:16]   # 先过安全闸（去政治/灾难/负面等）
+    if not safe:
         return []
-    try:
-        async def _run() -> str:
-            return "".join([t async for t in search_llm.stream(
-                _topics_prompt(_date(now)), max_tokens=2000, response_format={"type": "json_object"})])
-        raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
-        d = parse_profile_update(raw)
-        out: list[str] = []
-        for t in (d.get("topics") or []):
-            ts = str(t).strip()
-            if ts and _is_safe(ts):
-                out.append(ts[:90])   # 留足空间给「具体细节」，别把有画面的话题截断
-            if len(out) >= 14:        # 池子大些：维度更广，角色每通随机抽一小撮聊，不重样、不尬
-                break
-        return out
-    except Exception as e:
-        log.info("联网拉时事话题失败（降级到无话题）：%r", e)
-        return []
+    titles = [it["title"] for it in safe]
+    texts = list(titles)                                         # 默认用真实标题原样（不丢真实性）
+    if rewrite_llm is not None:
+        try:
+            async def _run() -> str:
+                return "".join([t async for t in rewrite_llm.stream(
+                    _rewrite_prompt(titles), max_tokens=1600, response_format={"type": "json_object"})])
+            raw = await asyncio.wait_for(_run(), timeout=_SEARCH_TIMEOUT_S)
+            lines = [str(x).strip() for x in (parse_profile_update(raw).get("lines") or [])]
+            if len(lines) == len(titles) and all(lines):         # 严格对齐才用改写，否则回退真实标题
+                texts = lines
+        except Exception as e:
+            log.info("热点改写失败（用真实标题原样）：%r", e)
+    out: list[dict] = []
+    for text, it in zip(texts, safe):
+        tt = text[:90]
+        if tt and _is_safe(tt):                                  # 改写后再过一道安全闸
+            out.append({"text": tt, "url": it["url"]})
+        if len(out) >= 14:
+            break
+    return out
 
 
 # ── 全站共享世界库（内存，按天）：每天批量刷一次，角色只读、零联网 ────────────────────────
 #  weather       : {city: line}            今天每城的天气一句话（快读）
 #  weather_hist  : {city: [{date,temp,code}…]}  最近几天的滚动观测——【天气连续性】的底料（昨天 vs 今天）
-#  topics        : [str]                   今天的时事话题池（全站共享）
-_WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": []}
+#  topics        : [str]                   今天的真实热点话题池（已改写成口语，给 assembler/Layer C 用）
+#  topics_src     : [{text,url}]            同一池子带【原文链接】（后台展示、可点开核对真实性）
+_WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": [], "topics_src": []}
 _HIST_DAYS = 4   # 每城最多留几天观测（够算「这两天/前两天」的变化感即可，不堆历史）
 
 # 世界库落盘路径：让【天气滚动历史】跨进程重启存活——否则每次重启只有「今天」、永远算不出「昨天→今天」的变化。
@@ -213,7 +264,7 @@ def _load_store() -> None:
         return
     if not isinstance(d, dict):
         return
-    for k in ("date", "weather", "weather_hist", "topics"):
+    for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
         if k in d and isinstance(d[k], type(_WORLD[k])):
             _WORLD[k] = d[k]
 
@@ -242,8 +293,10 @@ def _record_weather(city: str, date_str: str, obs: dict) -> None:
         hist[:] = hist[-_HIST_DAYS:]
 
 
-async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: Any = None) -> dict:
-    """全站每日批量：逐城拉真实天气(open-meteo,免费,并入滚动历史) + 拉一池安全话题(联网脑,1 次) → 写共享库+落盘。返回计数。"""
+async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: Any = None,
+                        hot_endpoints: Any = None) -> dict:
+    """全站每日批量：逐城拉真实天气(open-meteo,免费,并入滚动历史) + 从免费热榜 API 抓真实热点(带原文链接,
+    LLM 仅 grounded 改写) → 写共享库+落盘。返回计数。"""
     date_str = _date(now)
     weather: dict[str, str] = {}
     seen: set[str] = set()
@@ -256,10 +309,12 @@ async def refresh_world(cities: list[str], now: datetime.datetime, search_llm: A
         if obs:
             weather[c] = obs["line"]
             _record_weather(c, date_str, obs)   # 连续性底料：记下今天的温度/天气码
-    topics = await fetch_topics(search_llm, now)
-    _WORLD["date"], _WORLD["weather"], _WORLD["topics"] = date_str, weather, topics
+    topics_src = await fetch_topics(search_llm, now, hot_endpoints)   # [{text,url}] 真实热点
+    topics = [t["text"] for t in topics_src]
+    _WORLD["date"], _WORLD["weather"] = date_str, weather
+    _WORLD["topics"], _WORLD["topics_src"] = topics, topics_src
     _save_store()
-    log.info("🌍 世界库刷新：%d 城真实天气 + %d 条时事话题（date=%s）", len(weather), len(topics), date_str)
+    log.info("🌍 世界库刷新：%d 城真实天气 + %d 条真实热点（date=%s）", len(weather), len(topics), date_str)
     return {"cities": len(weather), "topics": len(topics)}
 
 
@@ -318,6 +373,9 @@ def world_snapshot(now: datetime.datetime) -> dict:
         "fresh": bool(fresh),                    # 今天是否已刷新（过期=昨天的，前端提示该拉新的）
         "persisted": bool(_STORE_PATH),          # 是否已开磁盘持久化（开了才跨重启不丢）
         "topics": list(_WORLD.get("topics") or []) if fresh else [],
+        # 带原文链接的真实热点（后台可点开核对——这是话题"真不真"的铁证）
+        "topics_src": [{"text": str(t.get("text", "")), "url": str(t.get("url", ""))}
+                       for t in (_WORLD.get("topics_src") or []) if isinstance(t, dict)] if fresh else [],
         "weather": [{"city": c, "line": ln} for c, ln in (_WORLD.get("weather") or {}).items()] if fresh else [],
         "hist_days": {c: len(v) for c, v in (_WORLD.get("weather_hist") or {}).items()},
     }

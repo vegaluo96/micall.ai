@@ -623,7 +623,8 @@ async def _world_refresh_loop(config: Config) -> None:
                 now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
                 cities = sorted({clean_city((s.get("identity") or {}).get("residence", ""))
                                  for s in effective_specs().values()} - {""})
-                await refresh_world(cities, now, make_search_llm(cfg))
+                await refresh_world(cities, now, make_search_llm(cfg),
+                                    cfg.global_defaults.get("hot_api_endpoints"))
         except Exception as e:   # 离线刷新失败绝不影响通话
             log.warning("世界库刷新失败：%r", e)
         await asyncio.sleep(_POLL_S)

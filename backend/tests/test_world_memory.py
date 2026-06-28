@@ -149,11 +149,18 @@ class TestSharedRefsDecay(unittest.TestCase):
 # ───────────────────── 话题：维度扩容（池子更大）+ 每通轮换 + 防编造护栏 ─────────────────────
 class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
     async def test_fetch_cap_raised_to_14(self):
-        many = {"topics": [f"具体话题{i}，带个小细节" for i in range(20)]}
-        out = await fetch_topics(StubLLM([json.dumps(many, ensure_ascii=False)]),
-                                 datetime.datetime(2026, 6, 28, tzinfo=TZ))
-        self.assertLessEqual(len(out), 14)
-        self.assertGreaterEqual(len(out), 10)   # 没被旧的 8 上限砍
+        # 真实热点 20 条（无改写脑→真实标题原样），上限 14
+        orig = wc.fetch_hot_items
+
+        async def fake(endpoints=None, limit=60):
+            return [{"title": f"真实热点{i}", "url": f"http://x/{i}"} for i in range(20)]
+        wc.fetch_hot_items = fake
+        try:
+            out = await fetch_topics(None, datetime.datetime(2026, 6, 28, tzinfo=TZ))
+        finally:
+            wc.fetch_hot_items = orig
+        self.assertEqual(len(out), 14)               # 上限 14
+        self.assertTrue(all(o.get("url") for o in out))   # 每条都带原文链接
 
     def test_big_pool_samples_subset(self):
         pool = [f"话题{chr(0x4E00 + i)}" for i in range(12)]   # 12 个互不相同的中文话题

@@ -471,9 +471,9 @@ export async function testApiSection(sectionKey: string, cfg: Record<string, str
 
 /** 手动拉取联网脑（世界库）：后端真跑一遍 open-meteo 天气 + 联网脑话题，回带真实结果给运营看效果。
  *  无后端 → ok:null（本地无法跨域直连联网脑）。 */
-export type WorldPull = { ok: boolean | null; error?: string; search_configured?: boolean;
+export type WorldPull = { ok: boolean | null; error?: string; rewriter_configured?: boolean;
   cities_total?: number; weather_cities?: number; topics_count?: number;
-  topics?: string[]; weather?: Record<string, string> };
+  topics_src?: { text: string; url: string }[]; weather?: Record<string, string> };
 export async function worldRefresh(): Promise<WorldPull> {
   const b = base();
   if (!b) return { ok: null };
@@ -488,7 +488,8 @@ export async function worldRefresh(): Promise<WorldPull> {
 
 /** 读取【已保存】的世界库快照（持久化那份，重启/重拉都在）：日期/话题/各城天气/历史天数。无后端 → null。 */
 export type WorldLib = { date?: string; fresh?: boolean; persisted?: boolean;
-  topics?: string[]; weather?: { city: string; line: string }[]; hist_days?: Record<string, number> };
+  topics?: string[]; topics_src?: { text: string; url: string }[];
+  weather?: { city: string; line: string }[]; hist_days?: Record<string, number> };
 export async function loadWorld(): Promise<WorldLib | null> {
   const b = base();
   if (!b) return null;

@@ -3,8 +3,9 @@ import datetime
 import json
 import unittest
 
+import micall.offline.world_context as wc
 from micall.offline import refresh_world, topics_now, weather_for
-from micall.offline.world_context import _is_safe, _weather_line, clean_city, fetch_topics
+from micall.offline.world_context import _is_safe, _iter_hot_records, _weather_line, clean_city, fetch_topics
 from micall.providers import StubLLM
 
 NOW = datetime.datetime(2026, 6, 28, 12, 0)
@@ -43,29 +44,90 @@ class TestCleanCity(unittest.TestCase):
         self.assertEqual(clean_city(""), "")
 
 
-class TestTopics(unittest.IsolatedAsyncioTestCase):
-    async def test_none_llm(self):
-        self.assertEqual(await fetch_topics(None, NOW), [])
+class TestHotRecords(unittest.TestCase):
+    """从各热榜 API 的 JSON 深度抠出 {title,url}，平台名不当热点。"""
 
-    async def test_filters_unsafe(self):
-        llm = StubLLM([json.dumps(
-            {"topics": ["杨梅上市了", "某地地震遇难", "新出的国漫挺好看"]}, ensure_ascii=False)])
+    def test_vvhan_shape(self):
+        data = {"success": True, "data": [
+            {"name": "douyin", "subtitle": "抖音", "data": [
+                {"index": 1, "title": "杨梅季正火", "hot": "100w", "url": "http://d/1", "mobilUrl": "http://m/1"}]}]}
+        recs = list(_iter_hot_records(data))
+        titles = [r["title"] for r in recs]
+        self.assertIn("杨梅季正火", titles)
+        self.assertNotIn("抖音", titles)        # name/subtitle(平台名) 不当热点
+        self.assertEqual(next(r for r in recs if r["title"] == "杨梅季正火")["url"], "http://d/1")
+
+    def test_imsyy_shape(self):
+        data = {"code": 200, "name": "bilibili", "data": [
+            {"title": "新番开播", "url": "http://b/1", "mobileUrl": "http://m/1", "hot": 50}]}
+        recs = list(_iter_hot_records(data))
+        self.assertEqual(recs[0]["title"], "新番开播")
+        self.assertEqual(recs[0]["url"], "http://b/1")
+
+
+class TestFetchTopics(unittest.IsolatedAsyncioTestCase):
+    """真实热点 → 安全闸 → grounded 改写；真实性来自数据源，LLM 只改写、不编。"""
+
+    def setUp(self):
+        self._orig = wc.fetch_hot_items
+
+    def tearDown(self):
+        wc.fetch_hot_items = self._orig
+
+    def _stub_items(self, items):
+        async def fake(endpoints=None, limit=60):
+            return items
+        wc.fetch_hot_items = fake
+
+    async def test_safety_url_and_rewrite(self):
+        self._stub_items([{"title": "杨梅季正火", "url": "http://a"},
+                          {"title": "某地地震多人遇难", "url": "http://b"},
+                          {"title": "新番开播", "url": "http://c"}])
+        llm = StubLLM([json.dumps({"lines": ["刷到杨梅季正火", "看到新番开播"]}, ensure_ascii=False)])
         out = await fetch_topics(llm, NOW)
-        self.assertIn("杨梅上市了", out)
-        self.assertIn("新出的国漫挺好看", out)
-        self.assertNotIn("某地地震遇难", out)   # 安全闸滤掉
+        texts = [o["text"] for o in out]
+        urls = [o["url"] for o in out]
+        self.assertIn("刷到杨梅季正火", texts)            # grounded 改写
+        self.assertNotIn("某地地震多人遇难", "".join(texts))  # 安全闸滤
+        self.assertIn("http://a", urls)                  # 原文链接保留
+        self.assertNotIn("http://b", urls)
 
-    async def test_garbage(self):
-        self.assertEqual(await fetch_topics(StubLLM(["不是 JSON"]), NOW), [])
+    async def test_no_llm_uses_real_titles(self):
+        self._stub_items([{"title": "杨梅季正火", "url": "http://a"}])
+        out = await fetch_topics(None, NOW)              # 没改写脑 → 真实标题原样（仍真实）
+        self.assertEqual(out[0]["text"], "杨梅季正火")
+        self.assertEqual(out[0]["url"], "http://a")
+
+    async def test_rewrite_mismatch_falls_back(self):
+        self._stub_items([{"title": "A话题", "url": "u1"}, {"title": "B话题", "url": "u2"}])
+        llm = StubLLM([json.dumps({"lines": ["只有一条"]}, ensure_ascii=False)])   # 条数不匹配
+        out = await fetch_topics(llm, NOW)
+        self.assertEqual([o["text"] for o in out], ["A话题", "B话题"])             # 回退真实标题
+
+    async def test_empty_when_no_items(self):
+        self._stub_items([])
+        self.assertEqual(await fetch_topics(StubLLM([]), NOW), [])
 
 
 class TestRefreshAndRead(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self._orig = wc.fetch_hot_items
+        self._snap = json.dumps(wc._WORLD, ensure_ascii=False)
+
+    def tearDown(self):
+        wc.fetch_hot_items = self._orig
+        d = json.loads(self._snap)
+        for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
+            wc._WORLD[k] = d[k]
+
     async def test_refresh_fills_shared_store(self):
-        # 天气走 open-meteo(网络)，测试里不触网 → weather 抓不到没关系；这里验【话题】共享 + 读取按天。
-        llm = StubLLM([json.dumps({"topics": ["端午粽子上市", "新番开播"]}, ensure_ascii=False)])
-        res = await refresh_world([], NOW, llm)            # 无城市 → 只拉话题
+        async def fake(endpoints=None, limit=60):
+            return [{"title": "端午粽子上市", "url": "http://a"}, {"title": "新番开播", "url": "http://b"}]
+        wc.fetch_hot_items = fake
+        res = await refresh_world([], NOW, None)           # 无城市 → 只拉话题；无改写脑 → 真实标题
         self.assertEqual(res["topics"], 2)
         self.assertEqual(topics_now(NOW), ["端午粽子上市", "新番开播"])  # 全站共享、当天可读
+        self.assertEqual(wc.world_snapshot(NOW)["topics_src"][0]["url"], "http://a")  # 带原文链接
         stale = datetime.datetime(2026, 6, 29, 12, 0)
         self.assertEqual(topics_now(stale), [])            # 跨天即过期，不串味
         self.assertEqual(weather_for("没拉到的城", NOW), "")  # 未抓到的城 → 空，降级季节推测

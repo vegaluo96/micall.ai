@@ -167,47 +167,6 @@ async def _ping_embed(node: NodeConfig) -> dict:
     return {"ok": True, "ms": int((time.perf_counter() - t0) * 1000), "note": f"维度 {len(vec)}"}
 
 
-# 联网自检：模型嘴上承认「我连不了网」的措辞 → 一定没在搜网（无论它后面编得多像）。
-_NOT_LIVE = (
-    "无法获取", "不能联网", "没有实时", "无法访问", "无法提供实时", "我无法查", "没有联网", "不具备联网",
-    "无法实时", "无法查询", "知识截止", "训练数据", "截至我", "作为ai", "作为一个ai", "无法连接互联网",
-)
-
-
-def _looks_live(answer: str) -> bool:
-    """启发式判「这答案像不像真联网拿到的」：含 数字+温度单位 或 来源网址 → 像(True)；
-    命中「我连不了网」措辞 → 不像(False)。仅作初判徽标，最终让人看亮出来的真实答案。纯函数，便于测试。"""
-    a = (answer or "").strip().lower()
-    if not a:
-        return False
-    if any(k in a for k in _NOT_LIVE):
-        return False
-    has_temp = bool(re.search(r"\d+\s*(°|度|℃|摄氏)", answer))
-    has_src = ("http" in a) or ("来源" in answer) or ("weather" in a) or ("数据来自" in answer)
-    return bool(has_temp or has_src)
-
-
-async def _ping_search(node: NodeConfig) -> dict:
-    """联网脑专用自检——发一条【只有真联网才答得对】的实时问题（今天日期 + 某城此刻天气 + 要来源网址），
-    收完整答案亮给运营看。区分「连上了(发请求通)」vs「真在搜网(答得出今天真实天气+来源)」。"""
-    import datetime
-    import time
-
-    from ..providers import make_llm
-
-    llm = make_llm(node)
-    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
-    q = (f"今天是{now.year}年{now.month}月{now.day}日。请用你的联网检索查一下【上海现在的天气】"
-         "（必须带具体气温数字），并给出你参考的信息来源网址。两句话以内回答。")
-    t0 = time.perf_counter()
-    chunks: list[str] = []
-    async for tok in llm.stream([{"role": "user", "content": q}], max_tokens=400):
-        chunks.append(tok)
-    ans = "".join(chunks).strip()
-    return {"ok": True, "ms": int((time.perf_counter() - t0) * 1000),
-            "answer": ans[:600], "live": _looks_live(ans)}
-
-
 def test_section(section: str, sec: dict) -> dict:
     import asyncio
 
@@ -231,10 +190,9 @@ def test_section(section: str, sec: dict) -> dict:
     if not (endpoint and key.strip()):
         return {"ok": False, "error": "endpoint / key 未填全"}
     try:
-        if node_key in ("llm_fast", "llm_slow", "llm_eval"):
+        # llm_search 现在是「热点改写脑」（不联网、只改写真实热榜）→ 和其它 LLM 一样测连通即可。
+        if node_key in ("llm_fast", "llm_slow", "llm_eval", "llm_search"):
             return asyncio.run(_ping_llm(node))
-        if node_key == "llm_search":            # 联网脑：发实时问题、亮真实答案，区分「连上」vs「真在搜网」
-            return asyncio.run(_ping_search(node))
         if node_key == "tts":
             return asyncio.run(_ping_tts(node))
         if node_key == "embedding":
@@ -380,13 +338,13 @@ def read_world_for_admin() -> dict:
 
 # ── 手动拉取联网脑（世界库）：运营点一下就【真的】跑一遍 open-meteo 天气 + 联网脑话题，亮出真实结果 ──
 def admin_world_refresh() -> dict:
-    """立即跑一次全站世界库刷新（与每日定时同一条路），返回【真实拉到的】话题池 + 各城天气，让运营当场看效果。
-    它会更新进程内共享世界库（与通话主链路同一份内存），故拉完角色立刻能用。失败/未配联网脑 → 诚实回带。"""
+    """立即跑一次全站世界库刷新（与每日定时同一条路）：从免费热榜 API 抓【真实热点(带原文链接)】+ 各城真实天气，
+    返回给运营当场核对（话题旁有原文链接，可点开验真）。更新进程内共享世界库，拉完角色立刻能用。失败诚实回带。"""
     import asyncio
     import datetime
 
-    from ..offline import refresh_world, topics_now, weather_for
-    from ..offline.world_context import clean_city
+    from ..offline import refresh_world, weather_for
+    from ..offline.world_context import clean_city, world_snapshot
     from ..providers import make_search_llm
     from .characters_admin import effective_specs
 
@@ -394,23 +352,25 @@ def admin_world_refresh() -> dict:
     now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
     cities = sorted({clean_city((s.get("identity") or {}).get("residence", ""))
                      for s in effective_specs().values()} - {""})
-    search = make_search_llm(cfg)
+    rewriter = make_search_llm(cfg)   # 现在它只是「改写脑」（qwen-long 等），不负责找热点
     try:
-        res = asyncio.run(refresh_world(cities, now, search))
+        res = asyncio.run(refresh_world(cities, now, rewriter, cfg.global_defaults.get("hot_api_endpoints")))
     except Exception as e:
         log.warning("手动世界库刷新失败：%r", e)
-        return {"ok": False, "error": str(e)[:300], "search_configured": search is not None}
+        return {"ok": False, "error": str(e)[:300], "rewriter_configured": rewriter is not None}
     weather = {}
     for c in cities:
         w = weather_for(c, now)
         if w:
             weather[c] = w
+    snap = world_snapshot(now)
     return {
         "ok": True,
-        "search_configured": search is not None,   # 联网脑没配 → 只拉到天气、话题为空，前端据此提示
+        "rewriter_configured": rewriter is not None,   # 改写脑没配 → 话题用真实标题原样（仍真实，只是没改成口语）
         "cities_total": len(cities), "weather_cities": int(res.get("cities", 0)),
         "topics_count": int(res.get("topics", 0)),
-        "topics": topics_now(now), "weather": weather,
+        "topics_src": snap.get("topics_src", []),       # [{text,url}] 真实热点 + 原文链接
+        "weather": weather,
     }
 
 

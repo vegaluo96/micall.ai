@@ -1,24 +1,10 @@
-"""后台联网自检启发式 + 运行限流读写（global_defaults 真知柄，钳到安全区间）。"""
+"""后台运行限流读写（global_defaults 真知柄，钳到安全区间）。"""
 import json
 import pathlib
 import tempfile
 import unittest
 
 from micall.server import adminapi
-
-
-class TestLooksLive(unittest.TestCase):
-    def test_live_when_temp_and_source(self):
-        self.assertTrue(adminapi._looks_live("上海现在 26°C，多云。来源 https://weather.com/shanghai"))
-        self.assertTrue(adminapi._looks_live("当前气温约 28 度，数据来自中国天气网"))
-
-    def test_not_live_when_model_admits_offline(self):
-        self.assertFalse(adminapi._looks_live("作为AI，我无法获取实时天气信息。"))
-        self.assertFalse(adminapi._looks_live("我的知识截止于训练数据，没有实时联网能力。"))
-
-    def test_not_live_when_vague_no_number_no_source(self):
-        self.assertFalse(adminapi._looks_live("上海这个季节通常比较温暖湿润。"))
-        self.assertFalse(adminapi._looks_live(""))
 
 
 class TestLimitsReadWrite(unittest.TestCase):

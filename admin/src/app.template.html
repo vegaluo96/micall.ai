@@ -489,12 +489,9 @@
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div style="min-width:0;">
                 <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;">世界库 · 角色「活在世界里」的共享素材<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">{{ worldDate }}</span></div>
-                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">每天全站拉一批：open-meteo 各城真实天气 + 联网脑当下时事话题（过安全闸），所有角色共享、聊到了会沉淀成共同记忆。已持久化，重启/重新部署都不丢。点「立即拉取」即刻更新。</div>
+                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">每天全站拉一批：open-meteo 各城真实天气 + 免费热榜 API 的【真实热点】（带原文链接、过安全闸、改写脑润成口语）。话题旁有原文链接，点开即可核对是不是真的。已持久化、重启不丢。点「立即拉取」即刻更新。</div>
               </div>
-              <div style="flex:none;display:flex;gap:9px;align-items:center;">
-                <div onClick="{{ checkSearch }}" style="font-size:13.5px;font-weight:600;color:#5A5E6B;background:#F2F3F5;border-radius:10px;padding:10px 18px;cursor:pointer;" style-active="transform:scale(.97)">{{ searchCheckLabel }}</div>
-                <div onClick="{{ pullWorld }}" style="font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
-              </div>
+              <div onClick="{{ pullWorld }}" style="flex:none;font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;border-top:1px solid #F4ECDC;padding-top:14px;">
               <span style="font-size:12.5px;color:#878B95;">自动拉取间隔</span>
@@ -502,14 +499,6 @@
               <span style="font-size:12.5px;color:#878B95;">小时 / 次（≥1，约 10 分钟内生效）</span>
               <div onClick="{{ saveWorldInterval }}" style="font-size:12.5px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:9px;padding:8px 16px;cursor:pointer;" style-active="transform:scale(.97)">保存间隔</div>
             </div>
-            <sc-if value="{{ hasSearchCheck }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top:13px;border-radius:10px;padding:11px 13px;background:{{ searchVBg }};border:1px solid rgba(0,0,0,.05);">
-                <div style="font-size:12px;font-weight:700;color:{{ searchVColor }};">{{ searchVerdict }}</div>
-                <sc-if value="{{ hasSearchAnswer }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:12px;color:#3A3D47;line-height:1.6;margin-top:6px;white-space:pre-wrap;word-break:break-word;">模型答：{{ searchAnswer }}</div>
-                </sc-if>
-              </div>
-            </sc-if>
             <sc-if value="{{ worldErr }}" hint-placeholder-val="{{ '' }}">
               <div style="margin-top:13px;border-radius:10px;padding:11px 13px;background:rgba(224,89,79,.06);border:1px solid rgba(224,89,79,.18);font-size:12.5px;color:#C0453B;">拉取失败：{{ worldErr }}</div>
             </sc-if>
@@ -528,10 +517,15 @@
                   </div>
                 </sc-if>
                 <sc-if value="{{ hasWorldTopics }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">时事话题（联网脑 · 已过安全闸 · 全站共享 · 角色按性子各取所需）</div>
+                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实热点话题（免费热榜 API · 已过安全闸 · 全站共享 · 点「原文」可核对真实性）</div>
                   <div style="display:flex;flex-direction:column;gap:6px;">
                     <sc-for list="{{ worldTopics }}" as="t" hint-placeholder-count="5">
-                      <div style="font-size:12.5px;color:#3A3D47;background:#FAFAFB;border-radius:8px;padding:8px 12px;line-height:1.5;">· {{ t }}</div>
+                      <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:#3A3D47;background:#FAFAFB;border-radius:8px;padding:8px 12px;line-height:1.5;">
+                        <span style="flex:1;min-width:0;">· {{ t.text }}</span>
+                        <sc-if value="{{ t.hasUrl }}" hint-placeholder-val="{{ false }}">
+                          <a href="{{ t.url }}" target="_blank" rel="noopener noreferrer" style="flex:none;font-size:11.5px;font-weight:600;color:#2E7BFF;text-decoration:none;">原文↗</a>
+                        </sc-if>
+                      </div>
                     </sc-for>
                   </div>
                 </sc-if>
