@@ -23,6 +23,17 @@ def invite_reward_seconds() -> int:
         return max(0, m) * 60
     except Exception:
         return INVITE_REWARD_SECONDS
+
+
+def register_gift_seconds() -> int:
+    """后台可配的注册赠送时长秒数（billing.free_seconds_on_register）；读不到回退默认。改完即对新注册生效。"""
+    try:
+        from ..config import load_config
+        s = int(load_config().raw.get("billing", {}).get("free_seconds_on_register", REGISTER_GIFT_SECONDS)
+                or REGISTER_GIFT_SECONDS)
+        return max(0, s)
+    except Exception:
+        return REGISTER_GIFT_SECONDS
 SESSION_TTL_SECONDS = 30 * 24 * 3600  # token 有效期 30 天
 _PBKDF2_ITERS = 200_000
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -69,14 +80,15 @@ def register(repo, email: str, password: str, invite_code: str = "") -> tuple[in
     if len(password) < 6:
         return 400, {"ok": False, "error": "密码至少 6 位"}
     user_id = "u_" + secrets.token_hex(8)
-    if not repo.create_user(user_id, email, hash_password(password), gift_seconds=REGISTER_GIFT_SECONDS):
+    gift = register_gift_seconds()        # 后台「注册赠送」可调；改完即对新注册生效
+    if not repo.create_user(user_id, email, hash_password(password), gift_seconds=gift):
         return 409, {"ok": False, "error": "该邮箱已注册"}
     if (invite_code or "").strip():       # 带邀请码注册：双方各得奖励（后台配置值，失败不影响注册）
         try:
             repo.apply_invite(user_id, invite_code.strip(), invite_reward_seconds())
         except Exception:
             pass
-    user = repo.get_user(user_id) or {"user_id": user_id, "email": email, "remaining_seconds": REGISTER_GIFT_SECONDS}
+    user = repo.get_user(user_id) or {"user_id": user_id, "email": email, "remaining_seconds": gift}
     return 200, {"ok": True, "token": _issue(repo, user_id), "user": _public(user)}
 
 

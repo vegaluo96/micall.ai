@@ -536,6 +536,10 @@
                 <div onClick="{{ toggleInviteRule }}" style="width:42px;height:24px;border-radius:12px;background:{{ ruleTrackBg }};position:relative;cursor:pointer;transition:background .2s cubic-bezier(.2,.8,.4,1);"><div style="position:absolute;top:2px;left:{{ ruleKnobLeft }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s cubic-bezier(.2,.8,.4,1);"></div></div>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+                <span style="font-size:12.5px;font-weight:500;color:#878B95;">注册赠送（分钟）· 新用户注册即送</span>
+                <input value="{{ registerGift }}" onInput="{{ onRegisterGift }}" style="border:1px solid #E6E7EB;border-radius:10px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
                 <span style="font-size:12.5px;font-weight:500;color:#878B95;">邀请人奖励（分钟）</span>
                 <input value="{{ inviteReward }}" onInput="{{ onInviteReward }}" style="border:1px solid #E6E7EB;border-radius:10px;padding:10px 13px;font-size:13.5px;font-family:inherit;color:#16161A;outline:none;background:#FAFAFB;" style-focus="border-color:#B9AEFF;background:#fff" />
               </div>

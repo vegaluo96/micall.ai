@@ -237,22 +237,24 @@ export async function saveDefaultCharacter(id: string): Promise<boolean> {
   return false;
 }
 
-/** 读取邀请奖励（分钟）。无后端 → null。 */
-export async function loadInviteConfig(): Promise<{ reward_minutes: number } | null> {
+/** 读取邀请奖励 + 注册赠送（均为分钟）。无后端 → null。 */
+export async function loadInviteConfig(): Promise<{ reward_minutes: number; free_minutes?: number } | null> {
   const b = base();
   if (!b) return null;
   try {
     const r = await fetch(`${b}/admin/invite-config`, { credentials: "include", headers: authHeaders() });
-    if (r.ok) return (await r.json()) as { reward_minutes: number };
+    if (r.ok) return (await r.json()) as { reward_minutes: number; free_minutes?: number };
   } catch { /* noop */ }
   return null;
 }
-/** 保存邀请奖励（分钟）。改完即对新注册生效。 */
-export async function saveInviteConfig(rewardMinutes: number): Promise<boolean> {
+/** 保存邀请奖励 +（可选）注册赠送（均为分钟）。改完即对新注册生效。 */
+export async function saveInviteConfig(rewardMinutes: number, freeMinutes?: number): Promise<boolean> {
   const b = base();
   if (!b) return false;
   try {
-    const r = await fetch(`${b}/admin/invite-config`, { method: "PUT", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ reward_minutes: rewardMinutes }) });
+    const body: any = { reward_minutes: rewardMinutes };
+    if (freeMinutes != null) body.free_minutes = freeMinutes;
+    const r = await fetch(`${b}/admin/invite-config`, { method: "PUT", headers: authHeaders(true), credentials: "include", body: JSON.stringify(body) });
     if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
   } catch { /* noop */ }
   return false;

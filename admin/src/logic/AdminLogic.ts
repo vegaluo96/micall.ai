@@ -65,7 +65,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {},
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {},
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -208,8 +208,9 @@ export class AdminLogic {
     }
     const dc = await loadDefaultCharacter();   // 当前默认角色（用户端进来先选它）
     if (dc != null) { this.defaultCharId = dc; this.setState({}); }
-    const ic = await loadInviteConfig();       // 当前邀请奖励（分钟）
+    const ic = await loadInviteConfig();       // 当前邀请奖励 + 注册赠送（分钟）
     if (ic && ic.reward_minutes != null) this.setState({ inviteReward: String(ic.reward_minutes), inviteeReward: String(ic.reward_minutes) });
+    if (ic && ic.free_minutes != null) this.setState({ registerGift: String(ic.free_minutes) });
     const vl = await loadVoices();             // MiniMax 系统（免费）音色库
     if (vl && Array.isArray(vl.voices)) { this.realVoices = vl.voices; this.setState({}); }
     await this.loadRealData();   // 看板 KPI/用户/通话/订单接 DB（接了后端才覆盖演示数据）
@@ -219,9 +220,10 @@ export class AdminLogic {
   async saveInvite() {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
     const m = Math.max(0, parseInt(this.state.inviteReward, 10) || 60);
-    const ok = await saveInviteConfig(m);
+    const fm = Math.max(0, parseInt(this.state.registerGift, 10) || 0);
+    const ok = await saveInviteConfig(m, fm);
     if (ok) this.setState({ inviteeReward: String(m) });
-    this.toastMsg(ok ? "邀请奖励已保存，对新注册即时生效" : "保存失败");
+    this.toastMsg(ok ? "已保存，对新注册即时生效" : "保存失败");
   }
 
   /** 设默认角色：用户端下次进来先选它（后端落 default_character.json，下一次拉角色即生效）。 */
@@ -987,6 +989,7 @@ export class AdminLogic {
       inviteKpis, invitersView, inviteRecordsView,
       // 后端是对称奖励（reward_minutes 一个值，双方同得）→ 邀请人输入即权威值、被邀请人镜像只读，UI 不再误导成可分别设。
       inviteReward: s.inviteReward, onInviteReward: (e: any) => this.setState({ inviteReward: e.target.value, inviteeReward: e.target.value }),
+      registerGift: s.registerGift, onRegisterGift: (e: any) => this.setState({ registerGift: e.target.value }),
       inviteeReward: s.inviteReward, onInviteeReward: (e: any) => this.setState({ inviteReward: e.target.value, inviteeReward: e.target.value }),
       inviteRuleOn: s.inviteRuleOn, toggleInviteRule: () => this.setState((p) => ({ inviteRuleOn: !p.inviteRuleOn })),
       ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",

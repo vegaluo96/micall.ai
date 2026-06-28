@@ -252,7 +252,11 @@ def write_cost_from_admin(payload: dict) -> None:
 
 # ── 邀请奖励（后台「邀请裂变」）读写：存 admin_overrides.json 的 invite 段，改完即对新注册生效 ──
 def read_invite_for_admin() -> dict:
-    return {"reward_minutes": int(load_config().raw.get("invite", {}).get("reward_minutes", 60) or 60)}
+    from .auth import register_gift_seconds
+    return {
+        "reward_minutes": int(load_config().raw.get("invite", {}).get("reward_minutes", 60) or 60),
+        "free_minutes": register_gift_seconds() // 60,   # 注册赠送时长（分钟）
+    }
 
 
 def write_invite_from_admin(payload: dict) -> None:
@@ -267,6 +271,13 @@ def write_invite_from_admin(payload: dict) -> None:
     except (TypeError, ValueError):
         m = 60
     existing["invite"] = {"reward_minutes": m}
+    # 注册赠送（分钟→秒）：仅当显式传了 free_minutes 才改 billing 段（避免老客户端漏传时把它清成默认）。
+    if "free_minutes" in (payload or {}):
+        try:
+            fm = max(0, min(100000, int(payload.get("free_minutes", 60) or 0)))   # 钳到 [0, ~70 天]
+        except (TypeError, ValueError):
+            fm = 60
+        existing["billing"] = {**(existing.get("billing") or {}), "free_seconds_on_register": fm * 60}
     tmp = OVERRIDES_PATH.with_name(OVERRIDES_PATH.name + ".tmp")
     tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
     tmp.replace(OVERRIDES_PATH)
