@@ -222,11 +222,6 @@ export async function deleteCalls(ids: number[]): Promise<boolean> {
   } catch { /* noop */ }
   return false;
 }
-/** 账号级收藏（需登录）：账号收藏的角色 id 列表；未登录/失败 → null。 */
-export async function getFavorites(): Promise<string[] | null> {
-  const j = await getJSON("/api/favorites");
-  return j && j.ok ? (j.favorites || []) : null;
-}
 /** 收藏/取消收藏某角色（账号级）。返回更新后的全集；失败 → null。 */
 export async function setFavorite(characterId: string, on: boolean): Promise<string[] | null> {
   const tok = getToken();

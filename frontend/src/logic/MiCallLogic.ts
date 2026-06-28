@@ -370,14 +370,15 @@ export class MiCallLogic {
   /** 角色 ci 当前生效音色：账号级（myVoices，跨设备）优先，回退本地选择，再回退「原本音色」。 */
   private selectedVoice(ci: number): string {
     const cid = this.characterId(ci);
-    return this.myVoices[cid] ?? this.state.voiceByChar[ci] ?? "default";
+    // voiceByChar 按 cid（角色 id 字符串）键，与 myVoices 一致：后台改角色顺序后下标会变、id 不变，避免本地音色错位。
+    return this.myVoices[cid] ?? this.state.voiceByChar[cid] ?? "default";
   }
 
   /** 选定角色 ci 的音色：本地即时高亮 + 持久化 + 写后端（账号级、下一通即生效）+ 试听该音色。 */
   private pickVoice(ci: number, voiceId: string) {
     const cid = this.characterId(ci);
     this.myVoices = { ...this.myVoices, [cid]: voiceId };   // 即时高亮（与后端最终一致）
-    this.setState((s) => ({ voiceByChar: { ...s.voiceByChar, [ci]: voiceId } }));
+    this.setState((s) => ({ voiceByChar: { ...s.voiceByChar, [cid]: voiceId } }));   // 按 cid 键（换序不错位）
     this.savePrefs();
     void authApi.setUserVoice(cid, voiceId);   // "default" → 后端清覆盖回退出厂；其余 → 落库
     this.playPreview(ci, voiceId);
@@ -1122,13 +1123,9 @@ export class MiCallLogic {
         this.setState({ emotion: ev.tag });
         break;
       case "billing":
-        // Server-authoritative balance. seconds=elapsed drives the timer text.
-        this.setState((s) => {
-          // 游客：让他**完整体验这 1 分钟试用**，通话中不打扰（不弹注册横幅）；试用一结束由
-          // out_of_minutes 的用完弹层引导注册（注册即送 60 分钟）。这才是「先体验、再引导」。
-          const next: Partial<State> = { seconds: ev.elapsed, remaining: ev.remaining_seconds };
-          return next;
-        });
+        // 服务端权威余额：seconds=elapsed 驱动计时文案。游客通话中【不弹注册横幅】（先完整体验这 1 分钟试用），
+        // 试用结束由 out_of_minutes 的用完弹层引导注册——故这里只更新计时/余额，没有横幅分支。
+        this.setState({ seconds: ev.elapsed, remaining: ev.remaining_seconds });
         break;
       case "low_minutes":
         // 仅对登录用户提示「快用完了」。游客试用就 1 分钟，阈值=60 秒会在第 1 秒就触发，

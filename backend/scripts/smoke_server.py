@@ -21,7 +21,7 @@ async def main() -> int:
     events: list[dict] = []
     async with serve(srv.handle, "127.0.0.1", 8799):
         async with connect("ws://127.0.0.1:8799/realtime/signal") as ws:
-            await ws.send(json.dumps({"type": "start_call", "character_id": "lin_wan", "scenario": "heart"}))
+            await ws.send(json.dumps({"type": "start_call", "character_id": "vega", "scenario": "chat"}))
             await ws.send(json.dumps({"type": "text_input", "text": "今天有点累"}))
             # 收集到「≥2 句 AI 字幕 且 ≥1 个 billing（需跨过 1 秒计费心跳）」或总超时。
             deadline = asyncio.get_event_loop().time() + 3.5

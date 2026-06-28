@@ -13,7 +13,7 @@ async def main() -> None:
     from websockets.asyncio.client import connect
 
     async with connect("ws://127.0.0.1:8787/realtime/signal") as ws:
-        await ws.send(json.dumps({"type": "start_call", "character_id": "lin_wan", "scenario": "heart"}))
+        await ws.send(json.dumps({"type": "start_call", "character_id": "vega", "scenario": "chat"}))
         await ws.send(json.dumps({"type": "text_input", "text": text}))
         print(f"\n你:  {text}\n", flush=True)
         got: list[str] = []

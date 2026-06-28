@@ -53,7 +53,7 @@ async def main() -> None:
     print(f"麦克风音频 {src} → pcm16/16k/mono {len(pcm)} bytes（{len(pcm) / (SR * 2):.1f}s）\n")
     async with connect("ws://127.0.0.1:8787/realtime/signal", max_size=None) as ws:
         await ws.send(json.dumps(
-            {"type": "start_call", "character_id": "lin_wan", "scenario": "heart"}))
+            {"type": "start_call", "character_id": "vega", "scenario": "chat"}))
 
         async def sender() -> None:
             await asyncio.sleep(0.4)  # 等 connected
