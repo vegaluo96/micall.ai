@@ -150,8 +150,12 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
                     existing.evidence = evid
             else:
                 profile.personality_model.append(Insight(insight=text, confidence=conf, evidence=evid))
-    if len(profile.personality_model) > _MAX_INSIGHTS:  # 只留最近 N 条，防画像无限膨胀
-        profile.personality_model = profile.personality_model[-_MAX_INSIGHTS:]
+    if len(profile.personality_model) > _MAX_INSIGHTS:
+        # 超额按【置信度】淘汰最低的（而非一刀切砍最旧）：高置信的稳定判断该留住，别被一堆低置信新猜测
+        # 挤掉 → 长期关系才不会越聊越不懂。挑出 confidence 最高的 N 条（同分留较新=索引大），再按原序重组。
+        model = profile.personality_model
+        keep = set(sorted(range(len(model)), key=lambda i: (model[i].confidence, i))[-_MAX_INSIGHTS:])
+        profile.personality_model = [m for i, m in enumerate(model) if i in keep]
     hyps = update.get("hypotheses")
     if hyps:
         profile.open_hypotheses = [
@@ -237,7 +241,9 @@ class UnderstandingEngine:
 
         # 2. 事实层（只增）：用户原话（默认重要性）+ 模型抽取的新事实（可带 importance），
         #    去重保序后批量向量化入库。重要性进检索打分，让日后优先想起要紧事（Generative Agents importance 维）。
-        scored_facts: list[tuple[str, float]] = [(t, 0.5) for t in extract_facts(history)]  # 原话默认 0.5
+        # 原话默认 0.3（低floor）：每句用户原话都存=确定性底座(慢脑漏抽也不丢)，但多是闲聊寒暄→给低分，
+        # 让慢脑标注的「要紧事」(爱/怕/承诺，0.7~0.9)在召回里【压过】成堆原话，记得准而非记得杂。
+        scored_facts: list[tuple[str, float]] = [(t, 0.3) for t in extract_facts(history)]
         for f in update.get("new_facts", []) or []:
             text, imp = _fact_text_importance(f)
             if text:

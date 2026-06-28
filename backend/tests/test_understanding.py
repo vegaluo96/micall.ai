@@ -84,6 +84,16 @@ class TestMerge(unittest.TestCase):
             merge_profile(p, {"insights": [{"insight": f"洞察{i}"}]})
         self.assertLessEqual(len(p.personality_model), 20)
 
+    def test_merge_prunes_lowest_confidence_not_oldest(self):
+        # 超额按【置信度】淘汰：高置信的老判断不该被一堆低置信新猜测挤掉（旧法砍最旧会丢掉它）。
+        p = UserProfile("u", "c")
+        merge_profile(p, {"insights": [{"insight": "嘴硬心软", "confidence": 0.95}]})  # 老、高置信
+        for i in range(25):  # 灌一堆低置信新猜测
+            merge_profile(p, {"insights": [{"insight": f"猜测{i}", "confidence": 0.2}]})
+        kept = [i.insight for i in p.personality_model]
+        self.assertLessEqual(len(kept), 20)
+        self.assertIn("嘴硬心软", kept)   # 高置信老判断留住（不被低置信新猜测顶掉）
+
     def test_merge_ignores_empty(self):
         p = UserProfile("u", "c")
         p.next_strategy = "原策略"

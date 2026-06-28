@@ -160,9 +160,11 @@ class PgRepository(MemoryRepository):
                 return [r[0] for r in rows[:top_k]]
             n = len(rows)
             # rows 是 created_at DESC（新→旧）；新近加成给靠前的（i 越小越新）。
+            # 新近权重压到 0.8~1.0（原 1~2 = 最高 2× 会盖过相关度/重要性，翻出「最新」而非「最相关」）：
+            # 现在【字符重叠×重要性】主导，新近只当轻微 tiebreaker —— 记得准，而非记得新。
             scored = [
                 (len(q & set(r[0])) * float(r[1] or 1.0) * float(r[2] if r[2] is not None else 0.5)
-                 * (1 + (n - i) / n), r[0])
+                 * (0.8 + 0.2 * (n - i) / n), r[0])
                 for i, r in enumerate(rows)
             ]
             scored.sort(key=lambda s: s[0], reverse=True)

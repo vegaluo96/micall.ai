@@ -347,9 +347,10 @@ class InMemoryRepository(MemoryRepository):
         if not items:
             return []
         q = set(query)
-        # 近似分 = 字符重叠 × 情感权重 × 重要性 × 越近越重（list 末尾更新，给递增的新近加成）。
+        # 近似分 = 字符重叠 × 情感权重 × 重要性 × 新近(轻)。新近压到 0.8~1.0（原 1~2 会盖过相关度）：
+        # 相关度/重要性主导，新近只当轻微 tiebreaker（与 pg_repository.recall 一致）→ 记得准而非记得新。
         scored = [
-            (len(q & set(text)) * weight * imp * (1 + i / max(1, len(items))), text)
+            (len(q & set(text)) * weight * imp * (0.8 + 0.2 * i / max(1, len(items))), text)
             for i, (text, weight, _v, imp) in enumerate(items)
         ]
         scored.sort(key=lambda s: s[0], reverse=True)
@@ -368,8 +369,9 @@ class InMemoryRepository(MemoryRepository):
         for i, (text, weight, vec, imp) in enumerate(items):
             if vec:
                 any_vec = True
-                # 余弦相似 × 情感权重 × 重要性 × 新近加成（末尾更近）。
-                scored.append((_cosine(query_vector, vec) * weight * imp * (1 + i / max(1, n)), text))
+                # 余弦相似 × 情感权重 × 重要性 × 新近(轻 tiebreaker 0.9~1.0)。语义相关度主导，
+                # 新近只破平手——与 pg_repository.recall_vec（纯语义×重要性、无新近）的「相关优先」取向一致。
+                scored.append((_cosine(query_vector, vec) * weight * imp * (0.9 + 0.1 * i / max(1, n)), text))
         if not any_vec:  # 库里还没有向量（旧数据/未向量化）→ 退关键词。
             return self.recall(user_id, character_id, query, top_k=top_k)
         scored.sort(key=lambda s: s[0], reverse=True)

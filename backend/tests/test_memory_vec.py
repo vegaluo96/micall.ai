@@ -52,6 +52,17 @@ class TestRecallVec(unittest.TestCase):
         hits = r.recall_vec("u", "c", [], query="猫", top_k=3)
         self.assertTrue(any("猫" in h for h in hits))
 
+    def test_recall_relevance_beats_recency(self):
+        # 新近降权后：同等字符重叠下，较要紧的【老】事实压过较琐碎的【新】事实 → 记得准而非记得新。
+        # 旧公式(新近最高2×)会让新而琐碎的那条胜出；新公式让相关度×重要性主导。
+        r = InMemoryRepository()
+        r.add_fact("u", "c", "甲乙丙旧", importance=0.6)        # 最老、较要紧
+        for i in range(8):
+            r.add_fact("u", "c", f"闲聊{i}", importance=0.5)    # 填充：与 query 无重叠（不参与竞争）
+        r.add_fact("u", "c", "甲乙丙新", importance=0.4)        # 最新、较琐碎
+        hits = r.recall("u", "c", "甲乙丙", top_k=1)
+        self.assertEqual(hits[0], "甲乙丙旧")
+
 
 class TestAssemblerVec(unittest.TestCase):
     def test_build_uses_vector_recall_when_query_vector_given(self):
