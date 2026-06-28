@@ -253,6 +253,16 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("传染", sysmsg)
         self.assertIn("起伏弧线", sysmsg)
 
+    def test_companion_north_star_in_prefix(self):
+        # 第一性原理北极星：让 TA 更舒服、想再来；读需求→按需求给→用你的味道给。紧跟人设、在 _BEING(整体的人) 之前。
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        sysmsg = ContextAssembler(char).build(
+            character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("你为什么在这儿", sysmsg)
+        self.assertIn("比来之前", sysmsg)        # 让 TA 走时比来之前好一点
+        self.assertIn("用你这个人的味道", sysmsg)  # 人设是味道不是借口
+        self.assertLess(sysmsg.index("你为什么在这儿"), sysmsg.index("整体的人"))  # why 在 how 之前
+
     def test_anti_ai_tells_in_prefix(self):
         # 图灵测试治 AI 露馅：少机械反问 / AI任务露怯 / 不写[方括号]标签 / 绝不主动提科技元话题 / 不复读时段词。
         char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
