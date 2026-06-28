@@ -88,13 +88,6 @@ def _is_asr_hallucination(s: str) -> bool:
     return all(_junk(w) for w in words)
 
 
-_ACTIONS = re.compile(r"（[^）]*）|\([^)]*\)|【[^】]*】|\*[^*]*\*")
-
-
-def _strip_actions(s: str) -> str:
-    """去掉括号里的动作/神态/旁白（（轻声笑）/(smiles)/【…】/*…*）：这些是表演提示，不该被 TTS 念出来。"""
-    return _ACTIONS.sub("", s or "").strip()
-
 from ..config import Config
 from ..protocol import ServerEvent
 from ..providers import ASRProvider, LLMProvider, TTSProvider

@@ -49,14 +49,6 @@ class TestInitialBalanceZero(unittest.TestCase):
         self.assertIsNone(s._listen_task)             # 没起监听
 
 
-class TestStripActions(unittest.TestCase):
-    def test_strip_stage_directions(self):
-        from micall.session.orchestrator import _strip_actions
-        self.assertEqual(_strip_actions("（轻声笑）不过这个嘛，我可不能告诉你。"), "不过这个嘛，我可不能告诉你。")
-        self.assertEqual(_strip_actions("(smiles) hi"), "hi")
-        self.assertEqual(_strip_actions("（歪着头，眨眨眼睛）"), "")  # 整句都是动作 → 空
-
-
 class TestVariedOpening(unittest.TestCase):
     def test_opening_varies_each_call(self):
         # 修「每次开头都重复一样的话」：每通随机叠一个开场角度 + 反重复要求。

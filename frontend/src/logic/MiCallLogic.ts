@@ -931,6 +931,7 @@ export class MiCallLogic {
   retryDial() { this.setState({ callFailed: false }); void this.beginCall(); }
 
   endCall() {
+    if (this.state.phase === "idle" || this.state.phase === "ended") return;  // 防重入：autoHangup 与手动挂断并发时别重复播挂断音/重发 end_call
     this.clearTimers();
     this.player.playHangup();   // 挂断音效，与接通提示音呼应（stopMic 的 flush 会停 AI 音频/接通音，但不影响它）
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });

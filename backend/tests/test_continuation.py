@@ -34,31 +34,32 @@ class TestThreadStash(unittest.TestCase):
 
     def test_stash_and_take_roundtrip(self):
         s = self._server()
-        s._stash_thread("u1", "1.2.3.4", self._sess(_HIST))
-        self.assertEqual(s._take_continuation("u1", "1.2.3.4", "vega"), _HIST)
-        self.assertIsNone(s._take_continuation("u1", "1.2.3.4", "vega"))   # 一次性消费
+        s._stash_thread("u1", self._sess(_HIST))
+        self.assertEqual(s._take_continuation("u1", "vega"), _HIST)
+        self.assertIsNone(s._take_continuation("u1", "vega"))   # 一次性消费
 
     def test_thin_history_not_stashed(self):
         s = self._server()
-        s._stash_thread("u1", "ip", self._sess([{"role": "user", "content": "喂"}]))  # <2 条
-        self.assertIsNone(s._take_continuation("u1", "ip", "vega"))
+        s._stash_thread("u1", self._sess([{"role": "user", "content": "喂"}]))  # <2 条
+        self.assertIsNone(s._take_continuation("u1", "vega"))
 
     def test_window_expiry(self):
         s = self._server()
-        s._stash_thread("u1", "ip", self._sess(_HIST))
-        key = s._thread_key("u1", "ip", "vega")
+        s._stash_thread("u1", self._sess(_HIST))
+        key = s._thread_key("u1", "vega")
         s._recent_thread[key]["ts"] = time.time() - (ws._CONTINUATION_WINDOW_S + 10)
-        self.assertIsNone(s._take_continuation("u1", "ip", "vega"))
+        self.assertIsNone(s._take_continuation("u1", "vega"))
 
     def test_different_character_no_continuation(self):
         s = self._server()
-        s._stash_thread("u1", "ip", self._sess(_HIST, character_id="vega"))
-        self.assertIsNone(s._take_continuation("u1", "ip", "tuan_zi"))   # 换角色不续接
+        s._stash_thread("u1", self._sess(_HIST, character_id="vega"))
+        self.assertIsNone(s._take_continuation("u1", "tuan_zi"))   # 换角色不续接
 
-    def test_guest_keyed_by_ip(self):
+    def test_guest_not_continued(self):
+        # 游客（_ANON）不参与续接：按 IP 作 key 会在 NAT 下串台、回灌别人对话 → 隐私风险，故排除。
         s = self._server()
-        s._stash_thread(ws._ANON, "5.5.5.5", self._sess(_HIST))
-        self.assertEqual(s._take_continuation(ws._ANON, "5.5.5.5", "vega"), _HIST)   # 游客按 IP 也能续
+        s._stash_thread(ws._ANON, self._sess(_HIST))
+        self.assertIsNone(s._take_continuation(ws._ANON, "vega"))
 
 
 class TestMakeSessionContinuation(unittest.TestCase):
@@ -68,11 +69,11 @@ class TestMakeSessionContinuation(unittest.TestCase):
     def test_make_session_seeds_and_flags(self):
         s = self._server()
         hist = [{"role": "user", "content": "聊到想去旅行"}, {"role": "assistant", "content": "想去哪？"}]
-        s._stash_thread("u1", "1.2.3.4", SimpleNamespace(history=hist, character_id="vega"))
+        s._stash_thread("u1", SimpleNamespace(history=hist, character_id="vega"))
         sess = s._make_session(emit=_noop, character_id="vega", scenario="", user_id="u1", client_ip="1.2.3.4")
         self.assertEqual(sess.history, hist)
         self.assertTrue(sess._continuation)
-        self.assertIsNone(s._take_continuation("u1", "1.2.3.4", "vega"))   # 已被消费
+        self.assertIsNone(s._take_continuation("u1", "vega"))   # 已被消费
 
     def test_make_session_fresh_when_no_stash(self):
         s = self._server()

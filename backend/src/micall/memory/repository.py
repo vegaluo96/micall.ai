@@ -308,7 +308,7 @@ class InMemoryRepository(MemoryRepository):
 
     def __init__(self) -> None:
         # 每条事实：(text, emotion_weight, vector|None)
-        self._facts: dict[tuple[str, str], list[tuple[str, float, list[float] | None]]] = {}
+        self._facts: dict[tuple[str, str], list[tuple[str, float, list[float] | None, float]]] = {}  # (text, emotion_weight, vector, importance)
         self._profiles: dict[tuple[str, str], UserProfile] = {}
         self._voices: dict[tuple[str, str], str] = {}
         self._favorites: set[tuple[str, str]] = set()      # (user_id, character_id) 账号级收藏（跨设备同步）
