@@ -57,6 +57,20 @@ class TestStripActions(unittest.TestCase):
         self.assertEqual(_strip_actions("（歪着头，眨眨眼睛）"), "")  # 整句都是动作 → 空
 
 
+class TestVariedOpening(unittest.TestCase):
+    def test_opening_varies_each_call(self):
+        # 修「每次开头都重复一样的话」：每通随机叠一个开场角度 + 反重复要求。
+        from micall.session.orchestrator import _varied_opening, _OPENING_ANGLES
+        self.assertGreaterEqual(len(set(_OPENING_ANGLES)), 4)        # 多个不同角度可选
+        base = "（开场基础指令）"
+        outs = {_varied_opening(base) for _ in range(60)}
+        self.assertGreater(len(outs), 1)                            # 多次调用产出不止一种
+        for o in outs:
+            self.assertTrue(o.startswith(base))                     # 基础指令保留
+            self.assertIn("不一样", o)                               # 反重复要求在
+            self.assertTrue(any(ang in o for ang in _OPENING_ANGLES))  # 含某个角度
+
+
 class TestFiller(unittest.TestCase):
     def test_filler_detection(self):
         from micall.session.orchestrator import _is_filler

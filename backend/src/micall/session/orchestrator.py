@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
 import time
 from contextlib import aclosing
@@ -110,6 +111,23 @@ Emit = Callable[[dict], Awaitable[None]]
 AudioEmit = Callable[[bytes], Awaitable[None]]
 
 _AUDIO_CHUNK = 4096   # 预合成缓冲回放时的分块大小（别一次性灌一大块给前端）
+
+# 开场多样化（修「每次开头都重复一样的话」）：开场默认靠静态指令 + 静态自主状态（如「刚调好花椒鸡尾酒」），
+# 模式太强 → 每通都同一句。每通随机选一个【开场角度】注入，把模型从同一个 mode 上推开。
+_OPENING_ANGLES = [
+    "这次就着【此刻的时间/场景】随口起头（这个点怎么还醒着 / 这天气…），别提你正忙的事。",
+    "这次直接【好奇地问 TA 一件】你想知道的小事起头，别先说自己。",
+    "这次说一件【你自己此刻的心情或念头】起头（但别又是你正做的那件老事，换件别的）。",
+    "这次就一句【简单温暖的招呼】，干净利落不铺垫。",
+    "这次顺着【你对 TA 的感觉/惦记】起头，像惦记一个人那样自然带出来。",
+    "这次用你性子里最自然的方式起头，但【换个和以往不同的开法】。",
+]
+
+
+def _varied_opening(base: str) -> str:
+    """给开场指令随机叠一个角度 + 反重复要求，治「每次开头都同一句」。纯函数，便于测试。"""
+    return (base + random.choice(_OPENING_ANGLES)
+            + "（务必和你以往的开场【不一样】：别每次都同一句、同一件事、同一个场景起头。）")
 
 _SENTENCE_END = set("。！？!?\n")
 
@@ -492,7 +510,8 @@ class CallSession:
                     return
                 self._opening_active = True
                 try:
-                    await self._generate_turn(self._opening_directive, opening=True)
+                    # 每通随机换个开场角度 + 明确反重复，治「每次开头都同一句」（静态指令+静态自主状态导致的强 mode）。
+                    await self._generate_turn(_varied_opening(self._opening_directive), opening=True)
                     # 等开场音频真正播完（_audio_until 是已发音频播放到的终点），这段尾巴继续抑制 ASR 防回声切断。
                     tail = self._audio_until - time.monotonic()
                     if tail > 0:
