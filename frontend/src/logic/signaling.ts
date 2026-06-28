@@ -84,7 +84,7 @@ class WebSocketSignalingClient implements SignalingClient {
       }
       try {
         const sev = JSON.parse(e.data) as ServerEvent;
-        if (sev.type === "connected") this.everConnected = true;
+        if (sev.type === "connected") { this.everConnected = true; this.terminal = false; }  // 新一通开始：清掉上一通的终态标记（复用 WS 时真掉线才会正确提示）
         if (sev.type === "ended" || sev.type === "out_of_minutes" || sev.type === "call_failed") this.terminal = true;
         this.onEvent(sev);
       } catch {

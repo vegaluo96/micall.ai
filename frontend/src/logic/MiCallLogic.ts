@@ -1148,6 +1148,14 @@ export class MiCallLogic {
         this.setState({ phase: "idle", callFailed: true });
         break;
       case "connection_lost":
+        // 只有【正在通话/拨号中】掉线才提示重连。首页空闲时这条多半是「预热/复用的旧 WS 被浏览器后台
+        // 挂起后关闭」（切出去过会儿回来）——跟通话无关 → 静默丢掉死连接（下次拨号 ensureSignaling 自动
+        // 重建），绝不弹「重连」打扰一个根本没打电话的人。
+        if (!this.callActive()) {
+          try { this.sig?.close(); } catch { /* noop */ }
+          this.sig = null;
+          break;
+        }
         // 接通后网络掉线（非自愿）：收掉这通、回到可重拨状态。记下时刻+角色，窗口内重拨同一角色即续接
         // （后端回灌最近几轮、AI 接着聊；前端保留字幕不闪空屏）。文案也把「接着聊」的预期立住。
         this.clearTimers();
