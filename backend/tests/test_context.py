@@ -77,6 +77,29 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(msgs[-1]["content"].endswith("在吗"))
         self.assertIn("现实时间", msgs[-1]["content"])   # 时间观念每轮注入末轮 user
 
+    def test_opening_greeting_includes_world_topics(self):
+        # 开场轮（AI 先开口、history 为空）必须带上时事话题池——这正是真人寒暄后自然分享新鲜事的时机。
+        # 回归：此前 else 分支漏了 topics_line，开场从不提世界 → 用户「聊天感觉不到世界更新」。
+        import datetime
+        import micall.offline.world_context as wc
+        snap = wc._WORLD.get("topics_src")
+        sdate = wc._WORLD.get("date")
+        try:
+            now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+            wc._WORLD["date"] = wc._date(now)
+            wc._WORLD["topics_src"] = [{"text": "新出的烤鸭店排到天亮", "url": "u", "cat": "美食",
+                                        "date": wc._date(now)}]
+            foodie = CharacterRuntime("c", "小馋", {"core_traits": ["吃货"], "hobbies": ["研究美食"]})
+            a = ContextAssembler(foodie)
+            a.set_client_timezone(480)
+            msgs = a.build(character_id="c", scenario="", history=[])     # 空 history = 开场轮
+            blob = " ".join(m["content"] for m in msgs)
+            self.assertIn("新出的烤鸭店排到天亮", blob)                    # 开场就带上了对味的时事
+            self.assertIn("新鲜事", blob)                                 # 自然分享框架在场
+        finally:
+            wc._WORLD["topics_src"] = snap
+            wc._WORLD["date"] = sdate
+
     def test_identity_injected_into_persona(self):
         # AI 要知道自己的基本资料（性别/年龄/外貌/生日），否则被问就不知道。
         char = CharacterRuntime.from_spec({

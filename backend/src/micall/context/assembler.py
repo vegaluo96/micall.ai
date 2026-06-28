@@ -12,11 +12,14 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import random
 import re
 from typing import Any
 
 from .models import AutonomousState, CharacterRuntime, UserProfile
+
+log = logging.getLogger("micall.assembler")
 
 Message = dict
 
@@ -614,10 +617,11 @@ def _world_topics_line(topics: list, interests: str = "") -> str:
     chosen = _pick_topics(items, interests, _TOPICS_SHOWN) if len(items) > _TOPICS_SHOWN else list(items)
     texts = [(t.get("text") if isinstance(t, dict) else str(t)) for t in chosen]
     return (
-        # 第一性原理·真人怎么分享新闻：先冒出自己的反应、再顺势勾连听者，一次一件、口语、不来电就不提。
-        "（你平时刷手机、跟人聊天会撞见外面这些新鲜事——下面是最近的一池。挑【最对你口味、你真有反应】的一两件，"
-        "像真人跟朋友分享那样自然带出来：先冒出你自己的反应或态度（觉得有意思、无语、想试试…），再顺势问问 TA "
-        "怎么看、或勾连上 TA 的事。口语、一次只聊一件、别像念稿/播新闻、别一条条报；这一池都不来电就跳过、别硬找话。"
+        # 第一性原理·真人怎么分享新闻：先冒出自己的反应、再顺势勾连听者，一次一件、口语。
+        "（你平时刷手机、跟人聊天会撞见外面这些新鲜事——下面是最近的一池。【主动】挑【最对你口味、你真有反应】"
+        "的一件，像真人跟朋友分享那样自然带出来（尤其开场寒暄完、或聊到相关时）：先冒出你自己的反应或态度"
+        "（觉得有意思、无语、想试试…），再顺势问问 TA 怎么看、或勾连上 TA 的事。口语、一次只聊一件、"
+        "别像念稿/播新闻、别一条条报。除非此刻气氛不合适（TA 在倾诉烦心事、聊正经事），否则别让对话干巴巴、可以拿它当谈资。"
         # 防编造护栏：当成模糊印象，绝不赌真假、不硬编细节——即使源不准也不穿帮、不尬
         "⚠这些只是你模糊的印象、未必准：别咬死具体名字/数字、别赌它千真万确；TA 没听过或纠正你，就轻松一句"
         "「我可能记串了」带过、顺着 TA 聊，绝不为了证明自己而硬掰细节）："
@@ -743,7 +747,7 @@ class ContextAssembler:
         # 故仅开场轮（历史里 ≤1 条 user）带间隔/节日，之后只给时间感。折进末轮 user（不进 prefix 缓存）。
         opening = sum(1 for m in history if m.get("role") == "user") <= 1
         human = self._human_context(character_id, opening=opening)
-        # 全站共享时事话题（联网脑每天批量拉的一池）：仅开场轮折进，角色按性子挑感兴趣的自然带出（→ 快脑打通）。
+        # 全站共享时事话题（每天批量拉的滚动池）：仅开场轮注入，角色按兴趣检索对味的、像真人那样自然带出。
         topics_line = ""
         if opening:
             try:
@@ -752,6 +756,8 @@ class ContextAssembler:
                 _now = datetime.datetime.now(datetime.timezone(datetime.timedelta(minutes=off)))
                 # 传【带领域标签的滚动池】+【本角色兴趣】→ 角色按兴趣检索引用对味的话题（不再随机念）。
                 topics_line = _world_topics_line(topics_pool_now(_now), _character_interests(self.character))
+                if topics_line:
+                    log.info("📰 注入时事话题池（%s 开场 · 按兴趣检索）", self.character.name)
             except Exception:
                 topics_line = ""
         if hist and hist[-1].get("role") == "user":
@@ -759,8 +765,10 @@ class ContextAssembler:
             messages.extend(head)
             messages.append({"role": "user", "content": human + guard + "\n" + topics_line + recall_preamble + live + voice_emo + last["content"]})
         else:
+            # 开场轮（AI 先开口、history 为空）：把开场寒暄上下文 + 时事话题池一并给 → 角色【主动】挑一件对味的
+            # 新鲜事带出来（这正是真人寒暄后自然分享的时机；此前 else 分支漏了 topics_line，开场从不提世界）。
             messages.extend(hist)
-            content = human + guard if guard else human
+            content = (human + guard if guard else human) + ("\n" + topics_line if topics_line else "")
             messages.append({"role": "system", "content": content})
         return messages
 
