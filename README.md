@@ -14,8 +14,9 @@
 ## 技术栈 / 架构
 
 - **实时媒体（自建，不依赖商业 RTC 厂商）**：浏览器原生 `RTCPeerConnection` + 自建 [`aiortc`](https://github.com/aiortc/aiortc)（Python）+ 自建 coturn（TURN/STUN）做全双工 RTC；硬件回声消除（AEC）只在 RTC 媒体面成立。WebSocket（TCP/443）作为兜底音频通道，RTC 真正连上前先走 WS、连上即切，启动不阻塞。
+- **抗抖动 / 不半路死掉**：provider 瞬时错误（限流/网关抖/超时）首字节前自动退避重试；一轮失败优雅回 listening 不卡「思考中」；网络整条掉线后窗口内**重拨同一角色即续接**（回灌最近几轮、AI 不重新自我介绍、字幕承接）；`/api/health` 供监控探活（各节点配置 + 持久化状态）。
 - **流式管线（首句抢跑，~1.6s 首音）**：实时 ASR（Qwen3 实时识别）→ 快脑 LLM（DeepSeek，禁用思考、首句一成形即合成）→ TTS（MiniMax，逐句合成 + 预合成消除句间空档）。每句情绪 `[emotion:tag]` piggyback 在 LLM 输出里，不额外调模型；笑/叹气用拟声标签真发声。回声/语气词/ASR 幻听过滤防自打断与凭空冒话。
-- **记忆 / 人格**：Postgres + `pgvector` 语义召回（相似度 × 时间衰减 × 情感权重）；离线理解引擎（慢脑 Qwen-Long + Bailian embedding）在挂断后回写事实/画像、推进角色自主状态 —— "她有对话之外的生命"。
+- **记忆 / 人格**：Postgres + `pgvector` 语义召回（相似度 × **重要性** × 情感权重，时间新近为辅 —— 优先想起 TA 真在意的事，而非最新的琐事）；离线理解引擎（慢脑 Qwen-Long + Bailian embedding）在挂断后回写事实/画像（事实带重要性评分、洞察按置信度演化）、推进角色自主状态 —— "她有对话之外的生命"。
 - **服务进程**：单进程同时跑 WebSocket 信令 + 运营 API（127.0.0.1:8788）+ 用户账号 API（127.0.0.1:8789）；外网经 nginx 反代 + Let's Encrypt HTTPS。后端零三方依赖于核心逻辑、需 Python ≥ 3.11。
 
 ## 仓库结构
@@ -48,7 +49,7 @@ deploy/                       ✅ systemd + nginx + certbot + coturn + Postgres 
 **后端**（核心逻辑测试无三方依赖，但需 **Python ≥ 3.11**）：
 ```bash
 cd backend
-PYTHONPATH=src python3 -m tests              # 单元测试（145 passed）
+PYTHONPATH=src python3 -m tests              # 单元测试（265 passed）
 PYTHONPATH=src python3 -m micall.cli run-server   # 起 WS 信令 + 运营/用户 API（本地监听）
 ```
 
