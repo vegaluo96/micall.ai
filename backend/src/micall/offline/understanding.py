@@ -43,6 +43,8 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "open_hypotheses": [vars(h) for h in profile.open_hypotheses],
         "relationship": vars(profile.relationship),
         "bond": vars(profile.bond),
+        "principles": profile.principles,
+        "curiosity": profile.curiosity,
     }
     system = (
         "你是离线理解引擎。基于本次通话与现有画像，推断并修正你对这个人的理解。"
@@ -64,7 +66,14 @@ def build_understanding_prompt(profile: UserProfile, history: Sequence[Message])
         "changed_by=认识 TA 让角色【自己】有了什么变化、"
         "own_threads=角色【自己这一侧】惦记着下次想跟 TA 说/做/问的事（角色的小心思/议程，1-3 条）、"
         "closeness_delta=亲近度变化 -0.2~0.2（聊得走心就+，被冒犯/疏远就-）；"
-        "【严格贴角色人设】——冷淡/高冷角色别写得热络交心，关系还浅别写深情，没真实进展就别硬涨、留空即可)。"
+        "【严格贴角色人设】——冷淡/高冷角色别写得热络交心，关系还浅别写深情，没真实进展就别硬涨、留空即可)、"
+        # 前沿B：好奇缺口（驱动主动）。
+        "curiosity(string，角色【现在最想弄明白 TA 的那一个点】——驱动它下次主动找机会问/探的；"
+        "贴角色性格挑它真会在意的，一句话)、"
+        # 前沿C：自传式推理——把历次洞察综合成稳定原则。
+        "principles(字符串数组，2~4 条；把你对 TA 历次的理解【综合】成「TA 这个人比较笃定的几条稳定原则」"
+        "——不是这通的小事，是跨越多次、能解释 TA 行为的底层规律（如『嘴上逞强、其实很怕给人添麻烦』）；"
+        "在现有 principles 上谨慎增改，证据够才立，缓慢演化、别频繁推翻)。"
         "【铁律】只记录本次通话里【明确出现过】的信息：不要把推测/脑补/'可能'当成事实写进 "
         "new_facts 或 last_topic——拿不准的一律放进 hypotheses（带 confidence）。"
         "绝不要虚构'谈过合作/约定过/一起做过/答应过'之类对话里没真实发生的共同经历或承诺。"
@@ -165,6 +174,13 @@ def merge_profile(profile: UserProfile, update: dict[str, Any]) -> UserProfile:
             r.shared_refs = list(rel["shared_refs"])
     if update.get("next_strategy"):
         profile.next_strategy = str(update["next_strategy"])
+    # 前沿B 好奇缺口：角色最想弄明白 TA 的那一个点（驱动主动）。
+    if str(update.get("curiosity", "")).strip():
+        profile.curiosity = str(update["curiosity"]).strip()[:200]
+    # 前沿C 稳定原则：高于逐通 insight 的自传式综合，谨慎替换（缓慢演化、限 5 条）。
+    pr = update.get("principles")
+    if isinstance(pr, list) and pr:
+        profile.principles = [str(x).strip()[:200] for x in pr if str(x).strip()][:5]
     # 角色侧关系内在状态（双向身份）：随每通演化——感情/被改变/角色自己的议程/亲近度。
     bnd = update.get("bond")
     if isinstance(bnd, dict):

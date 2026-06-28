@@ -43,6 +43,8 @@ def _profile_to_json(p: UserProfile) -> str:
         "open_hypotheses": [dataclasses.asdict(h) for h in p.open_hypotheses],
         "relationship": dataclasses.asdict(p.relationship),
         "bond": dataclasses.asdict(p.bond),   # 角色侧关系内在状态（双向身份）
+        "curiosity": p.curiosity,             # 前沿B 好奇缺口
+        "principles": p.principles,           # 前沿C 稳定原则
     }, ensure_ascii=False)
 
 
@@ -57,6 +59,8 @@ def _profile_from_json(user_id: str, character_id: str, raw: dict, next_strategy
         open_hypotheses=[Hypothesis(**h) for h in (raw.get("open_hypotheses") or []) if isinstance(h, dict)],
         relationship=Relationship(**{k: rel[k] for k in rel if k in Relationship.__dataclass_fields__}),
         bond=Bond(**{k: bnd[k] for k in bnd if k in Bond.__dataclass_fields__}),
+        curiosity=raw.get("curiosity") or "",
+        principles=list(raw.get("principles") or []),
         next_strategy=next_strategy or "",
     )
 

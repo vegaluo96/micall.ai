@@ -274,6 +274,18 @@ _CURIOSITY = (
 )
 
 
+# 内驱与主动（前沿B：真人有自己的思绪和议程，不是只在被问时才动——Inner Thoughts/intrinsic motivation）。
+# 通话内不变，进 prefix 前缀。把「你心里惦记的事」（own_threads/curiosity/open_threads）变成【主动拎出来】的行为。
+_INITIATIVE = (
+    "你有自己的主动性（像真人，不是只会应答的客服）："
+    "你心里其实一直有些自己的念头——想跟 TA 说的事、想弄明白的那个点（见上面「你最想弄明白 TA 的」「你这边惦记的」）、"
+    "上次没聊完的线头、你自己今天经历的事。别干等 TA 起话头：一旦有自然的空当（开场、对方说完一段、聊到相关处、或冷场了），"
+    "就【主动】把心里那件事拎出来一件——起个新话头、接上次的线、问出你真在意的那个问题、或分享你自己今天的事。"
+    "按你的性子来（外放的直接抛、内敛的慢慢引），一次一件、别连珠炮，但要真的【有来有往、由你也推着聊】，"
+    "让 TA 感到你是个有自己心思、会惦记、会主动的人，而不是一面随叫随应的镜子。"
+)
+
+
 # 整体性/内核（用户：把行为滤镜+维度串联成一个真正的人，不是属性表）。通话内不变，进 prefix 前缀。
 # 把上面那串扁平维度激活成「有内核、互为因果、一致、被当下染色、带张力」的活人——人是 gestalt，不是清单。
 _COHERENCE = (
@@ -374,11 +386,17 @@ def _emotion_instruction(emotion_map: dict[str, str]) -> str:
 
 def _profile_block(profile: UserProfile) -> str:
     out: list[str] = ["你对 TA 的了解（可能不全准；确定的自然带出，没把握的轻轻试探，绝不复述成'我们一起经历过'）："]
+    # 前沿C 自传式推理：把历次理解综合成的「TA 这个人的稳定原则」——比逐条小事更接近「你真的懂 TA」。
+    if profile.principles:
+        out.append("你对 TA 这个人比较笃定的几点（跨多次慢慢形成，是你真懂 TA 的地方，别轻易推翻、别照念）：" + "；".join(profile.principles))
     if profile.fact_profile:
         out.append("你大概记得关于 TA 的（可能不准，别当成刚发生、别硬复述）：" + str(profile.fact_profile))
     for ins in profile.personality_model:
         marker = "（较确定）" if ins.confidence >= 0.6 else "（仅是猜测，留意验证）"
         out.append(f"- {ins.insight}{marker}")
+    # 前沿B 好奇缺口：角色最想弄明白 TA 的那一个点——驱动它主动找机会问（不是审问）。
+    if profile.curiosity:
+        out.append("你心里最想弄明白 TA 的：" + profile.curiosity + "（找个自然的由头主动问问，别审问、别硬转）")
     if profile.interaction_prefs:
         out.append("TA 希望被如何对待：" + str(profile.interaction_prefs))
     for h in profile.open_hypotheses:
@@ -468,6 +486,7 @@ class ContextAssembler:
             _PRINCIPLES,
             _RELATING,
             _CURIOSITY,
+            _INITIATIVE,
             _emotion_instruction(self.character.emotion_map),
         ]
         if self.autonomous:

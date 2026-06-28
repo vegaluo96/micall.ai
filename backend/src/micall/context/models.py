@@ -88,6 +88,10 @@ class UserProfile:
     open_hypotheses: list[Hypothesis] = field(default_factory=list)  # 待验证假设
     relationship: Relationship = field(default_factory=Relationship)
     bond: "Bond" = field(default_factory=lambda: Bond())  # 角色这一侧的关系内在状态（双向身份，会演化）
+    # 前沿B 内驱：角色最想弄明白 TA 的那一个点（驱动主动提问的好奇缺口，不是泛泛指令）。
+    curiosity: str = ""
+    # 前沿C 自传式推理：从历次洞察慢慢综合出的「TA 这个人比较笃定的几条稳定原则」（高于逐通 insight，缓慢变）。
+    principles: list[str] = field(default_factory=list)
     next_strategy: str = ""  # 理解引擎产出的「本轮对话策略」（§3.3 → §2.3 注入）
 
 

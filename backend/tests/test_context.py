@@ -171,6 +171,20 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("阿哲", turn)          # 名字被现学并折进当轮
         self.assertIn("这通你从 TA 话里听到的", turn)
 
+    def test_principles_curiosity_and_initiative_injected(self):
+        # 前沿C 稳定原则 + 前沿B 好奇缺口进画像块；内驱主动 _INITIATIVE 进 prefix。
+        from micall.context.models import UserProfile
+        prof = UserProfile("u", "x")
+        prof.principles = ["嘴上逞强、其实怕添麻烦"]
+        prof.curiosity = "TA 为什么不肯休息"
+        char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "维佳"}, "persona": {}})
+        sysmsg = ContextAssembler(char, profile=prof).build(
+            character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertIn("嘴上逞强、其实怕添麻烦", sysmsg)     # 稳定原则
+        self.assertIn("比较笃定的几点", sysmsg)
+        self.assertIn("TA 为什么不肯休息", sysmsg)          # 好奇缺口
+        self.assertIn("你有自己的主动性", sysmsg)            # 内驱主动指令（_INITIATIVE）
+
     def test_bond_block_injected_character_side(self):
         # 双向身份：角色侧关系内在状态（感情/被改变/角色议程）进 system 前缀，和「你对 TA 的了解」并列。
         from micall.context.models import UserProfile, Bond

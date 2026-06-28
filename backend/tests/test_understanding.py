@@ -103,6 +103,20 @@ class TestMerge(unittest.TestCase):
             merge_profile(p, {"fact_profile": {f"k{i}": f"v{i}"}})
         self.assertLessEqual(len(p.fact_profile), 30)
 
+    def test_merge_curiosity_and_principles(self):
+        # 前沿B 好奇缺口 + 前沿C 稳定原则：综合产出、限长限条、空不抹旧。
+        p = UserProfile("u", "c")
+        merge_profile(p, {"curiosity": "TA 到底为什么不肯休息",
+                          "principles": ["嘴上逞强、其实怕给人添麻烦", "对在意的人格外较真"]})
+        self.assertEqual(p.curiosity, "TA 到底为什么不肯休息")
+        self.assertEqual(len(p.principles), 2)
+        self.assertIn("怕给人添麻烦", p.principles[0])
+        # 限 5 条
+        merge_profile(p, {"principles": [f"原则{i}" for i in range(9)]})
+        self.assertLessEqual(len(p.principles), 5)
+        merge_profile(p, {})                       # 空不抹旧
+        self.assertEqual(p.curiosity, "TA 到底为什么不肯休息")
+
     def test_merge_bond_character_side_evolves(self):
         # 角色侧关系内在状态（双向身份）：感情/被改变/角色议程/亲近度随每通演化、亲近度钳到 [0,1]。
         p = UserProfile("u", "c")
