@@ -1166,7 +1166,9 @@ export class MiCallLogic {
   // ── flat render object (ported verbatim from the prototype) ───────────────
   renderVals(): Vals {
     const p = this.state.phase;
-    const theme = this.state.theme ?? this.props.theme ?? "light";
+    // 默认深色：这套视觉是深色原生（头像靠白 rim-light + screen 发光 + 暗角浮起，浅色复现不出）。
+    // 用户显式选过浅色（state.theme==="light"，从 prefs 读）则尊重其选择；未选过 → 深色。
+    const theme = this.state.theme ?? this.props.theme ?? "dark";
     const tint = this.props.orbColor || "#AAB8FF";
     const connected = p === "listening" || p === "thinking" || p === "speaking";
     const edgeOpacity = ({ idle: 0, calling: 0.35, listening: 0.62, thinking: 0.45, speaking: 0.95, ended: 0 } as Record<string, number>)[p];
@@ -1823,6 +1825,12 @@ export class MiCallLogic {
       orbBg: `radial-gradient(circle at 38% 33%, rgba(255,255,255,.97), ${this.hexA(tint, .62)} 38%, ${this.hexA(tint, .20)} 64%, ${this.hexA(tint, .03)} 82%)`,
       orbShadow: `0 0 50px 4px ${this.hexA(tint, .28)}, 0 0 100px 22px rgba(110,92,255,.16)`,
       haloBg: `radial-gradient(circle, ${this.hexA(tint, .26)}, rgba(255,79,160,.10) 45%, transparent 72%)`,
+      // 头像边缘光：深色=白 studio rim-light（随声纹亮起，发光感）；浅色=【角色色相描边环 + 柔影】恒亮，
+      // 让头像从浅底「浮起来」、不糊进背景（修浅色 figure-ground，白 rim 在浅底上看不见）。
+      orbRim: isDark
+        ? `inset 0 0 18px 1px rgba(255,255,255,.30), 0 0 calc(10px + var(--voice,0) * 24px) rgba(255,255,255,.16)`
+        : `inset 0 0 0 2.5px ${this.rotA(tint, char.hue, .55)}, 0 16px 38px rgba(0,0,0,.20), 0 2px 8px rgba(0,0,0,.10)`,
+      orbRimOpacity: isDark ? `calc(.16 + var(--voice,0) * .84)` : `1`,
     };
   }
 }
