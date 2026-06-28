@@ -1548,6 +1548,7 @@ export class MiCallLogic {
       showToast: !!this.state.toast,
       themeToggle: () => { this.setState({ theme: theme === "dark" ? "light" : "dark" }); this.savePrefs(); },
       themeLabel: theme === "dark" ? "深色" : "浅色",
+      appVersion: (typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "v1.0.0"),   // 构建期注入：版本+日期+hash，发布即更新
       menuOpen: this.state.menuOpen,
       menuToggle: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
       menuClose: () => this.setState({ menuOpen: false }),

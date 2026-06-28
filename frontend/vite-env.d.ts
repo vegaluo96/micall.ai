@@ -14,3 +14,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** 构建期注入（vite.config.ts define）：版本号 + 构建日期 + git 短 hash，每次发布自动反映。 */
+declare const __APP_VERSION__: string;
