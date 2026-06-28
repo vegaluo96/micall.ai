@@ -169,7 +169,7 @@ async def run(cids, rounds) -> int:
             char_line = await opening()
             transcript.append(f"{name}：{char_line}")
             for r in range(rounds):
-                u = await user.react(char_line)
+                u = await user(char_line)
                 transcript.append(f"用户：{u}")
                 char_line = await respond(u, r)
                 transcript.append(f"{name}：{char_line}")
