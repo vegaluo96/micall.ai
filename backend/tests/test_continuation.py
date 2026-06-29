@@ -30,8 +30,8 @@ class TestThreadStash(unittest.TestCase):
     def _server(self):
         return SignalingServer(load_config(), repo=InMemoryRepository())
 
-    def _sess(self, history, character_id="vega"):
-        return SimpleNamespace(history=list(history), character_id=character_id)
+    def _sess(self, history, character_id="vega", scenario=""):
+        return SimpleNamespace(history=list(history), character_id=character_id, scenario=scenario)
 
     def test_stash_and_take_roundtrip(self):
         s = self._server()
@@ -55,6 +55,19 @@ class TestThreadStash(unittest.TestCase):
         s = self._server()
         s._stash_thread("u1", self._sess(_HIST, character_id="vega"))
         self.assertIsNone(s._take_continuation("u1", "tuan_zi"))   # 换角色不续接
+
+    def test_different_scenario_no_continuation(self):
+        # 换了场景 = 新意图：同角色窗口内重拨，但场景从 heart→sc19 变了 → 不续接（进入新场景重新开场，
+        # 不再突兀地"你咋又打回来了"）。这正是用户撞见的「换场景却像莫名其妙新打开」的根因。
+        s = self._server()
+        s._stash_thread("u1", self._sess(_HIST, scenario="heart"))
+        self.assertIsNone(s._take_continuation("u1", "vega", "sc19"))   # 换场景 → 不续接
+
+    def test_same_scenario_continues(self):
+        # 同角色 + 同场景窗口内重拨 → 正常续接（掉线自愈的核心场景不受影响）。
+        s = self._server()
+        s._stash_thread("u1", self._sess(_HIST, scenario="heart"))
+        self.assertEqual(s._take_continuation("u1", "vega", "heart"), _HIST)
 
     def test_guest_not_continued(self):
         # 游客（_ANON）不参与续接：按 IP 作 key 会在 NAT 下串台、回灌别人对话 → 隐私风险，故排除。

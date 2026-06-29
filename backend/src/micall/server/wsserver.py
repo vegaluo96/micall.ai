@@ -267,13 +267,17 @@ class SignalingServer:
                 if now - v.get("ts", 0) > _CONTINUATION_WINDOW_S:
                     self._recent_thread.pop(k, None)
             key = self._thread_key(user_id, session.character_id)
-            self._recent_thread[key] = {"ts": now, "tail": hist[-_THREAD_TAIL:]}
+            # 一并存「场景」：续接只在【同角色 + 同场景】才算（换了场景=新意图，别接着上次聊、别说"你咋又打回来了"）。
+            self._recent_thread[key] = {"ts": now, "tail": hist[-_THREAD_TAIL:],
+                                        "scenario": getattr(session, "scenario", "") or ""}
             log.info("💾 续接暂存 key=%s 尾%d条（窗口%ds）", key, len(hist[-_THREAD_TAIL:]), _CONTINUATION_WINDOW_S)
         except Exception as e:
             log.warning("续接暂存失败（忽略）：%r", e)
 
-    def _take_continuation(self, user_id: str, character_id: str) -> list[dict] | None:
-        """新通话开始时取出可续接的最近对话（命中且在窗口内→pop 一次性返回 tail，否则 None）。仅登录用户。"""
+    def _take_continuation(self, user_id: str, character_id: str, scenario: str = "") -> list[dict] | None:
+        """新通话开始时取出可续接的最近对话（命中且在窗口内 + 同场景→pop 一次性返回 tail，否则 None）。仅登录用户。
+        换了场景 = 新意图：不续接、不回灌上一通、不走"你咋又打回来了"开场，让 AI 干净地进入新场景重新开场
+        （否则用户明明切到「减压陪伴」却被当成"接着上次那通聊"，体验像「莫名其妙的新打开」）。"""
         if user_id == _ANON:
             return None
         key = self._thread_key(user_id, character_id)
@@ -284,6 +288,10 @@ class SignalingServer:
             self._recent_thread.pop(key, None)
             return None
         self._recent_thread.pop(key, None)   # 一次性消费，避免反复续接
+        if (ent.get("scenario") or "") != (scenario or ""):
+            log.info("↩︎ 重拨换了场景（%r→%r）→ 不续接，进入新场景重新开场",
+                     ent.get("scenario") or "", scenario or "")
+            return None
         tail = ent.get("tail") or []
         return list(tail) if tail else None
 
@@ -483,8 +491,9 @@ class SignalingServer:
         trial = int(self.config.global_defaults.get("guest_trial_seconds", _GUEST_TRIAL_SECONDS) or _GUEST_TRIAL_SECONDS)
         remaining = (self.repo.remaining_seconds(user_id) if user_id != _ANON
                      else self.repo.guest_trial_remaining(client_ip, trial))
-        # 续接重拨：上一通因网络掉线、窗口内重拨同一角色 → 回灌最近几轮 + 进续接开场（不重新自我介绍）。
-        seed = self._take_continuation(user_id, char.character_id)
+        # 续接重拨：上一通因网络掉线、窗口内重拨【同一角色 + 同一场景】 → 回灌最近几轮 + 进续接开场（不重新自我介绍）。
+        # 换了场景（如从随便聊切到「减压陪伴」）则不续接 → AI 干净进入新场景，不会突兀地"你咋又打回来了"。
+        seed = self._take_continuation(user_id, char.character_id, scenario or "")
         if seed:
             log.info("🔗 续接上一通 char=%s 回灌%d条 → AI 接着聊", char.character_id, len(seed))
         return CallSession(
