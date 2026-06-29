@@ -539,6 +539,16 @@ class PgRepository(MemoryRepository):
         except Exception as e:  # 角色 FK 不符（生成角色未入库）等：通话记录失败不影响主链路
             log.warning("add_call 失败（忽略）：%r", e)
 
+    def record_consent(self, kind, version, *, user_id="", ip="") -> None:
+        try:
+            with self.pool.connection() as c:
+                c.execute(
+                    "INSERT INTO consents (user_id, kind, version, ip) VALUES (%s,%s,%s,%s)",
+                    (user_id or None, kind, version, ip or None),
+                )
+        except Exception as e:   # 留痕失败不挡主流程（同意行为本身已发生）
+            log.warning("record_consent 失败（忽略）：%r", e)
+
     def list_calls(self, user_id, *, limit=30) -> list[dict]:
         try:
             with self.pool.connection() as c:

@@ -167,6 +167,20 @@ CREATE TABLE IF NOT EXISTS invite_uses (
 );
 CREATE INDEX IF NOT EXISTS invite_uses_inviter_idx ON invite_uses (inviter_id);
 
+-- ───────────────────────── 同意留痕（合规）─────────────────────────
+-- 用户对「隐私政策 / 用户协议 / Cookie」的同意记录：协议版本 + 时间 + 账号(可空=游客) + IP。
+-- 仅追加，用于合规举证「谁在何时同意了哪一版协议」。隐私政策改版只需升 CONSENT_VERSION。
+CREATE TABLE IF NOT EXISTS consents (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    TEXT,                            -- 登录用户 id；游客为空
+    kind       TEXT NOT NULL,                   -- cookie / register / terms
+    version    TEXT NOT NULL,                   -- 协议版本（如 2026-06）
+    ip         TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS consents_user_idx ON consents (user_id);
+CREATE INDEX IF NOT EXISTS consents_created_idx ON consents (created_at DESC);
+
 -- ───────────────────────── 游客试用配额（按 IP 防刷）─────────────────────────
 -- 未登录游客的 1 分钟试用按客户端 IP 累计，刷新/重连不再白送时长（防薅）。登录用户走 users 余额。
 CREATE TABLE IF NOT EXISTS guest_trials (

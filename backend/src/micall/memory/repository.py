@@ -207,6 +207,11 @@ class MemoryRepository(ABC):
         """通话结束写一条记录（前端「通话历史」数据源）。transcript=本通对话逐句（[{role,content}]），
         供后台查看对话内容；None/空=不留存（隐私关时）。guest_ip=游客通话的来访 IP（登录用户留空）。"""
 
+    def record_consent(self, kind: str, version: str, *, user_id: str = "", ip: str = "") -> None:
+        """记录一次协议同意（合规留痕，仅追加）。kind=cookie/register/terms；version=协议版本；
+        user_id 空=游客。子类落库；base 默认 no-op（无持久层时不报错）。"""
+        return None
+
     def list_calls(self, user_id: str, *, limit: int = 30) -> list[dict]:
         """该用户最近通话，新→旧。每条 {id,character_id,scenario,duration_seconds,ended_reason,started_at}。
         不含被用户删除（hidden_by_user）的记录。"""
@@ -547,6 +552,12 @@ class InMemoryRepository(MemoryRepository):
             "started_at": _now_iso(), "hidden_by_user": False,
             "transcript": transcript or [], "guest_ip": guest_ip or "",
         })
+
+    def record_consent(self, kind, version, *, user_id="", ip="") -> None:
+        if not hasattr(self, "_consents"):
+            self._consents = []
+        self._consents.append({"user_id": user_id or "", "kind": kind, "version": version,
+                               "ip": ip or "", "created_at": _now_iso()})
 
     def list_calls(self, user_id, *, limit=30) -> list[dict]:
         rows = [c for c in self._calls if c["user_id"] == user_id and not c.get("hidden_by_user")]

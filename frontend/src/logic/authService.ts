@@ -87,6 +87,16 @@ export async function getGuestTrial(): Promise<number | null> {
   }
 }
 
+/** 同意留痕（合规）：把用户对协议/Cookie 的同意回传后端记录（版本+时间+账号/IP）。best-effort，失败静默。 */
+export async function recordConsent(kind: "cookie" | "register" | "terms"): Promise<void> {
+  try {
+    const tok = getToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (tok) headers.Authorization = "Bearer " + tok;   // 登录后带 token → 留痕关联到账号
+    await fetch(BASE + "/api/consent", { method: "POST", headers, body: JSON.stringify({ kind }) });
+  } catch { /* noop：同意行为已发生，留痕失败不影响用户 */ }
+}
+
 /** 我的邀请概况：{code, invited, reward_seconds, reward_minutes}。未登录/失败 → null。 */
 export async function getInvite(): Promise<{ code: string; invited: number; reward_seconds: number; reward_minutes?: number } | null> {
   const j = await getJSON("/api/invite");

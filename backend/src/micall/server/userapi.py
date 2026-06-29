@@ -35,6 +35,7 @@ log = logging.getLogger("micall.userapi")
 _REPO = None  # run_user_http 注入；与 SignalingServer.repo 同一实例
 _CONFIG = None  # run_user_http 注入；供 /api/health 读各节点配置状态
 GUEST_TRIAL_SECONDS = 600   # 兜底默认（10 分钟，按 IP 计）；真正生效值读 global_defaults.guest_trial_seconds（后台可改）
+CONSENT_VERSION = "2026-06"   # 隐私政策/用户协议版本号；改版即升此值，留痕据此区分用户同意的是哪一版
 
 
 def _guest_trial_seconds() -> int:
@@ -330,6 +331,16 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(*_auth.logout(_REPO, _bearer(self.headers)))
         if route == "/api/auth/change-password":
             return self._json(*_auth.change_password(_REPO, _bearer(self.headers), (self._body().get("new_password") or "")))
+        if route == "/api/consent":   # 同意留痕（合规）：协议版本+时间+账号(可空=游客)+IP。公开，登录与否都记
+            b = self._body()
+            kind = (b.get("kind") or "cookie").strip()[:20]
+            if kind not in ("cookie", "register", "terms"):
+                kind = "cookie"
+            try:
+                _REPO.record_consent(kind, CONSENT_VERSION, user_id=self._uid() or "", ip=self._client_ip())
+            except Exception as e:
+                log.warning("consent 记录失败（忽略）：%r", e)
+            return self._json(200, {"ok": True, "version": CONSENT_VERSION})
         if route == "/api/redeem":
             uid = self._uid()
             if not uid:

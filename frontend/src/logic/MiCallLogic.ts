@@ -616,6 +616,8 @@ export class MiCallLogic {
   }
   acceptCookie() {
     try { localStorage.setItem("micall_cookie_ok", "1"); } catch (e) { /* noop */ }
+    void authApi.recordConsent("cookie");   // 合规留痕：同意版本+时间+账号/IP 回传后端
+
     // Cookie 处理完才补显新手引导（首次访问时二者不同屏，避免双层叠住中间区）。
     let seen = false;
     try { seen = localStorage.getItem("micall_seen_guide") === "1"; } catch (e) { /* noop */ }
@@ -1824,7 +1826,8 @@ export class MiCallLogic {
             else { this.setState({ toast: res.error || reg.error || "登录失败，请检查邮箱或密码" }); this.clearToastSoon(2400); return; }
           }
           authApi.setToken(res.token || "");
-          if (isNew) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ } }
+          if (isNew) { this.pendingInvite = ""; try { localStorage.removeItem("micall_invite"); } catch { /* noop */ }
+            void authApi.recordConsent("register"); }   // 注册即视为同意协议 → 合规留痕（带新 token 关联账号）
           this.resetSignaling();   // 让下一通电话带上新 token 重连
           this.setState({ loggedIn: true, authOpen: false, authPw: "", regPromptShown: false,
             remaining: res.user?.remaining_seconds ?? this.state.remaining, remainingLoaded: true,
