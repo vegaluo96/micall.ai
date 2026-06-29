@@ -203,6 +203,9 @@ class TestAssembler(unittest.TestCase):
         self.assertIn("别替 TA 安身份", sysmsg)
         self.assertIn("别臆断", sysmsg)
         self.assertIn("小姐", sysmsg)        # 明确点名禁用的性别称呼之一
+        # 还要禁止【编造 TA 此刻在做什么】（苏兹假设用户「洗完澡躺下」并在被否认后接着编 → 这条治它）
+        self.assertIn("编造此刻在做什么", sysmsg)
+        self.assertIn("我瞎猜的", sysmsg)    # 被否认就立刻丢掉前提、轻松带过
         self.assertIn("立刻彻底", sysmsg)    # 被纠正后必须彻底放下错设定（治「我是个男的」她还接着叫错）
 
     def test_voice_emotion_folded_into_turn(self):
