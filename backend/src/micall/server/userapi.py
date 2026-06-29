@@ -34,7 +34,17 @@ def _user_allowed_origins() -> set:
 log = logging.getLogger("micall.userapi")
 _REPO = None  # run_user_http 注入；与 SignalingServer.repo 同一实例
 _CONFIG = None  # run_user_http 注入；供 /api/health 读各节点配置状态
-GUEST_TRIAL_SECONDS = 60   # 与 wsserver._GUEST_TRIAL_SECONDS 保持一致（游客试用 1 分钟，按 IP 计）
+GUEST_TRIAL_SECONDS = 600   # 兜底默认（10 分钟，按 IP 计）；真正生效值读 global_defaults.guest_trial_seconds（后台可改）
+
+
+def _guest_trial_seconds() -> int:
+    """游客试用时长：以 global_defaults.guest_trial_seconds 为准（后台「成本与限流」可改、改完即生效），
+    读不到则回退兜底常量。每次现读 load_config()（低频端点，确保与 wsserver 实际放行口径一致）。"""
+    try:
+        from ..config import load_config
+        return int((load_config().global_defaults or {}).get("guest_trial_seconds", GUEST_TRIAL_SECONDS) or GUEST_TRIAL_SECONDS)
+    except Exception:
+        return GUEST_TRIAL_SECONDS
 
 # ── 运维健康检查：抓「部署后某节点 key 没注入→静默退 stub（角色变哑/失忆）」这类故障 ──
 _HEALTH_NODES = ("asr", "llm_fast", "tts", "llm_slow", "embedding", "llm_eval")
@@ -213,7 +223,7 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json(200, {"ok": False, "characters": [], "error": str(e)[:200]})
         if route == "/api/guest-trial":      # 公开：本 IP 剩余试用秒（刷新不重置）
-            return self._json(200, {"ok": True, "remaining_seconds": _REPO.guest_trial_remaining(self._ip(), GUEST_TRIAL_SECONDS)})
+            return self._json(200, {"ok": True, "remaining_seconds": _REPO.guest_trial_remaining(self._ip(), _guest_trial_seconds())})
         if route == "/api/invite-reward":     # 公开：后台配置的邀请奖励（分钟），登录与否都拿真实值（不再写死 60）
             return self._json(200, {"ok": True, "reward_minutes": _auth.invite_reward_seconds() // 60})
         if route == "/api/voice-preview":     # 公开：角色音色试听 → 真实 TTS 合成的 WAV（非占位动画）

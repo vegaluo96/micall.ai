@@ -28,7 +28,8 @@ log = logging.getLogger("micall.signal")
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CHARACTERS_DIR = _REPO_ROOT / "asset-pipeline" / "characters"
-_GUEST_TRIAL_SECONDS = 60  # 游客（未登录）试用：1 分钟，到期提示注册（注册即送 60 分钟）
+_GUEST_TRIAL_SECONDS = 600  # 游客（未登录）试用兜底默认：10 分钟，到期提示注册（注册即送 60 分钟）。
+# 真正生效值读 global_defaults.guest_trial_seconds（后台「成本与限流」可改，下一通即生效）；此常量仅兜底。
 # 单连接入站【文本/控制帧】限流（音频二进制帧不计——其按 20ms/帧本就高频）。滑窗超限即丢弃，
 # 防恶意客户端刷 text_input / 畸形帧耗 CPU。50/10s 对正常使用（打字、ICE 协商）很宽裕。
 _WS_CTRL_LIMIT = 50
@@ -425,8 +426,10 @@ class SignalingServer:
             budget_chars=int(self.config.global_defaults.get("budget_chars", 16000)),
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。
+        # 试用时长读 global_defaults.guest_trial_seconds（后台可改，_reload_config 已在 start_call 刷新→下一通生效）。
+        trial = int(self.config.global_defaults.get("guest_trial_seconds", _GUEST_TRIAL_SECONDS) or _GUEST_TRIAL_SECONDS)
         remaining = (self.repo.remaining_seconds(user_id) if user_id != _ANON
-                     else self.repo.guest_trial_remaining(client_ip, _GUEST_TRIAL_SECONDS))
+                     else self.repo.guest_trial_remaining(client_ip, trial))
         # 续接重拨：上一通因网络掉线、窗口内重拨同一角色 → 回灌最近几轮 + 进续接开场（不重新自我介绍）。
         seed = self._take_continuation(user_id, char.character_id)
         if seed:

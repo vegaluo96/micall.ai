@@ -271,11 +271,7 @@ def read_limits_for_admin() -> dict:
         gift_min = register_gift_seconds() // 60
     except Exception:
         gift_min = 0
-    try:
-        from .userapi import GUEST_TRIAL_SECONDS
-        guest = int(GUEST_TRIAL_SECONDS)
-    except Exception:
-        guest = 60
+    guest = gi("guest_trial_seconds", 600)   # 游客试用时长（秒），存 global_defaults、后台可改
     try:
         wh = float(g.get("world_refresh_hours", 24) or 24)
     except (TypeError, ValueError):
@@ -317,6 +313,7 @@ def write_limits_from_admin(payload: dict) -> None:
     put_int("budget_chars", 2000, 64000)
     put_int("memory_depth", 0, 30)
     put_int("memory_facts_cap", 50, 5000)     # 记忆遗忘容量上限：超此条数按显著性忘掉最不要紧的（控住事实表膨胀）
+    put_int("guest_trial_seconds", 0, 7200)   # 游客（未注册）试用时长（秒）：0=关闭试用，上限 2 小时；默认 600=10 分钟
     if "world_refresh_hours" in p:
         try:
             wh = float(p["world_refresh_hours"])
