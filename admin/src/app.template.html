@@ -225,23 +225,25 @@
                     <span style="flex:1;font-size:11px;font-family:ui-monospace,monospace;color:#A8ABB5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.voiceId }}</span>
                     <span style="font-size:11px;color:#A8ABB5;flex:none;">{{ c.voiceMatched }}</span>
                   </div>
-                  <div style="display:flex;align-items:center;gap:16px;margin-top:1px;">
-                    <span style="font-size:12px;color:#878B95;">通话 <b style="color:#16161A;font-variant-numeric:tabular-nums;">{{ c.calls }}</b></span>
-                    <span style="font-size:12px;color:#878B95;">被收藏 <b style="color:#16161A;font-variant-numeric:tabular-nums;">{{ c.favs }}</b></span>
-                    <span style="flex:1;"></span>
-                    <sc-if value="{{ c.canUp }}" hint-placeholder-val="{{ true }}">
-                      <div onClick="{{ c.moveUp }}" title="上移（用户端发现列表靠前）" style="width:28px;height:28px;border-radius:8px;flex:none;background:#F2F2F5;color:#878B95;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.9)" style-hover="background:#E9E9EE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
-                    </sc-if>
-                    <sc-if value="{{ c.canDown }}" hint-placeholder-val="{{ true }}">
-                      <div onClick="{{ c.moveDown }}" title="下移（用户端发现列表靠后）" style="width:28px;height:28px;border-radius:8px;flex:none;background:#F2F2F5;color:#878B95;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.9)" style-hover="background:#E9E9EE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
-                    </sc-if>
-                    <div onClick="{{ c.toggleOnline }}" style="font-size:11.5px;font-weight:600;color:#878B95;background:#F2F2F5;border-radius:8px;padding:5px 12px;cursor:pointer;" style-active="transform:scale(.95)">{{ c.onlineLabel }}</div>
-                    <sc-if value="{{ c.notDefault }}" hint-placeholder-val="{{ true }}">
-                      <div onClick="{{ c.setDefault }}" style="font-size:11.5px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.09);border-radius:8px;padding:5px 12px;cursor:pointer;" style-active="transform:scale(.95)">设为默认</div>
-                    </sc-if>
-                    <sc-if value="{{ c.isDefault }}" hint-placeholder-val="{{ false }}">
-                      <div style="font-size:11.5px;font-weight:600;color:#9A9DA7;background:#F2F2F5;border-radius:8px;padding:5px 12px;">当前默认</div>
-                    </sc-if>
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:9px;margin-top:1px;">
+                    <span style="font-size:12px;color:#878B95;white-space:nowrap;flex:none;">通话 <b style="color:#16161A;font-variant-numeric:tabular-nums;">{{ c.calls }}</b></span>
+                    <span style="font-size:12px;color:#878B95;white-space:nowrap;flex:none;">被收藏 <b style="color:#16161A;font-variant-numeric:tabular-nums;">{{ c.favs }}</b></span>
+                    <!-- 操作整组挂右侧：放不下时整组(箭头+下架+设为默认)一起换行，按钮文字永不断字（flex:none + nowrap） -->
+                    <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex:none;">
+                      <sc-if value="{{ c.canUp }}" hint-placeholder-val="{{ true }}">
+                        <div onClick="{{ c.moveUp }}" title="上移（用户端发现列表靠前）" style="width:28px;height:28px;border-radius:8px;flex:none;background:#F2F2F5;color:#878B95;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.9)" style-hover="background:#E9E9EE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
+                      </sc-if>
+                      <sc-if value="{{ c.canDown }}" hint-placeholder-val="{{ true }}">
+                        <div onClick="{{ c.moveDown }}" title="下移（用户端发现列表靠后）" style="width:28px;height:28px;border-radius:8px;flex:none;background:#F2F2F5;color:#878B95;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.9)" style-hover="background:#E9E9EE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+                      </sc-if>
+                      <div onClick="{{ c.toggleOnline }}" style="font-size:11.5px;font-weight:600;color:#878B95;background:#F2F2F5;border-radius:8px;padding:5px 12px;cursor:pointer;white-space:nowrap;flex:none;" style-active="transform:scale(.95)">{{ c.onlineLabel }}</div>
+                      <sc-if value="{{ c.notDefault }}" hint-placeholder-val="{{ true }}">
+                        <div onClick="{{ c.setDefault }}" style="font-size:11.5px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.09);border-radius:8px;padding:5px 12px;cursor:pointer;white-space:nowrap;flex:none;" style-active="transform:scale(.95)">设为默认</div>
+                      </sc-if>
+                      <sc-if value="{{ c.isDefault }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:11.5px;font-weight:600;color:#9A9DA7;background:#F2F2F5;border-radius:8px;padding:5px 12px;white-space:nowrap;flex:none;">当前默认</div>
+                      </sc-if>
+                    </div>
                   </div>
                 </div>
               </div>
