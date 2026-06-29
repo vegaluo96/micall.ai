@@ -51,6 +51,9 @@
     @keyframes backdropIn{from{opacity:0}to{opacity:1}}
     @keyframes haloPulse{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.8;transform:scale(1.12)}}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;}
+    /* 无障碍：系统开启「减弱动态效果」时，停掉所有循环动画（首页常驻的眼睛扫视/眨眼、球体呼吸、涟漪等），
+       一次性进/出场动画压到瞬时。尊重 prefers-reduced-motion，避免前庭不适。 */
+    @media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;}}
   </style>
 </helmet>
 

@@ -455,13 +455,21 @@ export class MiCallLogic {
   // ── 回忆/状态「有更新」红点：每通通话后回忆与近况都很可能变化，给个红点提示去看；查看即清除。
   // 按角色 id 持久化（localStorage），刷新不丢；回忆仅登录用户有持久记忆，故只对登录态标。
   private dotKey(kind: string) { return kind === "mem" ? "micall_dot_mem" : "micall_dot_status"; }
+  private _dotCache: Record<string, Set<string>> = {};   // 内存缓存：避免 renderVals 每帧（含通话每秒计时）反复读盘/JSON.parse
   private dotSet(kind: string): Set<string> {
-    try { const a = JSON.parse(localStorage.getItem(this.dotKey(kind)) || "[]"); return new Set(Array.isArray(a) ? a : []); } catch { return new Set(); }
+    let s = this._dotCache[kind];
+    if (!s) {
+      try { const a = JSON.parse(localStorage.getItem(this.dotKey(kind)) || "[]"); s = new Set(Array.isArray(a) ? a : []); } catch { s = new Set(); }
+      this._dotCache[kind] = s;
+    }
+    return s;
   }
-  private dotSave(kind: string, s: Set<string>) { try { localStorage.setItem(this.dotKey(kind), JSON.stringify([...s])); } catch { /* noop */ } }
+  private dotSave(kind: string, s: Set<string>) { this._dotCache[kind] = s; try { localStorage.setItem(this.dotKey(kind), JSON.stringify([...s])); } catch { /* noop */ } }
   hasDot(kind: string, cid: string): boolean { return !!cid && this.dotSet(kind).has(cid); }
   private addDot(kind: string, cid: string) { if (!cid) return; const s = this.dotSet(kind); if (!s.has(cid)) { s.add(cid); this.dotSave(kind, s); } }
-  private clearDot(kind: string, cid: string) { const s = this.dotSet(kind); if (s.delete(cid)) { this.dotSave(kind, s); this.notify(); } }
+  private clearDot(kind: string, cid: string) { const s = this.dotSet(kind); if (s.delete(cid)) this.dotSave(kind, s); }   // 调用方紧跟 setState 会触发渲染，无需在此 notify
+  /** 退出登录：清掉「回忆」红点（仅登录用户持久；不清则换号登录会看到别人的红点）。「近况」红点是公开的，保留。 */
+  private clearMemDots() { this._dotCache["mem"] = new Set(); try { localStorage.removeItem("micall_dot_mem"); } catch { /* noop */ } }
   private markUpdateDots() {
     const cid = this.characterId(this.state.charIndex);
     if (!cid || (this.state.seconds || 0) <= 0) return;   // 没真通起来不标
@@ -809,7 +817,7 @@ export class MiCallLogic {
     return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
   }
   sheets() {
-    return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, legalOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false, autoHangupOpen: false };
+    return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, legalOpen: false, statusOpen: false, memoryOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false, autoHangupOpen: false };
   }
   /** 是否有任何弹层/抽屉/对话框压在首页之上（用于：Cookie 横幅这类「贴底浮条」此时应让位、别压在弹窗输入框上）。 */
   overlayOpen(): boolean {
@@ -828,7 +836,7 @@ export class MiCallLogic {
     const sheetOpen =
       s.favOpen || s.langOpen || s.settingsOpen || s.charDetailOpen || s.charOpen ||
       s.scenarioOpen || s.billsOpen || s.inviteOpen || s.rechargeOpen || s.contactOpen ||
-      s.legalOpen || s.moreOpen || s.authOpen || s.pwResetOpen || s.autoHangupOpen;
+      s.legalOpen || s.statusOpen || s.memoryOpen || s.moreOpen || s.authOpen || s.pwResetOpen || s.autoHangupOpen;
     // 中心模态/对话框（权限、呼叫失败、时长耗尽、切换确认、删除确认…）期间不接管手势。
     const modal =
       s.callFailed || s.outOfMins || s.pendingSwitch ||
@@ -1230,7 +1238,9 @@ export class MiCallLogic {
         this.clearToastSoon(3200);
         break;
       case "ended":
-        if (this.state.phase !== "ended") { this.clearTimers(); this.stopMic(); this.setState({ phase: "ended", textMode: false }); }
+        // 红点也挂在这条路径：当前都是客户端先挂断（已置位），但日后若后端主动结束(AI 挂断/服务端超时)
+        // 直接发 ended，这里能兜住。markUpdateDots 有 seconds>0 + 去重守卫，幂等安全。
+        if (this.state.phase !== "ended") { this.clearTimers(); this.stopMic(); this.markUpdateDots(); this.setState({ phase: "ended", textMode: false }); }
         break;
     }
   }
@@ -1777,7 +1787,6 @@ export class MiCallLogic {
       loggedIn: this.state.loggedIn,
       authOpen: this.state.authOpen,
       // 登录/注册共用一个弹窗：输入一样，一个按钮搞定——已注册→登录，未注册→自动创建账号并赠送时长。
-      authIsRegister: true,
       authTitle: "登录 / 注册",
       authSubtitle: "注册即送 " + this.giftMin() + " 分钟免费通话时长",
       authSubmitLabel: "登录 / 注册",
@@ -1785,7 +1794,6 @@ export class MiCallLogic {
       authPw: this.state.authPw,
       onAuthEmail: (e: any) => this.setState({ authEmail: e.target.value }),
       onAuthPw: (e: any) => this.setState({ authPw: e.target.value }),
-      switchAuthMode: () => this.setState((s) => ({ authMode: s.authMode === "register" ? "login" : "register" })),
       openRegister: () => this.setState({ ...this.sheets(), authOpen: true, authMode: "register", menuOpen: false, regPromptShown: false, regPromptDismissed: true }),
       openLogin: () => this.setState({ ...this.sheets(), authOpen: true, authMode: "login", menuOpen: false }),
       authClose: () => this.setState({ authOpen: false }),
@@ -1833,7 +1841,7 @@ export class MiCallLogic {
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.clearToastSoon(1600); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this.clearMemDots(); this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.clearToastSoon(1600); },
       loggedOut: !this.state.loggedIn,
       accountEmail: this.state.authEmail || "已登录用户",
       accountInitial: (this.state.authEmail || "M").trim().charAt(0).toUpperCase(),
