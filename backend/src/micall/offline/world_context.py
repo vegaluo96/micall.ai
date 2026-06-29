@@ -144,10 +144,11 @@ async def fetch_weather(city: str) -> dict | None:
 #    让 LLM 凭空"联网找热点"只会编（grok-4.3/qwen-long 都没有真·网络检索）。这里 LLM 只当【改写器】：
 #    输入真实标题、输出口语说法，绝不新增/编造事实。每条都带【原文链接】，后台可点开核对、铁证是真的。
 # 一批【免费、无注册、稳定】的热点/内容源（都是资产，越多越广越不尬；某个挂了其它顶上）。
-# 关键：以【全球可达·不挑地区语言】的国际源为主——国产域名(vvhan/imsyy)从香港机房常解析不到(DNS)，
-# Reddit 的 .json 从机房 IP 常被 403 拦——故主力换成【RSS 订阅源】：几乎每家媒体都有、免注册、全球可达、
-# 维度极广（科技/影视/游戏/科学/音乐/美食/旅行/趣闻…）。RSS 是 XML，_fetch_generic 先试 JSON、失败再当 RSS 解。
-# 外文内容由【改写脑】翻译成中文口语并兼做安全闸。全部含 title/url、由 _iter_hot_records / _parse_rss 通吃。
+# 关键：只留【全球可达·不挑地区语言】的国际源——实测剔除连不上的：国产域名(vvhan/imsyy)香港机房 DNS 解析不到、
+# Reddit/Kotaku 的 .json/RSS 从机房 IP 常被 Cloudflare 403 拦。主力是【RSS 订阅源】：几乎每家媒体都有、免注册、
+# 全球可达、维度极广（科技/影视/游戏/科学/音乐/美食/旅行/趣闻…）。RSS 是 XML，_fetch_generic 先试 JSON、失败再当
+# RSS 解，且 follow_redirects（媒体源常 301 跳新址）。外文由【改写脑】翻译成中文口语并兼做安全闸。
+# 全部含 title/url、由 _iter_hot_records / _parse_rss 通吃。中文内容由维基zh 覆盖。
 _HOT_ENDPOINTS_DEFAULT = (
     # JSON·全球可达·免 key
     "https://dev.to/api/articles?top=7",                          # 科技/开发
@@ -158,17 +159,14 @@ _HOT_ENDPOINTS_DEFAULT = (
     "https://www.sciencedaily.com/rss/top/science.xml",          # 科学
     "https://www.nasa.gov/feed/",                                 # 科学/太空
     "https://feeds.feedburner.com/ign/games-all",                # 游戏
-    "https://kotaku.com/rss",                                     # 游戏
+    "https://www.eurogamer.net/feed",                            # 游戏（Kotaku 被 Cloudflare 拦机房 IP→换它）
     "https://pitchfork.com/feed/feed-news/rss",                  # 音乐
     "https://variety.com/feed/",                                  # 影视
     "https://www.eater.com/rss/index.xml",                       # 美食
     "https://www.atlasobscura.com/feeds/latest",                 # 旅行/趣闻
-    "https://lifehacker.com/rss",                                 # 生活
+    "https://lifehacker.com/feed/rss",                           # 生活（旧 /rss 会 301 跳这里）
     "https://lithub.com/feed/",                                   # 读书/文学
     "https://www.smithsonianmag.com/rss/latest_articles/",       # 人文/科普
-    # 国产·DNS 能解析到时才用（香港机房常解析不到 → 自动跳过，不影响其它源）
-    "https://api.vvhan.com/api/hotlist/all",
-    "https://api-hot.imsyy.top/all",
 )
 # Hacker News（Firebase，全球可达、免 key、极稳）：需两步（topstories→item）。
 _HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
@@ -290,7 +288,8 @@ def _parse_rss(text: str) -> list[dict]:
 
 
 async def _fetch_generic(cl: Any, ep: str) -> list[dict]:
-    r = await asyncio.wait_for(cl.get(ep, headers={"User-Agent": _UA}), timeout=_HOT_TIMEOUT_S)
+    # follow_redirects=True：媒体源常 301/302 跳新地址（如 Lifehacker /rss→/feed/rss），httpx 默认不跟 → 会失败。
+    r = await asyncio.wait_for(cl.get(ep, headers={"User-Agent": _UA}, follow_redirects=True), timeout=_HOT_TIMEOUT_S)
     r.raise_for_status()
     try:
         return list(_iter_hot_records(r.json()))   # 先按 JSON 热榜解

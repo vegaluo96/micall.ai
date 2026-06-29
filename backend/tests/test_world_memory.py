@@ -168,7 +168,7 @@ class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
         pool = [f"话题{chr(0x4E00 + i)}" for i in range(12)]   # 12 个互不相同的中文话题
         line = _world_topics_line(pool)
         items = [x for x in line.split("）：")[-1].strip().split("；") if x.strip()]  # 取真正的话题段、按；切
-        self.assertEqual(len(items), 8)                       # 大池每通只抽 8 条（不尬、不重样）
+        self.assertEqual(len(items), 5)                       # 大池每通只给 5 条候选（少给→减播报冲动）
         self.assertTrue(set(items).issubset(set(pool)))       # 抽出来的都来自池子
 
     def test_small_pool_all_shown_with_safeguard(self):
@@ -177,6 +177,8 @@ class TestTopicsBreadthAndRotation(unittest.IsolatedAsyncioTestCase):
         self.assertIn("新番开播", line)
         self.assertIn("别咬死", line)           # A2 护栏：当模糊印象、不硬编细节
         self.assertIn("印象", line)
+        self.assertIn("不是 TA", line)          # 归属铁律：角色自己刷到的、不是用户投喂（防「你扔一堆新闻给我」串味）
+        self.assertNotIn("当谈资", line)        # 回退上次过猛措辞（它催出了「叽里呱啦」式播报）
 
     def test_empty_pool(self):
         self.assertEqual(_world_topics_line([]), "")

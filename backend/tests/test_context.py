@@ -95,7 +95,7 @@ class TestAssembler(unittest.TestCase):
             msgs = a.build(character_id="c", scenario="", history=[])     # 空 history = 开场轮
             blob = " ".join(m["content"] for m in msgs)
             self.assertIn("新出的烤鸭店排到天亮", blob)                    # 开场就带上了对味的时事
-            self.assertIn("新鲜事", blob)                                 # 自然分享框架在场
+            self.assertIn("不是 TA", blob)                                # 归属铁律：这是角色自己刷到的、不是用户投喂
         finally:
             wc._WORLD["topics_src"] = snap
             wc._WORLD["date"] = sdate
