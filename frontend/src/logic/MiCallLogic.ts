@@ -811,6 +811,15 @@ export class MiCallLogic {
   sheets() {
     return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, legalOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false, autoHangupOpen: false };
   }
+  /** 是否有任何弹层/抽屉/对话框压在首页之上（用于：Cookie 横幅这类「贴底浮条」此时应让位、别压在弹窗输入框上）。 */
+  overlayOpen(): boolean {
+    const s = this.state as any;
+    return !!(s.menuOpen || s.legalOpen || s.authOpen || s.settingsOpen || s.langOpen || s.favOpen ||
+      s.charOpen || s.charDetailOpen || s.scenarioOpen || s.billsOpen || s.inviteOpen || s.rechargeOpen ||
+      s.historyOpen || s.contactOpen || s.moreOpen || s.pwResetOpen || s.autoHangupOpen ||
+      s.statusOpen || s.memoryOpen || s.callFailed || s.outOfMins || s.pendingSwitch ||
+      s.logoutConfirmOpen || s.resetOpen || s.histDelConfirm || s.showGuide);
+  }
 
   // ── 手势驱动（侧栏滑入/滑出、底部弹窗下滑关闭）；纯 state 操作，零视觉/DOM 改动 ──
   // 供 useGestures 在 touchend 判定后调用，等价于点击对应的开/关，复用既有 setState 语义。
@@ -1845,7 +1854,8 @@ export class MiCallLogic {
         this.clearToastSoon(1800);
       },
       cancelSub: () => { this.setState({ settingsOpen: false, toast: "订阅将在本周期结束后取消" }); this.clearToastSoon(2200); },
-      cookieOpen: this.state.cookieOpen,
+      // Cookie 横幅是贴底浮条：有任何弹层/对话框打开时先让位（否则会压在登录框等弹窗上），关掉后自动回来。
+      cookieOpen: this.state.cookieOpen && !this.overlayOpen(),
       acceptCookie: () => this.acceptCookie(),
       // 隐私政策 + 用户协议合并为一个「二合一」弹窗：设置入口与 Cookie 横幅都开它，永不再叠两层。
       legalOpen: this.state.legalOpen,
