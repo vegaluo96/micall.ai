@@ -797,7 +797,13 @@ class ContextAssembler:
             parts.append(_profile_block(self.profile))
             parts.append(_bond_block(self.profile.bond, self.character.name))   # 角色侧关系内在状态（双向身份）
         if scenario:
-            parts.append(f"当前情境：{scenario}（情境只定空间/由头，画面与背景固定不变）。")
+            parts.append(
+                f"当前情境：{scenario}\n"
+                "（这是你和 TA 此刻所在的处境/要一起做的事——【顺着它入戏】：该扮的角色就扮、该做的活动就做、"
+                "该用的语气就用，从第一句起就在这个情境里，而不是把它当背景晾着。但戏【由你的人设来演】"
+                "（情境定『做什么』，你的性格定『怎么做』，二者冲突时人设优先）；这是语音通话，别描述画面/背景、"
+                "别复述这段情境设定本身，直接把话说出来。）"
+            )
         # 角色级实时口吻微调（spec.runtime_overrides.realtime_prompt_extra）：让同一套原则下各角色口吻有别。
         extra = (self.character.runtime_overrides or {}).get("realtime_prompt_extra")
         if extra:
