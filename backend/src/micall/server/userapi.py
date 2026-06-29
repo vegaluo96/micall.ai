@@ -293,6 +293,11 @@ class _Handler(BaseHTTPRequestHandler):
             if not uid:
                 return self._json(401, {"ok": False, "error": "未登录"})
             return self._json(200, {"ok": True, "tickets": _REPO.list_user_tickets(uid, limit=30)})
+        if route == "/api/notifications":   # 轻量通知轮询（H5 无推送）：返回服务端「真实未读」信号，前端与本地已读时间比对出红点
+            uid = self._uid()
+            if not uid:
+                return self._json(200, {"ok": True, "ticket_reply_at": ""})   # 游客无工单，静默返回空（不挡轮询）
+            return self._json(200, {"ok": True, "ticket_reply_at": _REPO.latest_reply_at(uid)})
         if route == "/api/invite":
             uid = self._uid()
             if not uid:

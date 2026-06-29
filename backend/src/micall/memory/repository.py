@@ -310,6 +310,10 @@ class MemoryRepository(ABC):
         """后台回复工单（status→replied）。"""
         return False
 
+    def latest_reply_at(self, user_id: str) -> str:
+        """该用户最近一次工单被回复的时间（ISO，空=无回复）：前端通知红点据此判定。"""
+        return ""
+
     # ── 邀请（拉新奖励）──
     def get_invite_code(self, user_id: str) -> str:
         """取（无则建）用户的唯一邀请码。"""
@@ -732,12 +736,12 @@ class InMemoryRepository(MemoryRepository):
     def add_ticket(self, user_id, type, message) -> int:
         self._tid += 1
         self._tickets.append({"id": self._tid, "user_id": user_id, "type": type or "", "message": message,
-                              "status": "open", "reply": "", "created_at": _now_iso()})
+                              "status": "open", "reply": "", "created_at": _now_iso(), "replied_at": ""})
         return self._tid
 
     def list_user_tickets(self, user_id, *, limit=30) -> list[dict]:
         rows = [t for t in self._tickets if t["user_id"] == user_id][::-1][:limit]
-        return [{k: t[k] for k in ("type", "message", "status", "reply", "created_at")} for t in rows]
+        return [{k: t.get(k, "") for k in ("type", "message", "status", "reply", "created_at")} for t in rows]
 
     def list_all_tickets(self, *, limit=200) -> list[dict]:
         email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
@@ -749,9 +753,14 @@ class InMemoryRepository(MemoryRepository):
     def reply_ticket(self, ticket_id, reply) -> bool:
         for t in self._tickets:
             if t["id"] == int(ticket_id):
-                t["reply"], t["status"] = reply, "replied"
+                t["reply"], t["status"], t["replied_at"] = reply, "replied", _now_iso()
                 return True
         return False
+
+    def latest_reply_at(self, user_id) -> str:
+        ats = [t.get("replied_at") or "" for t in self._tickets
+               if t["user_id"] == user_id and t["status"] == "replied"]
+        return max(ats) if ats else ""
 
     # ── 邀请（内存）──
     def get_invite_code(self, user_id) -> str:

@@ -282,6 +282,11 @@ export async function getTickets(): Promise<any[] | null> {
   const j = await getJSON("/api/tickets");
   return j && j.ok ? j.tickets : null;
 }
+/** 轻量通知轮询（H5 无推送）：返回服务端「工单最近被回复时间」（ISO，空=无）。UI 与本地已读时间比对出红点。 */
+export async function getNotifications(): Promise<{ ticket_reply_at: string } | null> {
+  const j = await getJSON("/api/notifications");
+  return j && j.ok ? { ticket_reply_at: j.ticket_reply_at || "" } : null;
+}
 /** 提交工单。需登录。 */
 export async function submitTicket(type: string, message: string): Promise<{ ok: boolean; error?: string }> {
   const tok = getToken();

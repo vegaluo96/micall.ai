@@ -907,6 +907,18 @@ class PgRepository(MemoryRepository):
             log.warning("reply_ticket 失败：%r", e)
             return False
 
+    def latest_reply_at(self, user_id) -> str:
+        """该用户最近一次「工单被回复」的时间（ISO，空=无回复）。前端据此与本地已读时间比对出红点。"""
+        try:
+            with self.pool.connection() as c:
+                r = c.execute(
+                    "SELECT max(replied_at) FROM tickets WHERE user_id=%s AND status='replied'", (user_id,),
+                ).fetchone()
+            return r[0].isoformat() if r and r[0] else ""
+        except Exception as e:
+            log.warning("latest_reply_at 失败：%r", e)
+            return ""
+
     # ── 邀请 ──
     def get_invite_code(self, user_id) -> str:
         # 「邀请码总是变来变去」根因：旧实现随机生成后直接 INSERT，但① user 行缺失会触发外键失败 →

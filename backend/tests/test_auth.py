@@ -187,11 +187,17 @@ class AuthFlowTest(unittest.TestCase):
         allt = self.repo.list_all_tickets()
         self.assertEqual(allt[0]["user_email"], "a@b.com")             # 后台看得到提交人
 
+        self.assertEqual(self.repo.latest_reply_at(uid), "")           # 未回复前：无未读信号
+
         self.assertTrue(self.repo.reply_ticket(tid, "已优化降噪，补 30 分钟"))
         mine2 = self.repo.list_user_tickets(uid)
         self.assertEqual(mine2[0]["status"], "replied")                # 用户看到回复
         self.assertIn("降噪", mine2[0]["reply"])
+        self.assertTrue(self.repo.latest_reply_at(uid))                # 回复后：H5 通知红点据此点亮
         self.assertFalse(self.repo.reply_ticket(999999, "x"))          # 不存在
+        # 通知信号是 per-user：别的用户没有被回复的工单 → 空，不会误亮红点
+        other = auth.register(self.repo, "c@d.com", "secret1")[1]["user"]["user_id"]
+        self.assertEqual(self.repo.latest_reply_at(other), "")
 
     def test_invites(self):
         inviter = auth.register(self.repo, "boss@b.com", "secret1")[1]["user"]["user_id"]

@@ -272,6 +272,8 @@ export class MiCallLogic {
     this.loadVoices();       // 真实音色库 + 我已选音色（角色详情「音色」区据此选/试听，账号级生效）
     this.loadPopular();      // 各角色累计通话数（公开）：「热门」tab 真实排序
     this.prewarmSignaling(); // 提前接好信令长连接 → 点拨号即用、开头不卡握手（弱网/大陆→香港尤其明显）
+    // H5 无推送：回到前台时轻量轮询一次「工单是否被回复」→ 红点提示（移动端切回来即刷新，不做激进轮询）。
+    try { document.addEventListener("visibilitychange", () => { if (!document.hidden && this.state.loggedIn) this.loadNotifications(); }); } catch { /* noop */ }
   }
 
   /** 拉真实可选音色库 + 我每个角色的已选音色。失败则库空（音色区只显「原本音色」，不崩）。 */
@@ -480,7 +482,7 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) return;
     try {
       const u = await authApi.me();
-      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds, remainingLoaded: true }); this.loadHistory(); this.loadVoices(); this.syncFavorites(); return; }
+      if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds, remainingLoaded: true }); this.loadHistory(); this.loadVoices(); this.syncFavorites(); this.loadNotifications(); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
     // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
     const g = await authApi.getGuestTrial();
@@ -536,6 +538,22 @@ export class MiCallLogic {
       status: t.status === "replied" ? "已回复" : "处理中", reply: t.reply || "",
     }));
     this.notify();
+  }
+
+  // ── 工单回复通知（H5 方案：服务端「真实未读」+ 本地已读时间比对，无需 Web Push）──
+  private _notifReplyAt = "";   // 服务端：本账号工单最近一次被回复的时间（ISO，空=无回复）
+  private notifSeenAt(): string { try { return localStorage.getItem("micall_seen_reply_at") || ""; } catch { return ""; } }
+  /** 有未读工单回复 = 服务端回复时间晚于本地已读时间。比对的都是「同一来源的 ISO 串」，字典序即时间序。 */
+  hasTicketDot(): boolean { return !!this._notifReplyAt && this._notifReplyAt > this.notifSeenAt(); }
+  private async loadNotifications() {
+    if (!authApi.authConfigured() || !this.state.loggedIn) { if (this._notifReplyAt) { this._notifReplyAt = ""; this.notify(); } return; }
+    const n = await authApi.getNotifications();
+    if (n && n.ticket_reply_at !== this._notifReplyAt) { this._notifReplyAt = n.ticket_reply_at; this.notify(); }
+  }
+  /** 用户打开「联系我们」即视为已读：把已读时间推进到当前服务端回复时间 → 红点消失。 */
+  private markTicketsSeen() {
+    if (!this._notifReplyAt) return;
+    try { localStorage.setItem("micall_seen_reply_at", this._notifReplyAt); } catch { /* noop */ }
   }
 
   private idxForCharId(cid: string): number {
@@ -1524,6 +1542,7 @@ export class MiCallLogic {
       // 当前角色「回忆/近况有更新」红点（通话后置位，查看即清；按角色 id 持久化）
       memoryDot: this.hasDot("mem", this.characterId(this.state.charIndex)),
       statusDot: this.hasDot("status", this.characterId(this.state.charIndex)),
+      ticketDot: this.hasTicketDot(),   // 工单被客服回复且未读 → 菜单/「联系我们」红点（H5 服务端真实未读）
       statusOpen: !!this.state.statusOpen,
       closeStatus: () => this.closeStatus(),
       memoryOpen: !!this.state.memoryOpen,
@@ -1759,7 +1778,7 @@ export class MiCallLogic {
       outPrimary: () => { if (this.state.loggedIn) this.setState({ outOfMins: false, rechargeOpen: true }); else this.goRegister({ outOfMins: false }); },
       dismissOut: () => this.setState({ outOfMins: false }),
       settingsFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, settingsOpen: true }),
-      contactFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, contactOpen: true }); this.loadTickets(); },
+      contactFromMenu: () => { this.setState({ ...this.sheets(), menuOpen: false, contactOpen: true }); this.loadTickets(); void this.loadNotifications().then(() => { this.markTicketsSeen(); this.notify(); }); },
       contactOpen: this.state.contactOpen,
       contactClose: () => this.setState({ contactOpen: false }),
       contactMsg: this.state.contactMsg,
@@ -1834,6 +1853,7 @@ export class MiCallLogic {
             toast: isNew ? ("注册成功，已送 " + this.giftMin() + " 分钟免费时长") : "登录成功" });
           this.loadVoices();       // 登录后拉本账号已选音色 → 音色页跨设备回显一致
           this.syncFavorites();    // 登录后把本地收藏并入账号 + 拉回账号全集 → 跨设备一致
+          this.loadNotifications();  // 登录后拉「工单是否被回复」→ 红点（换设备登录也能看到客服回复）
           this.clearToastSoon(2200);
         } finally {
           this._authBusy = false;
@@ -1842,7 +1862,7 @@ export class MiCallLogic {
       logout: () => this.setState({ logoutConfirmOpen: true, menuOpen: false }),
       logoutConfirmOpen: this.state.logoutConfirmOpen,
       cancelLogout: () => this.setState({ logoutConfirmOpen: false }),
-      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this.clearMemDots(); this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.clearToastSoon(1600); },
+      confirmLogout: () => { authApi.logout().catch(() => {}); this.resetSignaling(); this.realHistory = null; this.realBills = null; this.realTickets = null; this.realInvite = null; this._notifReplyAt = ""; this.clearMemDots(); this.setState({ loggedIn: false, logoutConfirmOpen: false, authEmail: "", toast: "已退出登录" }); this.clearToastSoon(1600); },
       loggedOut: !this.state.loggedIn,
       accountEmail: this.state.authEmail || "已登录用户",
       accountInitial: (this.state.authEmail || "M").trim().charAt(0).toUpperCase(),
