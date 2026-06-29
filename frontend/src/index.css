@@ -215,6 +215,13 @@ textarea,
     padding-top: 18px !important;
   }
 
+  /* 桌面右侧栏已常驻「通话记录」，移动端那个历史抽屉（含遮罩）在桌面属重复，
+     会盖在中间手机上。桌面一律不显，历史只看右栏。 */
+  .dcx-drawer-right,
+  .dcx-hist-overlay {
+    display: none !important;
+  }
+
   /* 中间手机自适应平铺：screen 同样按 zoom 折算高度，避免内容溢出 .phone 触发
      那条几乎满高的滚动条（特别是字体调大时）。 */
   .phone .screen {
