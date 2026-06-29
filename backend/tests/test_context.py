@@ -77,6 +77,24 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(msgs[-1]["content"].endswith("在吗"))
         self.assertIn("现实时间", msgs[-1]["content"])   # 时间观念每轮注入末轮 user
 
+    def test_reply_language_directive(self):
+        # 多语言生效：用户在前端选了「英语」→ 后端把强语言指令注入系统前缀，让 AI 真用英语说。
+        from micall.context.assembler import language_directive, tts_language_boost
+        # 纯函数：中文/空 不注入；非中文产出强指令；TTS boost 同理
+        self.assertEqual(language_directive("中文"), "")
+        self.assertEqual(language_directive(""), "")
+        self.assertIn("英语", language_directive("English"))
+        self.assertIn("日语", language_directive("日本語"))
+        self.assertEqual(tts_language_boost("English"), "English")
+        self.assertEqual(tts_language_boost("中文"), "")   # 中文/空＝不覆盖，保留节点默认 auto
+        # 接进 assembler：选英语 → system 前缀含语言指令；默认中文 → 不含
+        en = ContextAssembler(self._char(), reply_language="English")
+        sys_en = en.build(character_id="lin_wan", scenario="", history=[{"role": "user", "content": "hi"}])[0]["content"]
+        self.assertIn("对话语言", sys_en)
+        zh = ContextAssembler(self._char())   # 默认无语言：不注入，保持中文角色母语
+        sys_zh = zh.build(character_id="lin_wan", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
+        self.assertNotIn("对话语言", sys_zh)
+
     def test_opening_greeting_includes_world_topics(self):
         # 开场轮（AI 先开口、history 为空）必须带上时事话题池——这正是真人寒暄后自然分享新鲜事的时机。
         # 回归：此前 else 分支漏了 topics_line，开场从不提世界 → 用户「聊天感觉不到世界更新」。

@@ -88,6 +88,7 @@ class ClientMessage:
     on: bool | None = None
     scene: str | None = None
     text: str | None = None
+    lang: str | None = None              # 用户选的对话语言（中文/English/日本語…）；非中文则让 AI 改用该语言说
 
 
 # 注：WebRTC 信令上行 rtc_offer / rtc_ice / rtc_close 不在此列——它们字段形态与 ClientMessage 不同，
@@ -117,4 +118,5 @@ def parse_client_message(raw: str | bytes | dict[str, Any]) -> ClientMessage | N
         on=d.get("on"),
         scene=d.get("scene"),
         text=d.get("text"),
+        lang=d.get("lang"),
     )

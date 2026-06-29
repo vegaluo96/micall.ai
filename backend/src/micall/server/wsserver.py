@@ -388,6 +388,16 @@ class SignalingServer:
             persona={"core_traits": ["温柔", "会倾听"], "speaking_style": "轻声、慢"},
         )
 
+    def _make_tts_for_language(self, reply_language: str):
+        """按对话语言建 TTS：非中文时把 MiniMax language_boost 覆盖成该语言（发音更准）；
+        中文/空 → 保留节点默认（auto，对中英混说更友好）。每通独立实例，互不影响。"""
+        tts = make_tts(self.config.node("tts"))
+        from ..context.assembler import tts_language_boost
+        boost = tts_language_boost(reply_language)
+        if boost and hasattr(tts, "_language_boost"):
+            tts._language_boost = boost
+        return tts
+
     def _make_realtime_asr(self):
         """实时流式 ASR（task A）。需 api_key + ws_endpoint；缺则 None → 退文字模式。"""
         node = self.config.node("asr")
@@ -404,7 +414,7 @@ class SignalingServer:
             log.warning("实时 ASR 初始化失败，转文字模式：%r", e)
             return None
 
-    def _make_session(self, *, emit, audio_emit=None, character_id, scenario, scenario_prompt="", user_id=_ANON, client_ip="") -> CallSession:
+    def _make_session(self, *, emit, audio_emit=None, character_id, scenario, scenario_prompt="", user_id=_ANON, client_ip="", reply_language="") -> CallSession:
         char = self._character(character_id)
         # 人设指纹：把这通电话「实际载入」的角色字段打出来——后台改完打一通、grep 📇 即可确认
         # 编辑是否真喂进通话（不再靠猜「改了没生效」是数据没到、还是没重启、还是字段没接）。
@@ -447,6 +457,7 @@ class SignalingServer:
             memory_top_k=_mem_depth,
             # 上下文总预算（系统前缀+滑窗历史）：膨胀的人设/画像会吃光预算饿死历史 → 放宽并 config 化。
             budget_chars=int(self.config.global_defaults.get("budget_chars", 16000)),
+            reply_language=reply_language or "",   # 用户选的对话语言：非中文则让 AI 改用该语言说（多语言生效）
         )
         # 余额：登录用户读 users.remaining_seconds（服务端权威，§5）；游客按 IP 给剩余试用（刷新不重置，防刷）。
         # 试用时长读 global_defaults.guest_trial_seconds（后台可改，_reload_config 已在 start_call 刷新→下一通生效）。
@@ -462,7 +473,7 @@ class SignalingServer:
             emit=emit,
             audio_emit=audio_emit,
             llm=make_llm(self.config.node("llm_fast")),
-            tts=make_tts(self.config.node("tts")),
+            tts=self._make_tts_for_language(reply_language),
             realtime_asr=self._make_realtime_asr(),
             embedder=make_embedding(self.config.node("embedding")),
             assembler=assembler,
@@ -583,6 +594,7 @@ class SignalingServer:
                             emit=emit, audio_emit=audio_emit,
                             character_id=msg.character_id, scenario=msg.scenario,
                             scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
+                            reply_language=msg.lang or "",
                         )
                         await session.start()
                     except Exception as e:  # 建会话失败（配置/provider 异常）不能让连接半死：发 call_failed 让前端可重试
@@ -599,6 +611,7 @@ class SignalingServer:
                             emit=emit, audio_emit=audio_emit,
                             character_id=msg.character_id, scenario=msg.scenario,
                             scenario_prompt=msg.scenario_prompt or "", user_id=user_id, client_ip=client_ip,
+                            reply_language=msg.lang or "",
                         )
                         await session.start()
                     except Exception as e:

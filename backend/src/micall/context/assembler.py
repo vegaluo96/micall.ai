@@ -524,6 +524,43 @@ def _emotion_instruction(emotion_map: dict[str, str]) -> str:
     )
 
 
+# 用户在前端选的「对话语言」→ 让 AI 真用那门语言说（多语言生效）。中文/空=默认母语，不注入。
+# 角色人设全是中文写的，但现代 LLM 在中文系统提示下叫它说英语/日语完全没问题——给一句明确强指令即可。
+_LANG_NAMES = {
+    "English": "英语（自然口语化的美式英语）",
+    "日本語": "日语（自然口语，敬语随关系亲疏自然切换）",
+    "한국어": "韩语（自然口语，敬语随关系亲疏自然切换）",
+    "Español": "西班牙语（自然口语）",
+    "Français": "法语（自然口语）",
+}
+
+
+def language_directive(lang: str) -> str:
+    """据所选对话语言产出一条强指令；中文/空/未知 → ""（不注入，走角色母语中文）。"""
+    name = _LANG_NAMES.get((lang or "").strip())
+    if not name:
+        return ""
+    return (
+        f"【对话语言·最高优先】请全程用{name}和用户交流——"
+        f"即使用户用中文或别的语言说话，你也始终用{name}回应。"
+        "保持你的人设、性格与说话风格不变，只是改用这门语言来说。"
+        "情绪标签 [emotion:xx] 和拟声仍按原样保留（它们只给语音引擎、不翻译）。"
+    )
+
+
+# 对话语言 → MiniMax TTS language_boost 值（让发音更准）。中文/空/未知 → ""＝保留节点默认 "auto"
+# （auto 对中英混说更友好，不强压成 Chinese）。
+_TTS_BOOST = {
+    "English": "English", "日本語": "Japanese", "한국어": "Korean",
+    "Español": "Spanish", "Français": "French",
+}
+
+
+def tts_language_boost(lang: str) -> str:
+    """所选对话语言 → MiniMax language_boost；空串表示「不覆盖、用节点默认」。"""
+    return _TTS_BOOST.get((lang or "").strip(), "")
+
+
 def _profile_block(profile: UserProfile) -> str:
     out: list[str] = ["你对 TA 的了解（可能不全准；确定的自然带出，没把握的轻轻试探，绝不复述成'我们一起经历过'）："]
     # 前沿C 自传式推理：把历次理解综合成的「TA 这个人的稳定原则」——比逐条小事更接近「你真的懂 TA」。
@@ -690,6 +727,7 @@ class ContextAssembler:
         # 系统前缀走 prefix 缓存、重复轮近乎免费，主要增量是历史 token（正是要喂的）。可经 config 调。
         budget_chars: int = 16000,
         memory_top_k: int = 5,
+        reply_language: str = "",
     ) -> None:
         self.character = character
         self.profile = profile
@@ -697,6 +735,8 @@ class ContextAssembler:
         self.memory = memory
         self.budget_chars = budget_chars
         self.memory_top_k = memory_top_k
+        # 用户选的对话语言（前端 start_call 下发）：非中文则在前缀里加一条强指令让 AI 改用该语言说。
+        self.reply_language = reply_language or ""
         # 通话中实时了解：本通从用户话里现学到的显著事实（名字/在做/喜欢/不喜欢/身份）。
         # 折进每轮末条 user（不进 prefix 缓存），让角色当通就开始「懂你」——游客、第一通也生效。
         self._live_facts: dict[str, str] = {}
@@ -722,6 +762,7 @@ class ContextAssembler:
             _ADDRESSEE,                       # 铁规：看不见 TA → 别替 TA 安身份/性别
             _PRINCIPLES,                      # 表达规矩：有观点/危机让位关怀/不编造/口语简短/不写旁白
             _emotion_instruction(self.character.emotion_map),  # 输出格式：情绪标签/拟声
+            language_directive(self.reply_language),            # 对话语言：非中文则强指令改用该语言说（多语言生效）
         ]
         if self.autonomous:
             parts.append(_autonomous_block(self.autonomous))

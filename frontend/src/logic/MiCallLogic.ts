@@ -1005,6 +1005,7 @@ export class MiCallLogic {
     const msg: ClientMessage = {
       type: "start_call", character_id: this.characterId(this.state.charIndex),
       scenario: this.currentScenarioKey(), scenario_prompt: this.currentScenarioPrompt(),
+      lang: this.state.lang,   // 对话语言：非中文则后端让 AI 改用该语言说（多语言生效）
     };
     this.send(msg);
   }
