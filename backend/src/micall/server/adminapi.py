@@ -697,7 +697,18 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/calls":
             if _REPO is None:
                 return self._json(200, {"ok": False, "calls": []})
-            return self._json(200, {"ok": True, "calls": _REPO.list_all_calls(limit=200)})
+            calls = _REPO.list_all_calls(limit=200)
+            # 游客通话补「归属地」：按 guest_ip 解析（带缓存/并发/超时，失败不影响出表）。
+            try:
+                from .ip_geo import ip_locations
+                loc = ip_locations([c.get("guest_ip", "") for c in calls if c.get("guest_ip")])
+                for c in calls:
+                    gip = c.get("guest_ip", "")
+                    if gip:
+                        c["guest_region"] = loc.get(gip, "")
+            except Exception as e:
+                log.warning("通话归属地解析失败（忽略）：%r", e)
+            return self._json(200, {"ok": True, "calls": calls})
         if self._route() == "/admin/orders":
             if _REPO is None:
                 return self._json(200, {"ok": False, "orders": []})
