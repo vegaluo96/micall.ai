@@ -18,6 +18,7 @@ import { loadApiConfig, saveApiConfig, testApiSection, loadCharacters, saveChara
          loadInviteConfig, saveInviteConfig,
          loadCostConfig, saveCostConfig, usingBackend, playVoicePreview, loadVoices, setUserBanned, resetUserMemory, cloneVoice,
          worldRefresh, loadWorld, testHotSources, loadLimits, saveLimits,
+         loadHotSources, saveHotSources, testOneSource, removeTopic, pinTopic,
          generateAvatar, uploadAvatar, adminAvatarUrl } from "./configService";
 
 export interface AdminProps {
@@ -66,7 +67,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null,
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -435,6 +436,8 @@ export class AdminLogic {
     if (lim) this.setState({ limitsCfg: lim });
     const wl = await loadWorld();
     if (wl) this.setState({ worldLib: wl });
+    const eps = await loadHotSources();
+    if (eps) this.setState({ worldEndpoints: eps });
     if (dash || users || calls || orders || tickets || invites || codes) this.setState({});
   }
 
@@ -499,6 +502,53 @@ export class AdminLogic {
     const ok = await saveLimits({ world_refresh_hours: h });
     if (ok) { const lim = await loadLimits(); if (lim) this.setState({ limitsCfg: lim }); }
     this.toastMsg(ok ? `已设为每 ${h} 小时自动拉取（约 10 分钟内生效）` : "保存失败");
+  }
+
+  setNewSource(v: string) { this.setState({ newSource: v }); }
+  setCatFilter(c: string) { this.setState((p) => ({ catFilter: p.catFilter === c ? "" : c })); }
+
+  /** 源管理：添加一个热点源 URL（即时存后端，下次拉取生效）。 */
+  async addSource() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const u = String(this.state.newSource || "").trim();
+    if (!/^https?:\/\//.test(u)) { this.toastMsg("请填 http(s) 开头的源地址"); return; }
+    if ((this.state.worldEndpoints || []).includes(u)) { this.toastMsg("已存在该源"); return; }
+    const saved = await saveHotSources([...(this.state.worldEndpoints || []), u]);
+    if (saved) this.setState({ worldEndpoints: saved, newSource: "" });
+    this.toastMsg(saved ? "已添加，下次拉取生效" : "保存失败");
+  }
+
+  /** 源管理：删除一个热点源。 */
+  async removeSource(url: string) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const saved = await saveHotSources((this.state.worldEndpoints || []).filter((e: string) => e !== url));
+    if (saved) this.setState((p) => ({ worldEndpoints: saved, srcOne: { ...p.srcOne, [url]: undefined } }));
+    this.toastMsg(saved ? "已删除该源" : "保存失败");
+  }
+
+  /** 源管理：单测一个源（可达性 + 样例 + 简介，证明真抓到原文）。 */
+  async testOne(url: string) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    this.setState((p) => ({ srcOne: { ...p.srcOne, [url]: { testing: true } } }));
+    const res = await testOneSource(url);
+    const r = (res && res.ok && res.result) ? res.result : { ok: false, error: (res && res.error) || "测试失败" };
+    this.setState((p) => ({ srcOne: { ...p.srcOne, [url]: r } }));
+  }
+
+  /** 话题手动管控：删除一条（拉黑，再抓也不收）。 */
+  async deleteTopic(text: string) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const ok = await removeTopic(text);
+    if (ok) { const wl = await loadWorld(); this.setState({ worldLib: wl || this.state.worldLib }); }
+    this.toastMsg(ok ? "已删除（再抓到也不收）" : "删除失败");
+  }
+
+  /** 话题手动管控：置顶/取消置顶。 */
+  async togglePin(text: string, on: boolean) {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const ok = await pinTopic(text, on);
+    if (ok) { const wl = await loadWorld(); this.setState({ worldLib: wl || this.state.worldLib }); }
+    this.toastMsg(ok ? (on ? "已置顶（优先被聊到）" : "已取消置顶") : "操作失败");
   }
 
   setLimit(k: string, v: string) {
@@ -860,6 +910,7 @@ export class AdminLogic {
 
     const navCfg = [
       { key: "api", label: "接口配置", icon: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" },
+      { key: "world", label: "世界库", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" },
       { key: "cost", label: "成本与限流", icon: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" },
     ];
     const navConfigView = navCfg.map((n) => ({ label: n.label, icon: n.icon, go: () => this.go(n.key), bg: s.section === n.key ? "rgba(110,92,255,.1)" : "transparent", color: s.section === n.key ? "#6E5CFF" : "#4A4E5A", weight: s.section === n.key ? 600 : 500 }));
@@ -969,10 +1020,45 @@ export class AdminLogic {
     // 世界库（持久化）常驻面板：主体读【已保存】的 worldLib（重启/重拉都在）；错误/未配提示沿用最近一次拉取结果。
     const wl = s.worldLib;
     const wp = s.worldPull;
-    // 真实热点：每条带【原文链接】（点开即可核对是不是真的——这是话题"真不真"的铁证）+【领域标签】（看多元度）。
-    const worldTopics = ((wl && wl.topics_src) || []).map((t: any) => ({
-      text: String(t.text || ""), url: String(t.url || ""), hasUrl: !!String(t.url || ""),
-      cat: String(t.cat || ""), hasCat: !!String(t.cat || "") }));
+    // 真实热点：每条带【原文链接】(核对真假) +【领域标签】(看多元度) +【置顶/删除】(手动管控)。
+    const _allTopics = ((wl && wl.topics_src) || []);
+    const _catFilter = s.catFilter || "";
+    const _catCount: Record<string, number> = {};
+    _allTopics.forEach((t: any) => { const c = String(t.cat || "其它"); _catCount[c] = (_catCount[c] || 0) + 1; });
+    const _catKeys = Object.keys(_catCount).sort((a, b) => _catCount[b] - _catCount[a]);
+    const catChips = _catKeys.map((c) => ({
+      cat: c, n: _catCount[c], active: _catFilter === c,
+      bg: _catFilter === c ? "rgba(122,90,240,.14)" : "#F2F3F5",
+      color: _catFilter === c ? "#6E5CFF" : "#5A5E6B", go: () => this.setCatFilter(c) }));
+    const worldTopics = _allTopics
+      .filter((t: any) => !_catFilter || String(t.cat || "其它") === _catFilter)
+      .map((t: any) => ({
+        text: String(t.text || ""), url: String(t.url || ""), hasUrl: !!String(t.url || ""),
+        cat: String(t.cat || ""), hasCat: !!String(t.cat || ""), date: String(t.date || ""),
+        pinned: !!t.pinned, pinLabel: t.pinned ? "★置顶" : "☆置顶",
+        pinColor: t.pinned ? "#E0954F" : "#A8ABB5",
+        rowBg: t.pinned ? "rgba(224,149,79,.06)" : "#FAFAFB",
+        pin: () => this.togglePin(String(t.text || ""), !t.pinned),
+        del: () => this.deleteTopic(String(t.text || "")) }));
+    const worldStats = {
+      total: _allTopics.length, cats: _catKeys.length,
+      byCat: _catKeys.map((c) => `${c} ${_catCount[c]}`).join(" · "),
+      weatherCities: ((wl && wl.weather) || []).length };
+    // 源管理：当前热点源清单 + 各源单测结果（带简介样例，证明真抓到原文）。
+    const worldEndpointRows = (s.worldEndpoints || []).map((u: string) => {
+      const r = (s.srcOne || {})[u];
+      const testing = !!(r && r.testing);
+      const tested = !!(r && !r.testing);
+      const ok = !!(r && r.ok);
+      const samp = (r && r.sample && r.sample[0]) || null;
+      return {
+        url: u, testing, hasResult: testing || tested,
+        statusText: testing ? "测试中…" : (tested ? (ok ? `可用 · ${r.count || 0} 条（安全 ${r.safe || 0}）` : ("失败：" + (r.error || "未知"))) : ""),
+        statusColor: ok ? "#1FA971" : (tested ? "#E0594F" : "#9A9DA7"),
+        sampleText: samp ? (samp.text || "") : "", hasSample: !!(samp && samp.text),
+        sampleDesc: samp ? (samp.desc || "") : "", hasDesc: !!(samp && samp.desc),
+        test: () => this.testOne(u), remove: () => this.removeSource(u) };
+    });
     const worldWeather = (wl && wl.weather) || [];               // 后端已给 [{city,line}]
     const worldHasResult = !!(wl && (worldTopics.length || worldWeather.length));
     const worldErr = (wp && wp.ok === false) ? (wp.error || "拉取失败") : "";
@@ -1113,7 +1199,11 @@ export class AdminLogic {
 
     return {
       nav: navView, navConfig: navConfigView,
-      charTabs, isRoleTab: s.charTab === "role", isVoiceTab: s.charTab === "voice", isApi: s.section === "api", isCost: s.section === "cost",
+      charTabs, isRoleTab: s.charTab === "role", isVoiceTab: s.charTab === "voice", isApi: s.section === "api", isCost: s.section === "cost", isWorld: s.section === "world",
+      // 世界库菜单：源管理 + 完整池子 + 统计 + 领域筛选 + 单条删/置顶
+      worldEndpointRows, catChips, worldStats, hasCatFilter: !!s.catFilter, catFilterLabel: s.catFilter || "",
+      clearCatFilter: () => this.setCatFilter(s.catFilter || ""),
+      newSource: s.newSource || "", onNewSource: (e: any) => this.setNewSource(e.target.value), addSource: () => this.addSource(),
       linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, limitItems, warnItems,
       ccCpt: s.costCfg.chars_per_token, onCcCpt: (e: any) => this.setCost("chars_per_token", e.target.value),
       ccLlmFast: s.costCfg.llm_fast, onCcLlmFast: (e: any) => this.setCost("llm_fast", e.target.value),
@@ -1134,7 +1224,7 @@ export class AdminLogic {
       worldPulling: !!s.worldPulling, worldPullLabel: s.worldPulling ? "拉取中…" : "立即拉取",
       worldPullBtnBg: s.worldPulling ? "#C9A86A" : "#E0954F",
       worldHasResult, worldErr, worldSummary, worldDate, worldFresh, worldPersisted, worldNote, hasWorldNote: !!worldNote,
-      worldTopics, worldWeather, hasWorldTopics: worldTopics.length > 0, hasWorldWeather: worldWeather.length > 0,
+      worldTopics, worldWeather, hasWorldTopics: _allTopics.length > 0, hasWorldWeather: worldWeather.length > 0,
       pullWorld: () => this.pullWorld(),
       saveWorldInterval: () => this.saveWorldInterval(),
       // 测试热点源（逐源体检，据此增删）

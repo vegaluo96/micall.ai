@@ -488,7 +488,58 @@ export async function worldRefresh(): Promise<WorldPull> {
 
 /** 一键测试每个免费热点源是否可达 + 拿到几条 + 样例。无后端 → null。 */
 export type SourceRow = { source: string; ok: boolean; count?: number; safe?: number; error?: string;
-  sample?: { text: string; url: string }[] };
+  sample?: { text: string; url: string; desc?: string }[] };
+
+/** 源管理：读当前生效的热点源清单。无后端 → null。 */
+export async function loadHotSources(): Promise<string[] | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/hot-sources`, { credentials: "include", headers: authHeaders() });
+    if (r.ok) { const d = await r.json(); return (d && d.endpoints) || []; }
+  } catch { /* noop */ }
+  return null;
+}
+/** 源管理：保存热点源清单（后端只收 http(s)、去重、封顶 40）。返回保存后的清单或 null。 */
+export async function saveHotSources(endpoints: string[]): Promise<string[] | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/hot-sources`, { method: "PUT", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ endpoints }) });
+    if (r.ok) { const d = await r.json(); return d && d.ok ? (d.endpoints || []) : null; }
+  } catch { /* noop */ }
+  return null;
+}
+/** 源管理：单测一个热点源 URL。返回 {ok, result}。 */
+export async function testOneSource(endpoint: string): Promise<{ ok: boolean; result?: SourceRow; error?: string } | null> {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/admin/world-test-one`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ endpoint }) });
+    if (r.ok) return (await r.json()) as { ok: boolean; result?: SourceRow };
+    return { ok: false, error: `HTTP ${r.status}` };
+  } catch { return { ok: false, error: "无法连接服务器" }; }
+}
+/** 话题手动管控：删除一条（拉黑，再抓也不收）。 */
+export async function removeTopic(text: string): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/world-topic-remove`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ text }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
+/** 话题手动管控：置顶/取消置顶一条（置顶豁免衰减、检索优先）。 */
+export async function pinTopic(text: string, on: boolean): Promise<boolean> {
+  const b = base();
+  if (!b) return false;
+  try {
+    const r = await fetch(`${b}/admin/world-topic-pin`, { method: "POST", headers: authHeaders(true), credentials: "include", body: JSON.stringify({ text, on }) });
+    if (r.ok) { const d = await r.json(); return !!(d && d.ok); }
+  } catch { /* noop */ }
+  return false;
+}
 export async function testHotSources(): Promise<{ ok: boolean; sources?: SourceRow[]; error?: string } | null> {
   const b = base();
   if (!b) return null;
@@ -503,7 +554,7 @@ export async function testHotSources(): Promise<{ ok: boolean; sources?: SourceR
 
 /** 读取【已保存】的世界库快照（持久化那份，重启/重拉都在）：日期/话题/各城天气/历史天数。无后端 → null。 */
 export type WorldLib = { date?: string; fresh?: boolean; persisted?: boolean;
-  topics?: string[]; topics_src?: { text: string; url: string; cat?: string; date?: string }[];
+  topics?: string[]; topics_src?: { text: string; url: string; cat?: string; date?: string; pinned?: boolean }[];
   weather?: { city: string; line: string }[]; hist_days?: Record<string, number> };
 export async function loadWorld(): Promise<WorldLib | null> {
   const b = base();

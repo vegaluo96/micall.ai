@@ -392,6 +392,68 @@ def admin_world_refresh() -> dict:
     }
 
 
+# ── 源管理：读/写热点源清单（hot_api_endpoints），存 admin_overrides.json，下次拉取即生效（不重启）──
+def read_hot_sources() -> dict:
+    """当前生效的热点源清单（global_defaults.hot_api_endpoints；含 default.json 默认 + admin 覆盖）。"""
+    cfg = load_config()
+    eps = cfg.global_defaults.get("hot_api_endpoints") or []
+    return {"endpoints": [str(e) for e in eps if str(e).strip()]}
+
+
+def write_hot_sources(payload: dict) -> dict:
+    """保存热点源清单到 admin_overrides.json：只收 http(s) URL、去重、封顶 40 条。下次拉取/刷新即生效。"""
+    raw = (payload or {}).get("endpoints")
+    if not isinstance(raw, list):
+        return {"ok": False, "error": "endpoints 需为数组"}
+    seen: set[str] = set()
+    eps: list[str] = []
+    for e in raw:
+        u = str(e or "").strip()
+        if u.startswith(("http://", "https://")) and u not in seen:
+            seen.add(u)
+            eps.append(u)
+        if len(eps) >= 40:
+            break
+    existing: dict = {}
+    if OVERRIDES_PATH.exists():
+        try:
+            existing = json.loads(OVERRIDES_PATH.read_text("utf-8"))
+        except (ValueError, OSError):
+            existing = {}
+    g = dict(existing.get("global_defaults") or {})
+    g["hot_api_endpoints"] = eps
+    existing["global_defaults"] = g
+    tmp = OVERRIDES_PATH.with_name(OVERRIDES_PATH.name + ".tmp")
+    tmp.write_text(json.dumps(existing, ensure_ascii=False, indent=2), "utf-8")
+    tmp.replace(OVERRIDES_PATH)
+    return {"ok": True, "endpoints": eps}
+
+
+def admin_test_one(endpoint: str) -> dict:
+    """单测一个热点源 URL（源管理·测试此源）：可达性 + 几条 + 安全 + 带简介样例。"""
+    import asyncio
+    import datetime
+
+    from ..offline.world_context import probe_one
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+    try:
+        return {"ok": True, "result": asyncio.run(probe_one((endpoint or "").strip(), now))}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
+
+def admin_topic_remove(text: str) -> dict:
+    """删除一条话题（手动管控）：从池移除 + 拉黑（再抓到也不收）。"""
+    from ..offline.world_context import remove_topic
+    return {"ok": True, "removed": remove_topic(text or "")}
+
+
+def admin_topic_pin(text: str, on: bool) -> dict:
+    """置顶/取消置顶一条话题（手动管控）：置顶豁免衰减、检索优先。"""
+    from ..offline.world_context import pin_topic
+    return {"ok": True, "hit": pin_topic(text or "", bool(on))}
+
+
 # ── 邀请奖励（后台「邀请裂变」）读写：存 admin_overrides.json 的 invite 段，改完即对新注册生效 ──
 def read_invite_for_admin() -> dict:
     from .auth import register_gift_seconds
@@ -612,6 +674,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, read_limits_for_admin())
         if self._route() == "/admin/world":
             return self._json(200, read_world_for_admin())
+        if self._route() == "/admin/hot-sources":
+            return self._json(200, read_hot_sources())
         if self._route() == "/admin/default-character":
             from .characters_admin import load_default_character
             return self._json(200, {"id": load_default_character()})
@@ -682,6 +746,11 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True})
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if self._route() == "/admin/hot-sources":
+            try:
+                return self._json(200, write_hot_sources(self._body()))
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
         if self._route() == "/admin/default-character":
             try:
                 from .characters_admin import set_default_character
@@ -715,6 +784,22 @@ class _Handler(BaseHTTPRequestHandler):
         if route == "/admin/world-test-source":  # 一键测试每个免费热点源是否可达 + 拿到几条 + 样例
             try:
                 return self._json(200, admin_test_sources())
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if route == "/admin/world-test-one":     # 源管理：单测一个热点源 URL
+            try:
+                return self._json(200, admin_test_one(self._body().get("endpoint", "")))
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if route == "/admin/world-topic-remove": # 手动管控：删一条话题（拉黑）
+            try:
+                return self._json(200, admin_topic_remove(self._body().get("text", "")))
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)[:200]})
+        if route == "/admin/world-topic-pin":    # 手动管控：置顶/取消置顶一条话题
+            try:
+                b = self._body()
+                return self._json(200, admin_topic_pin(b.get("text", ""), b.get("on", True)))
             except Exception as e:
                 return self._json(500, {"ok": False, "error": str(e)[:200]})
         if route == "/admin/redeem-codes":      # 自定义码 + 份数 + 时长

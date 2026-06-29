@@ -486,37 +486,29 @@
           </sc-for>
 
 
+          <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
+            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">角色级覆盖</div>
+            <div style="font-size:12.5px;color:#7A7E8A;line-height:1.7;">每个角色可覆盖自己的 voice_id、TTS 模型、实时 prompt、记忆深度与回复长度。优先级 <b>用户自定义 &gt; 角色配置 &gt; 全局默认</b>。</div>
+          </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- WORLD LIBRARY -->
+      <sc-if value="{{ isWorld }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:adRise .3s ease;display:flex;flex-direction:column;gap:16px;">
+
           <div style="background:#fff;border:1px solid #F4E3C4;border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div style="min-width:0;">
-                <div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;">世界库 · 角色「活在世界里」的共享素材<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">{{ worldDate }}</span></div>
-                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">每天全站拉一批：open-meteo 各城真实天气 + 多个【全球可达·免费】源的真实热点（媒体 RSS 订阅:科技/科学/游戏/音乐/美食/旅行/读书 + HN + dev.to + 维基中英…，免注册、以国际源为主）。外文由改写脑翻译成中文口语并兼做安全闸；每条带原文链接、点开即可核对。已持久化、重启不丢。「测试热点源」逐源体检、「立即拉取」即刻更新。</div>
+                <div style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">世界库 · 角色「活在世界里」的共享素材<span style="font-size:11px;font-weight:600;color:#E0954F;background:rgba(224,149,79,.1);border-radius:7px;padding:2px 8px;">{{ worldDate }}</span></div>
+                <div style="font-size:12.5px;color:#9A9DA7;margin-top:3px;">每天全站拉一批：各城真实天气 + 多维真实热点（媒体 RSS + HN + 维基；据原文简介改写、带领域标签）。角色按自己兴趣检索、像真人分享新闻那样自然带出；多日滚动、旧闻自动淡出。下面可管源、看池子、删 / 置顶。已持久化、重启不丢。</div>
               </div>
               <div style="flex:none;display:flex;gap:9px;align-items:center;">
                 <div onClick="{{ testSources }}" style="font-size:13.5px;font-weight:600;color:#5A5E6B;background:#F2F3F5;border-radius:10px;padding:10px 18px;cursor:pointer;" style-active="transform:scale(.97)">{{ srcTestLabel }}</div>
                 <div onClick="{{ pullWorld }}" style="font-size:13.5px;font-weight:600;color:#fff;background:{{ worldPullBtnBg }};border-radius:10px;padding:10px 22px;cursor:pointer;box-shadow:0 6px 14px rgba(224,149,79,.26);" style-active="transform:scale(.97)">{{ worldPullLabel }}</div>
               </div>
             </div>
-            <sc-if value="{{ srcErr }}" hint-placeholder-val="{{ '' }}">
-              <div style="margin-top:13px;border-radius:10px;padding:11px 13px;background:rgba(224,89,79,.06);font-size:12.5px;color:#C0453B;">测试失败：{{ srcErr }}</div>
-            </sc-if>
-            <sc-if value="{{ hasSrcTest }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top:13px;border:1px solid #EEF0F3;border-radius:10px;padding:11px 13px;">
-                <div style="font-size:11.5px;color:#878B95;margin-bottom:8px;">热点源体检（可据此在后端 hot_api_endpoints 增删源）</div>
-                <div style="display:flex;flex-direction:column;gap:6px;">
-                  <sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="6">
-                    <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
-                      <span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ r.statusColor }};"></span>
-                      <span style="flex:none;width:200px;color:#3A3D47;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.source }}</span>
-                      <span style="flex:none;font-weight:600;color:{{ r.statusColor }};">{{ r.statusText }}</span>
-                      <sc-if value="{{ r.hasSample }}" hint-placeholder-val="{{ false }}">
-                        <span style="flex:1;min-width:0;color:#9A9DA7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">例：{{ r.sampleText }}</span>
-                      </sc-if>
-                    </div>
-                  </sc-for>
-                </div>
-              </div>
-            </sc-if>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;border-top:1px solid #F4ECDC;padding-top:14px;">
               <span style="font-size:12.5px;color:#878B95;">自动拉取间隔</span>
               <input value="{{ rlWorldHours }}" onInput="{{ onRlWorldHours }}" style="width:72px;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:9px;padding:8px 11px;font-size:13.5px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;text-align:center;" style-focus="border-color:#E0B36A;background:#fff" />
@@ -530,41 +522,87 @@
               <div style="margin-top:13px;border-radius:10px;padding:10px 13px;background:rgba(224,149,79,.08);font-size:12px;color:#B07B36;">{{ worldNote }}</div>
             </sc-if>
             <sc-if value="{{ worldHasResult }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top:14px;">
-                <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:.5px;margin-bottom:9px;">当前世界库 · {{ worldSummary }}</div>
-                <sc-if value="{{ hasWorldWeather }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实天气（open-meteo · 各角色现居城）</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:13px;">
-                    <sc-for list="{{ worldWeather }}" as="w" hint-placeholder-count="3">
-                      <span style="font-size:12px;color:#2E6B4F;background:rgba(31,169,113,.08);border:1px solid rgba(31,169,113,.18);border-radius:8px;padding:5px 11px;"><b>{{ w.city }}</b> · {{ w.line }}</span>
-                    </sc-for>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ hasWorldTopics }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size:11.5px;color:#878B95;margin-bottom:6px;">真实热点话题池（多维领域·全站共享·已过安全闸 · 角色按自己兴趣检索引用、像真人分享新闻那样自然带出 · 多日滚动、旧闻自动淡出 · 点「原文」可核对真实性）</div>
-                  <div style="display:flex;flex-direction:column;gap:6px;">
-                    <sc-for list="{{ worldTopics }}" as="t" hint-placeholder-count="5">
-                      <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:#3A3D47;background:#FAFAFB;border-radius:8px;padding:8px 12px;line-height:1.5;">
-                        <sc-if value="{{ t.hasCat }}" hint-placeholder-val="{{ false }}">
-                          <span style="flex:none;font-size:10.5px;font-weight:600;color:#7A5AF0;background:rgba(122,90,240,.09);border-radius:6px;padding:2px 7px;">{{ t.cat }}</span>
-                        </sc-if>
-                        <span style="flex:1;min-width:0;">{{ t.text }}</span>
-                        <sc-if value="{{ t.hasUrl }}" hint-placeholder-val="{{ false }}">
-                          <a href="{{ t.url }}" target="_blank" rel="noopener noreferrer" style="flex:none;font-size:11.5px;font-weight:600;color:#2E7BFF;text-decoration:none;">原文↗</a>
-                        </sc-if>
-                      </div>
-                    </sc-for>
-                  </div>
-                </sc-if>
+              <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                <span style="font-size:12px;font-weight:600;color:#3A3D47;background:#F4F2FF;border-radius:8px;padding:5px 11px;">话题池 {{ worldStats.total }} 条</span>
+                <span style="font-size:12px;font-weight:600;color:#3A3D47;background:#F4F2FF;border-radius:8px;padding:5px 11px;">{{ worldStats.cats }} 个领域</span>
+                <span style="font-size:12px;font-weight:600;color:#3A3D47;background:#EAF7F0;border-radius:8px;padding:5px 11px;">天气 {{ worldStats.weatherCities }} 城</span>
+                <span style="font-size:11.5px;color:#9A9DA7;">{{ worldStats.byCat }}</span>
               </div>
             </sc-if>
           </div>
 
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="font-size:14px;font-weight:600;margin-bottom:6px;">角色级覆盖</div>
-            <div style="font-size:12.5px;color:#7A7E8A;line-height:1.7;">每个角色可覆盖自己的 voice_id、TTS 模型、实时 prompt、记忆深度与回复长度。优先级 <b>用户自定义 &gt; 角色配置 &gt; 全局默认</b>。</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:3px;">热点源管理 · 多源多维（这些都是资产）</div>
+            <div style="font-size:12px;color:#9A9DA7;margin-bottom:12px;">增 / 删即时生效，下次拉取按新清单。每个源可「测试」看是否可达 + 抓到的标题与原文简介（证明真抓到内容、不是只看标题）。</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input value="{{ newSource }}" onInput="{{ onNewSource }}" placeholder="新增源地址（RSS 订阅 / JSON 热榜 API，http(s) 开头）" style="flex:1;box-sizing:border-box;border:1px solid #E6E7EB;border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;outline:none;background:#FAFAFB;color:#16161A;" style-focus="border-color:#9277F5;background:#fff" />
+              <div onClick="{{ addSource }}" style="flex:none;font-size:13px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:10px;padding:10px 20px;cursor:pointer;" style-active="transform:scale(.97)">添加源</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <sc-for list="{{ worldEndpointRows }}" as="e" hint-placeholder-count="6">
+                <div style="border:1px solid #EEF0F3;border-radius:10px;padding:9px 12px;">
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="flex:1;min-width:0;font-size:12px;color:#3A3D47;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ e.url }}</span>
+                    <div onClick="{{ e.test }}" style="flex:none;font-size:11.5px;font-weight:600;color:#5A5E6B;background:#F2F3F5;border-radius:8px;padding:6px 12px;cursor:pointer;" style-active="transform:scale(.97)">测试</div>
+                    <div onClick="{{ e.remove }}" style="flex:none;font-size:11.5px;font-weight:600;color:#E0594F;background:rgba(224,89,79,.08);border-radius:8px;padding:6px 12px;cursor:pointer;" style-active="transform:scale(.97)">删除</div>
+                  </div>
+                  <sc-if value="{{ e.hasResult }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:7px;padding-top:7px;border-top:1px dashed #EEF0F3;font-size:11.5px;">
+                      <span style="font-weight:600;color:{{ e.statusColor }};">{{ e.statusText }}</span>
+                      <sc-if value="{{ e.hasSample }}" hint-placeholder-val="{{ false }}">
+                        <span style="color:#6A6E7A;"> · 例：{{ e.sampleText }}</span>
+                      </sc-if>
+                      <sc-if value="{{ e.hasDesc }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin-top:3px;color:#9A9DA7;line-height:1.5;">简介：{{ e.sampleDesc }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ srcErr }}" hint-placeholder-val="{{ '' }}">
+              <div style="margin-top:11px;border-radius:10px;padding:10px 12px;background:rgba(224,89,79,.06);font-size:12px;color:#C0453B;">「测试热点源」失败：{{ srcErr }}</div>
+            </sc-if>
           </div>
-          </div>
+
+          <sc-if value="{{ hasWorldWeather }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
+              <div style="font-size:14px;font-weight:600;margin-bottom:10px;">真实天气 · 各角色现居城（open-meteo）</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;">
+                <sc-for list="{{ worldWeather }}" as="w" hint-placeholder-count="6">
+                  <span style="font-size:12px;color:#2E6B4F;background:rgba(31,169,113,.08);border:1px solid rgba(31,169,113,.18);border-radius:8px;padding:5px 11px;"><b>{{ w.city }}</b> · {{ w.line }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ hasWorldTopics }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:18px 22px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
+              <div style="font-size:14px;font-weight:600;margin-bottom:3px;">真实热点话题池 · 共 {{ worldStats.total }} 条</div>
+              <div style="font-size:12px;color:#9A9DA7;margin-bottom:11px;">角色按自己兴趣检索引用、像真人分享新闻那样自然带出；多日滚动、旧闻自动淡出。点领域筛选；★置顶＝豁免淡出且优先被聊；删除＝拉黑（再抓到也不收）。</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+                <sc-for list="{{ catChips }}" as="c" hint-placeholder-count="6">
+                  <span onClick="{{ c.go }}" style="font-size:11.5px;font-weight:600;color:{{ c.color }};background:{{ c.bg }};border-radius:8px;padding:4px 10px;cursor:pointer;" style-active="transform:scale(.96)">{{ c.cat }} · {{ c.n }}</span>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <sc-for list="{{ worldTopics }}" as="t" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:#3A3D47;background:{{ t.rowBg }};border-radius:8px;padding:8px 12px;line-height:1.5;">
+                    <sc-if value="{{ t.hasCat }}" hint-placeholder-val="{{ false }}">
+                      <span style="flex:none;font-size:10.5px;font-weight:600;color:#7A5AF0;background:rgba(122,90,240,.09);border-radius:6px;padding:2px 7px;">{{ t.cat }}</span>
+                    </sc-if>
+                    <span style="flex:1;min-width:0;">{{ t.text }}</span>
+                    <sc-if value="{{ t.hasUrl }}" hint-placeholder-val="{{ false }}">
+                      <a href="{{ t.url }}" target="_blank" rel="noopener noreferrer" style="flex:none;font-size:11.5px;font-weight:600;color:#2E7BFF;text-decoration:none;">原文↗</a>
+                    </sc-if>
+                    <span onClick="{{ t.pin }}" style="flex:none;font-size:11.5px;font-weight:600;color:{{ t.pinColor }};cursor:pointer;" style-active="transform:scale(.95)">{{ t.pinLabel }}</span>
+                    <span onClick="{{ t.del }}" style="flex:none;font-size:11.5px;font-weight:600;color:#E0594F;cursor:pointer;" style-active="transform:scale(.95)">删除</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
         </div>
       </sc-if>
 

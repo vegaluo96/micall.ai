@@ -142,7 +142,7 @@ class TestRollingPool(unittest.IsolatedAsyncioTestCase):
 
     def tearDown(self):
         d = json.loads(self._snap)
-        for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
+        for k in ("date", "weather", "weather_hist", "topics", "topics_src", "topics_block"):
             wc._WORLD[k] = d[k]
 
     def test_merge_dedup_and_decay(self):
@@ -166,6 +166,27 @@ class TestRollingPool(unittest.IsolatedAsyncioTestCase):
         big = [{"text": f"话题{i}", "url": "u", "cat": "科技", "date": "2026-06-28"} for i in range(200)]
         wc._merge_topics(big, now)
         self.assertLessEqual(len(wc._WORLD["topics_src"]), wc._TOPIC_POOL_CAP)   # 封顶遗忘
+
+    def test_remove_topic_blocks_recurrence(self):
+        now = datetime.datetime(2026, 6, 28, 12, 0)
+        wc._WORLD["topics_src"] = [{"text": "广告水文", "url": "u", "cat": "科技", "date": "2026-06-28"}]
+        wc._WORLD["topics_block"] = []
+        self.assertTrue(wc.remove_topic("广告水文"))
+        self.assertNotIn("广告水文", [t["text"] for t in wc._WORLD["topics_src"]])
+        # 再抓到同一条 → 被黑名单挡住，不回流
+        wc._merge_topics([{"text": "广告水文", "url": "u", "cat": "科技", "date": "2026-06-28"}], now)
+        self.assertNotIn("广告水文", [t["text"] for t in wc._WORLD["topics_src"]])
+
+    def test_pin_survives_decay_and_cap(self):
+        now = datetime.datetime(2026, 6, 28, 12, 0)
+        wc._WORLD["topics_block"] = []
+        wc._WORLD["topics_src"] = [{"text": "镇店之宝", "url": "u", "cat": "美食", "date": "2026-06-20", "pinned": True}]
+        # 一堆新鲜的把池子塞满 + 置顶那条已超龄（8 天前）
+        big = [{"text": f"新{i}", "url": "u", "cat": "科技", "date": "2026-06-28"} for i in range(200)]
+        wc._merge_topics(big, now)
+        texts = [t["text"] for t in wc._WORLD["topics_src"]]
+        self.assertIn("镇店之宝", texts)                      # 置顶豁免衰减+封顶，永远在
+        self.assertIn("镇店之宝", wc.topics_now(now))         # 检索可见（pinned 不按 age 过期）
 
 
 class TestWikiParse(unittest.TestCase):
@@ -248,7 +269,7 @@ class TestRefreshAndRead(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         wc.fetch_hot_items = self._orig
         d = json.loads(self._snap)
-        for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
+        for k in ("date", "weather", "weather_hist", "topics", "topics_src", "topics_block"):
             wc._WORLD[k] = d[k]
 
     async def test_refresh_fills_shared_store(self):

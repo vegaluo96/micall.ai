@@ -606,8 +606,9 @@ def _pick_topics(items: list, interests: str, k: int) -> list:
 
     def score(it) -> float:
         cat = it.get("cat", "") if isinstance(it, dict) else ""
+        pin = 2.0 if (isinstance(it, dict) and it.get("pinned")) else 0.0   # 运营置顶：最优先被检索到
         hit = 1.0 if (cat and any(s in blob for s in _CAT_SYNS.get(cat, (cat,)))) else 0.0
-        return hit + random.random() * 0.6   # 对味+1，随机≤0.6 当 serendipity（高随机偶尔能把圈外的顶上来）
+        return pin + hit + random.random() * 0.6   # 置顶>对味>随机(serendipity，高随机偶尔把圈外的顶上来)
     return sorted(items, key=score, reverse=True)[:k]
 
 

@@ -415,17 +415,27 @@ async def probe_sources(endpoints: Any = None, now: datetime.datetime | None = N
     cl = _client()
     when = now or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
 
-    async def _probe(label: str, coro: Any) -> dict:
-        try:
-            recs = await coro
-            safe = [r for r in recs if _is_safe(r.get("title", ""))]
-            return {"source": label, "ok": True, "count": len(recs), "safe": len(safe),
-                    "sample": [{"text": r["title"][:60], "url": r.get("url", "")} for r in safe[:2]]}
-        except Exception as e:
-            return {"source": label, "ok": False, "error": str(e)[:200]}
-
     jobs = _world_jobs(cl, endpoints, when, True)
-    return list(await asyncio.gather(*[_probe(lbl, c) for lbl, c in jobs]))
+    return list(await asyncio.gather(*[_probe_job(lbl, c) for lbl, c in jobs]))
+
+
+async def _probe_job(label: str, coro: Any) -> dict:
+    """探一个源：可达性 + 抓到几条 + 过安全闸剩几条 + 2 条样例（含原文链接 + 简介→证明真抓到了原文）。"""
+    try:
+        recs = await coro
+        safe = [r for r in recs if _is_safe(r.get("title", ""))]
+        return {"source": label, "ok": True, "count": len(recs), "safe": len(safe),
+                "sample": [{"text": r["title"][:60], "url": r.get("url", ""),
+                            "desc": str(r.get("desc", ""))[:120]} for r in safe[:2]]}
+    except Exception as e:
+        return {"source": label, "ok": False, "error": str(e)[:200]}
+
+
+async def probe_one(endpoint: str, now: datetime.datetime | None = None) -> dict:
+    """单独测一个【通用热点源 URL】（给后台「源管理·测试此源」按钮）：可达性 + 几条 + 安全 + 带简介样例。"""
+    if httpx is None:
+        return {"source": endpoint, "ok": False, "error": "缺少 httpx 依赖"}
+    return await _probe_job(endpoint, _fetch_generic(_client(), endpoint))
 
 
 # 话题滚动池（会更新、会遗忘、可检索）：第一性原理——世界库该是【一池多维素材】供角色检索引用，
@@ -503,8 +513,9 @@ async def fetch_topics(rewrite_llm: Any, now: datetime.datetime, endpoints: Any 
 #  weather       : {city: line}            今天每城的天气一句话（快读）
 #  weather_hist  : {city: [{date,temp,code}…]}  最近几天的滚动观测——【天气连续性】的底料（昨天 vs 今天）
 #  topics        : [str]                   滚动话题池的文本（已改写成口语，给 assembler/Layer C 用）
-#  topics_src     : [{text,url,cat,date}]   同一【滚动池】带原文链接+领域标签+日期（后台核对真实性、角色按兴趣检索、衰减遗忘）
-_WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": [], "topics_src": []}
+#  topics_src     : [{text,url,cat,date,pinned?}]  同一【滚动池】带原文链接+领域+日期(+置顶)（后台核对、角色检索、衰减）
+#  topics_block   : [str]                   被运营手动删除的话题文本（再抓到也不收，让删除"粘住"）
+_WORLD: dict[str, Any] = {"date": "", "weather": {}, "weather_hist": {}, "topics": [], "topics_src": [], "topics_block": []}
 _HIST_DAYS = 4   # 每城最多留几天观测（够算「这两天/前两天」的变化感即可，不堆历史）
 
 # 世界库落盘路径：让【天气滚动历史】跨进程重启存活——否则每次重启只有「今天」、永远算不出「昨天→今天」的变化。
@@ -529,7 +540,7 @@ def _load_store() -> None:
         return
     if not isinstance(d, dict):
         return
-    for k in ("date", "weather", "weather_hist", "topics", "topics_src"):
+    for k in ("date", "weather", "weather_hist", "topics", "topics_src", "topics_block"):
         if k in d and isinstance(d[k], type(_WORLD[k])):
             _WORLD[k] = d[k]
 
@@ -596,17 +607,25 @@ def _topic_age(t: dict, now: datetime.datetime) -> int:
 
 def _merge_topics(fresh: list[dict], now: datetime.datetime) -> None:
     """把今天新抓的话题并进【滚动池】：按文本去重（新的覆盖、刷新日期），衰减（丢超龄旧闻），封顶（遗忘最旧）。
-    第一性原理：世界库是个【会更新会忘】的池子——今天的新鲜事进来、几天前的旧闻淡出，给角色一池可检索的素材。"""
+    第一性原理：世界库是个【会更新会忘】的池子——今天的新鲜事进来、几天前的旧闻淡出，给角色一池可检索的素材。
+    运营手动管控优先：被删的(topics_block)再抓到也不收；置顶的(pinned)豁免衰减/封顶、永远在池。"""
+    block = set(_WORLD.get("topics_block") or [])
+    pinned_texts = {t["text"] for t in (_WORLD.get("topics_src") or [])
+                    if isinstance(t, dict) and t.get("pinned") and t.get("text")}
     by_text: dict[str, dict] = {}
     for t in (_WORLD.get("topics_src") or []):
-        if isinstance(t, dict) and t.get("text"):
+        if isinstance(t, dict) and t.get("text") and t["text"] not in block:
             by_text[t["text"]] = t
     for t in (fresh or []):                                      # 新抓的覆盖旧的（含刷新后的 date）
-        if isinstance(t, dict) and t.get("text"):
+        if isinstance(t, dict) and t.get("text") and t["text"] not in block:
+            if t["text"] in pinned_texts:                        # 重新抓到置顶话题 → 保住 pinned 标记
+                t = {**t, "pinned": True}
             by_text[t["text"]] = t
-    merged = [t for t in by_text.values() if _topic_age(t, now) < _TOPIC_AGE_DAYS]   # 衰减：丢旧闻
-    merged.sort(key=lambda t: str(t.get("date", "")), reverse=True)                  # 封顶遗忘：留最新鲜的
-    _WORLD["topics_src"] = merged[:_TOPIC_POOL_CAP]
+    items = list(by_text.values())
+    pinned = [t for t in items if t.get("pinned")]               # 置顶：豁免衰减/封顶
+    rest = [t for t in items if not t.get("pinned") and _topic_age(t, now) < _TOPIC_AGE_DAYS]   # 衰减：丢旧闻
+    rest.sort(key=lambda t: str(t.get("date", "")), reverse=True)                               # 封顶遗忘：留最新鲜的
+    _WORLD["topics_src"] = pinned + rest[:max(0, _TOPIC_POOL_CAP - len(pinned))]
 
 
 def _fresh(now: datetime.datetime) -> bool:
@@ -651,15 +670,46 @@ def weather_for(city: str, now: datetime.datetime) -> str:
 
 
 def topics_pool_now(now: datetime.datetime) -> list[dict]:
-    """读滚动话题池里【还新鲜（<_TOPIC_AGE_DAYS 天）】的条目 [{text,url,cat,date}]：给角色按兴趣检索、给后台展示。
-    与天气不同：话题不按当天硬过期，而是多日滚动+衰减——跨过午夜也仍有一池可聊，旧闻才淡出。零联网。"""
+    """读滚动话题池里【还新鲜（<_TOPIC_AGE_DAYS 天）或置顶】的条目 [{text,url,cat,date,pinned}]：供角色检索/后台展示。
+    与天气不同：话题不按当天硬过期，而是多日滚动+衰减——跨过午夜也仍有一池可聊，旧闻才淡出；置顶的永远在。零联网。"""
     return [t for t in (_WORLD.get("topics_src") or [])
-            if isinstance(t, dict) and t.get("text") and _topic_age(t, now) < _TOPIC_AGE_DAYS]
+            if isinstance(t, dict) and t.get("text") and (t.get("pinned") or _topic_age(t, now) < _TOPIC_AGE_DAYS)]
 
 
 def topics_now(now: datetime.datetime) -> list[str]:
     """读滚动话题池里还新鲜的话题文本（全站共享）；空 → []。零联网。"""
     return [t["text"] for t in topics_pool_now(now)]
+
+
+def remove_topic(text: str) -> bool:
+    """运营手动删除一条话题：从池里移除 + 记进 topics_block（再抓到也不收，删除"粘住"）。落盘。返回是否删到。"""
+    text = (text or "").strip()
+    if not text:
+        return False
+    pool = [t for t in (_WORLD.get("topics_src") or []) if isinstance(t, dict)]
+    kept = [t for t in pool if t.get("text") != text]
+    blocked = _WORLD.setdefault("topics_block", [])
+    if text not in blocked:
+        blocked.append(text)
+    if len(blocked) > 500:                                   # 黑名单也封顶，别无限涨
+        del blocked[:-500]
+    _WORLD["topics_src"] = kept
+    _WORLD["topics"] = [t["text"] for t in kept]
+    _save_store()
+    return len(kept) < len(pool)
+
+
+def pin_topic(text: str, on: bool = True) -> bool:
+    """运营置顶/取消置顶一条话题：pinned=True 豁免衰减/封顶、检索时优先。落盘。返回是否命中。"""
+    text = (text or "").strip()
+    hit = False
+    for t in (_WORLD.get("topics_src") or []):
+        if isinstance(t, dict) and t.get("text") == text:
+            t["pinned"] = bool(on)
+            hit = True
+    if hit:
+        _save_store()
+    return hit
 
 
 def world_snapshot(now: datetime.datetime) -> dict:
@@ -672,9 +722,10 @@ def world_snapshot(now: datetime.datetime) -> dict:
         "fresh": bool(fresh),                    # 天气是否当天已刷新（过期=昨天的，前端提示该拉新的）
         "persisted": bool(_STORE_PATH),          # 是否已开磁盘持久化（开了才跨重启不丢）
         "topics": [t["text"] for t in pool],
-        # 带原文链接+领域标签的真实热点（后台可点开核对——话题"真不真"的铁证；标签便于一眼看多元度）
+        # 带原文链接+领域标签+置顶态的真实热点（后台可点开核对、按领域筛、删/置顶）
         "topics_src": [{"text": str(t.get("text", "")), "url": str(t.get("url", "")),
-                        "cat": str(t.get("cat", "")), "date": str(t.get("date", ""))} for t in pool],
+                        "cat": str(t.get("cat", "")), "date": str(t.get("date", "")),
+                        "pinned": bool(t.get("pinned"))} for t in pool],
         "weather": [{"city": c, "line": ln} for c, ln in (_WORLD.get("weather") or {}).items()] if fresh else [],
         "hist_days": {c: len(v) for c, v in (_WORLD.get("weather_hist") or {}).items()},
     }
