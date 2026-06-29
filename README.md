@@ -1,4 +1,4 @@
-# 载思 ZaiSi · MiCall.ai
+# 载思 zsky · MiCall.ai
 
 让用户**感觉在和一个真实的人通话**的移动端（H5）AI 语音陪伴产品。
 已上线运行于阿里云香港 —— 用户端 [`zsky.com`](https://zsky.com)、运营后台 `admin.zsky.com`。
