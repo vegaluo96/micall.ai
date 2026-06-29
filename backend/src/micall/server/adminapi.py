@@ -587,6 +587,20 @@ class _Handler(BaseHTTPRequestHandler):
         from urllib.parse import parse_qs, urlparse
         return (parse_qs(urlparse(self.path).query).get(key, [""])[0] or "").strip()
 
+    def _offset(self) -> int:
+        """列表分页偏移（?offset=N）：后台「加载更多」据此翻页，突破单页 200 的硬上限。"""
+        try:
+            return max(0, int(self._query("offset") or "0"))
+        except ValueError:
+            return 0
+
+    def _limit(self, default: int = 200, cap: int = 5000) -> int:
+        """列表条数（?limit=N，封顶 cap）：后台「加载更多」逐次加大，未传则 default。"""
+        try:
+            return max(1, min(cap, int(self._query("limit") or str(default))))
+        except ValueError:
+            return default
+
     def _audio_wav(self, data: bytes) -> None:
         self.send_response(200)
         self._cors()
@@ -693,11 +707,11 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/users":
             if _REPO is None:
                 return self._json(200, {"ok": False, "users": []})
-            return self._json(200, {"ok": True, "users": _REPO.list_all_users(limit=200)})
+            return self._json(200, {"ok": True, "users": _REPO.list_all_users(limit=self._limit(), offset=self._offset())})
         if self._route() == "/admin/calls":
             if _REPO is None:
                 return self._json(200, {"ok": False, "calls": []})
-            calls = _REPO.list_all_calls(limit=200)
+            calls = _REPO.list_all_calls(limit=self._limit(), offset=self._offset())
             # 游客通话补「归属地」：按 guest_ip 解析（带缓存/并发/超时，失败不影响出表）。
             try:
                 from .ip_geo import ip_locations
@@ -712,7 +726,7 @@ class _Handler(BaseHTTPRequestHandler):
         if self._route() == "/admin/orders":
             if _REPO is None:
                 return self._json(200, {"ok": False, "orders": []})
-            return self._json(200, {"ok": True, "orders": _REPO.list_all_orders(limit=200)})
+            return self._json(200, {"ok": True, "orders": _REPO.list_all_orders(limit=self._limit(), offset=self._offset())})
         if self._route() == "/admin/redeem-codes":
             if _REPO is None:
                 return self._json(200, {"ok": False, "codes": []})

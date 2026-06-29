@@ -236,16 +236,16 @@ class MemoryRepository(ABC):
         """后台首页 KPI：{total_users, calls_today, total_minutes, month_revenue_cents}。"""
         return {"total_users": 0, "calls_today": 0, "total_minutes": 0, "month_revenue_cents": 0}
 
-    def list_all_users(self, *, limit: int = 200) -> list[dict]:
-        """全站用户（后台「用户」）：{user_id,email,remaining_seconds,created_at,total_calls,total_seconds}。"""
+    def list_all_users(self, *, limit: int = 200, offset: int = 0) -> list[dict]:
+        """全站用户（后台「用户」）：{user_id,email,remaining_seconds,created_at,total_calls,total_seconds}。offset 翻页。"""
         return []
 
-    def list_all_calls(self, *, limit: int = 200) -> list[dict]:
-        """全站通话（后台「通话」）：{user_email,character_id,scenario,duration_seconds,ended_reason,started_at}。"""
+    def list_all_calls(self, *, limit: int = 200, offset: int = 0) -> list[dict]:
+        """全站通话（后台「通话」）：{user_email,character_id,scenario,duration_seconds,ended_reason,started_at}。offset 翻页。"""
         return []
 
-    def list_all_orders(self, *, limit: int = 200) -> list[dict]:
-        """全站订单（后台「订单」）：{order_id,user_email,plan,amount_cents,status,created_at}。"""
+    def list_all_orders(self, *, limit: int = 200, offset: int = 0) -> list[dict]:
+        """全站订单（后台「订单」）：{order_id,user_email,plan,amount_cents,status,created_at}。offset 翻页。"""
         return []
 
     def top_characters(self, *, limit: int = 5) -> list[dict]:
@@ -602,7 +602,7 @@ class InMemoryRepository(MemoryRepository):
             "month_revenue_cents": sum(o.get("amount_cents", 0) for o in self._orders if o.get("status") == "paid"),
         }
 
-    def list_all_users(self, *, limit=200) -> list[dict]:
+    def list_all_users(self, *, limit=200, offset=0) -> list[dict]:
         out = []
         for u in self._users.values():
             if not (u.get("email") or "").strip():
@@ -615,11 +615,11 @@ class InMemoryRepository(MemoryRepository):
                 "banned": bool(u.get("banned")),
             })
         out.sort(key=lambda x: x["created_at"], reverse=True)
-        return out[:limit]
+        return out[int(offset):int(offset) + int(limit)]
 
-    def list_all_calls(self, *, limit=200) -> list[dict]:
+    def list_all_calls(self, *, limit=200, offset=0) -> list[dict]:
         email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
-        rows = sorted(self._calls, key=lambda c: c["started_at"], reverse=True)[:limit]
+        rows = sorted(self._calls, key=lambda c: c["started_at"], reverse=True)[int(offset):int(offset) + int(limit)]
         return [{
             "user_email": email.get(c["user_id"], ""), "character_id": c["character_id"],
             "scenario": c["scenario"], "duration_seconds": c["duration_seconds"],
@@ -627,9 +627,9 @@ class InMemoryRepository(MemoryRepository):
             "transcript": c.get("transcript") or [], "guest_ip": c.get("guest_ip") or "",
         } for c in rows]
 
-    def list_all_orders(self, *, limit=200) -> list[dict]:
+    def list_all_orders(self, *, limit=200, offset=0) -> list[dict]:
         email = {u["user_id"]: (u.get("email") or "") for u in self._users.values()}
-        rows = sorted(self._orders, key=lambda o: o.get("created_at", ""), reverse=True)[:limit]
+        rows = sorted(self._orders, key=lambda o: o.get("created_at", ""), reverse=True)[int(offset):int(offset) + int(limit)]
         return [{
             "order_id": o.get("order_id", ""), "user_email": email.get(o.get("user_id"), ""),
             "plan": o.get("plan", ""), "amount_cents": o.get("amount_cents", 0),

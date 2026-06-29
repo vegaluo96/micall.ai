@@ -632,7 +632,7 @@ class PgRepository(MemoryRepository):
             log.warning("admin_stats 失败：%r", e)
         return out
 
-    def list_all_users(self, *, limit=200) -> list[dict]:
+    def list_all_users(self, *, limit=200, offset=0) -> list[dict]:
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
@@ -641,7 +641,7 @@ class PgRepository(MemoryRepository):
                     "  u.banned "
                     "FROM users u LEFT JOIN calls c ON c.user_id = u.user_id "
                     "WHERE u.email IS NOT NULL AND u.email <> '' "   # 只看真实注册用户：游客/无邮箱测试行不进后台
-                    "GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT %s", (int(limit),),
+                    "GROUP BY u.user_id ORDER BY u.created_at DESC LIMIT %s OFFSET %s", (int(limit), int(offset)),
                 ).fetchall()
             return [{
                 "user_id": r[0], "email": r[1] or "", "remaining_seconds": r[2],
@@ -652,13 +652,13 @@ class PgRepository(MemoryRepository):
             log.warning("list_all_users 失败：%r", e)
             return []
 
-    def list_all_calls(self, *, limit=200) -> list[dict]:
+    def list_all_calls(self, *, limit=200, offset=0) -> list[dict]:
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
                     "SELECT u.email, c.character_id, c.scenario, c.duration_seconds, c.ended_reason, c.started_at, c.transcript, c.guest_ip "
                     "FROM calls c LEFT JOIN users u ON u.user_id = c.user_id "
-                    "ORDER BY c.started_at DESC LIMIT %s", (int(limit),),
+                    "ORDER BY c.started_at DESC LIMIT %s OFFSET %s", (int(limit), int(offset)),
                 ).fetchall()
             return [{
                 "user_email": r[0] or "", "character_id": r[1], "scenario": r[2],
@@ -670,13 +670,13 @@ class PgRepository(MemoryRepository):
             log.warning("list_all_calls 失败：%r", e)
             return []
 
-    def list_all_orders(self, *, limit=200) -> list[dict]:
+    def list_all_orders(self, *, limit=200, offset=0) -> list[dict]:
         try:
             with self.pool.connection() as c:
                 rows = c.execute(
                     "SELECT o.order_id, u.email, o.plan, o.amount_cents, o.status, o.created_at "
                     "FROM orders o LEFT JOIN users u ON u.user_id = o.user_id "
-                    "ORDER BY o.created_at DESC LIMIT %s", (int(limit),),
+                    "ORDER BY o.created_at DESC LIMIT %s OFFSET %s", (int(limit), int(offset)),
                 ).fetchall()
             return [{
                 "order_id": r[0], "user_email": r[1] or "", "plan": r[2], "amount_cents": r[3],

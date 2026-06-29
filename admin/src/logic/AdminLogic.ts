@@ -97,6 +97,7 @@ export class AdminLogic {
   realSceneCalls: any = null;   // 接后端后的各场景通话数（null = 用演示）
   realInviteStats: any = null;  // 接后端后的邀请 KPI（null = 用演示）
   redeemCodes: any[] = [];      // 兑换码列表（后台「订单充值」）
+  _limU = 200; _limC = 200; _limO = 200;   // 列表分页：用户/通话/订单当前拉取条数（「加载更多」逐次 +200）
   defaultCharId = "";           // 当前默认角色 cid（用户端进来先选它）
 
   private _t: Timer | undefined;
@@ -432,6 +433,16 @@ export class AdminLogic {
     this.toastMsg(`已${delta > 0 ? "增加" : "扣减"} ${Math.abs(delta)} 分钟（剩余约 ${Math.round((res.remaining_seconds || 0) / 60)} 分钟）`);
   }
 
+  /** 列表「加载更多」：把对应列表的拉取条数 +200，重拉真实数据（突破默认 200 上限）。 */
+  async loadMore(kind: "users" | "calls" | "orders") {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    if (kind === "users") this._limU += 200;
+    else if (kind === "calls") this._limC += 200;
+    else this._limO += 200;
+    await this.loadRealData();
+    this.setState({});
+  }
+
   /** 删除兑换码：二次确认后执行（删除即失效，不可撤销）。 */
   delRedeem(code: string) {
     this.askConfirm({ title: "删除兑换码", body: `确定删除兑换码 ${code}？删除后该码立即失效，不可撤销。`,
@@ -462,7 +473,7 @@ export class AdminLogic {
   /** 拉后台真实数据并映射成既有视图形状；无后端/失败时保持内置演示数据。 */
   private async loadRealData() {
     const [dash, users, calls, orders, tickets, invites, codes] = await Promise.all([
-      loadDashboard(), loadUsers(), loadCalls(), loadOrders(), loadTickets(), loadInvites(), loadRedeemCodes(),
+      loadDashboard(), loadUsers(this._limU), loadCalls(this._limC), loadOrders(this._limO), loadTickets(), loadInvites(), loadRedeemCodes(),
     ]);
     if (codes) this.redeemCodes = codes;
     if (dash) {
@@ -1410,6 +1421,11 @@ export class AdminLogic {
       notifOpen: s.notifOpen, notifUnread: this.realStats ? this.tickets.some((t: any) => t.status === "待处理") : !s.notifRead,
       toggleNotif: () => this.setState((p) => ({ notifOpen: !p.notifOpen })), closeNotif: () => this.setState({ notifOpen: false }), markAllRead: () => this.setState({ notifRead: true, notifOpen: false }),
       userFilters, usersView, charsView, callsView, ticketsView, ordersView, plans,
+      // 列表「加载更多」：拉满当前上限 → 可能还有更多，给个按钮翻页（突破默认 200）
+      moreUsers: usingBackend() && this.users.length >= this._limU,
+      moreCalls: usingBackend() && this.calls.length >= this._limC,
+      moreOrders: usingBackend() && this.orders.length >= this._limO,
+      loadMoreUsers: () => this.loadMore("users"), loadMoreCalls: () => this.loadMore("calls"), loadMoreOrders: () => this.loadMore("orders"),
       redeemCode: s.redeemCode, onRedeemCode: (e: any) => this.setState({ redeemCode: e.target.value }),
       redeemUses: s.redeemUses, onRedeemUses: (e: any) => this.setState({ redeemUses: e.target.value }),
       redeemMinutes: s.redeemMinutes, onRedeemMinutes: (e: any) => this.setState({ redeemMinutes: e.target.value }),

@@ -154,11 +154,12 @@ export async function saveCharacter(payload: CharEdit): Promise<boolean> {
 }
 
 // ── 后台看板真实数据（P4）：有后端则拉 DB 聚合，无后端/失败 → null（页面用内置演示数据）──
-async function getList(path: string, key: string): Promise<any[] | null> {
+async function getList(path: string, key: string, limit?: number): Promise<any[] | null> {
   const b = base();
   if (!b) return null;
   try {
-    const r = await fetch(`${b}${path}`, { credentials: "include", headers: authHeaders() });
+    const url = limit ? `${b}${path}?limit=${limit}` : `${b}${path}`;   // limit 翻页：后台「加载更多」突破默认 200
+    const r = await fetch(url, { credentials: "include", headers: authHeaders() });
     if (r.ok) {
       const d = (await r.json()) as Record<string, any>;
       if (d && d.ok) return (d[key] as any[]) || [];
@@ -189,9 +190,9 @@ export async function loadDashboard(): Promise<{ stats: any; top_characters: any
   return null;
 }
 
-export const loadUsers = () => getList("/admin/users", "users");
-export const loadCalls = () => getList("/admin/calls", "calls");
-export const loadOrders = () => getList("/admin/orders", "orders");
+export const loadUsers = (limit?: number) => getList("/admin/users", "users", limit);
+export const loadCalls = (limit?: number) => getList("/admin/calls", "calls", limit);
+export const loadOrders = (limit?: number) => getList("/admin/orders", "orders", limit);
 export const loadTickets = () => getList("/admin/tickets", "tickets");
 export const loadInvites = () => getList("/admin/invites", "invites");
 export const loadRedeemCodes = () => getList("/admin/redeem-codes", "codes");
