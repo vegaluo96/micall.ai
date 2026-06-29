@@ -215,10 +215,12 @@ textarea,
     padding-top: 18px !important;
   }
 
-  /* 桌面右侧栏已常驻「通话记录」，移动端那个历史抽屉（含遮罩）在桌面属重复，
-     会盖在中间手机上。桌面一律不显，历史只看右栏。 */
+  /* 桌面左/右侧栏已常驻「菜单」「通话记录」，移动端的菜单抽屉/历史抽屉（含遮罩）在桌面
+     属重复，会盖在中间手机上。桌面一律不显；菜单看左栏、历史看右栏（与侧栏一致）。 */
   .dcx-drawer-right,
-  .dcx-hist-overlay {
+  .dcx-hist-overlay,
+  .dcx-drawer-left,
+  .dcx-menu-overlay {
     display: none !important;
   }
 
