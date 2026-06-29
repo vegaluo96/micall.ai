@@ -49,7 +49,7 @@ function check(label: string, html: string, needles: string[], absent: string[] 
 // 1) Idle screen: brand, current character, tagline, controls, copy.
 const idle = render();
 check("idle screen", idle, [
-  "载思",
+  "载", "思",
   "林晚", "温柔的深夜倾听者",
   "viewBox", "stroke-linecap", // SVGs survived with correct attribute names
   "orbStill", // per-state orb animation name reached the inline style

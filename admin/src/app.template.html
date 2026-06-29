@@ -199,7 +199,7 @@
         <div style="animation:adRise .3s ease;">
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;">
             <div onClick="{{ openNewChar }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:#16161A;border-radius:10px;padding:8px 15px;cursor:pointer;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.97)" style-hover="background:rgba(22,22,26,.88)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>新建角色</div>
-            <div onClick="{{ openExport }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:10px;padding:8px 15px;cursor:pointer;transition:background .15s ease,border-color .15s ease;" style-active="transform:scale(.97)" style-hover="background:#F8F8FB;border-color:#D9D6FF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>导出角色</div>
+            <div onClick="{{ openImport }}" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#5A5E6B;background:#fff;border:1px solid #E6E7EB;border-radius:10px;padding:8px 15px;cursor:pointer;transition:background .15s ease,border-color .15s ease;" style-active="transform:scale(.97)" style-hover="background:#F8F8FB;border-color:#D9D6FF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>导入角色</div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
             <sc-for list="{{ charsView }}" as="c" hint-placeholder-count="6">
@@ -758,21 +758,19 @@
     <div onClick="{{ closeIO }}" style="position:fixed;inset:0;background:rgba(20,20,28,.36);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:20;animation:adIn .25s ease;"></div>
     <div class="scrl" style="position:fixed;top:0;right:0;bottom:0;width:480px;max-width:94vw;background:#fff;z-index:21;box-shadow:-20px 0 60px rgba(0,0,0,.18);animation:adDraw .32s cubic-bezier(.16,1,.3,1);overflow-y:auto;padding:24px 26px 40px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <div style="font-size:16px;font-weight:700;">角色导出</div>
+        <div style="font-size:16px;font-weight:700;">导入角色（AI 生成）</div>
         <div onClick="{{ closeIO }}" style="width:32px;height:32px;border-radius:9px;background:#F2F3F5;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s ease,transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.92)" style-hover="background:#E9E9ED"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A5E6B" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>
       </div>
 
-      <sc-if value="{{ isIoExport }}" hint-placeholder-val="{{ true }}">
-        <div style="font-size:13.5px;color:#5A5E6B;line-height:1.7;text-wrap:pretty;">导出全部角色的完整信息为 JSON，供大模型读取后再生成音色与表情资产。</div>
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:16px 0 8px;">文件命名</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="background:#FAFAFB;border-radius:10px;padding:11px 14px;"><span style="font-size:12.5px;font-family:ui-monospace,monospace;color:#6E5CFF;">micall_characters.json</span><span style="font-size:12px;color:#9A9DA7;margin-left:8px;">全部角色</span></div>
-          <div style="background:#FAFAFB;border-radius:10px;padding:11px 14px;"><span style="font-size:12.5px;font-family:ui-monospace,monospace;color:#6E5CFF;">{角色ID}_{角色名}.json</span><span style="font-size:12px;color:#9A9DA7;margin-left:8px;">单个角色，如 c1_林晚.json</span></div>
-        </div>
-        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:16px 0 8px;">JSON 结构</div>
-        <div style="background:#16161A;border-radius:12px;padding:15px 16px;overflow-x:auto;"><pre style="margin:0;font-size:12px;line-height:1.65;font-family:ui-monospace,monospace;color:#D8DEE9;white-space:pre;">{{ exportSample }}</pre></div>
-        <div onClick="{{ runExport }}" style="margin-top:20px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);transition:transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.98)">导出 micall_characters.json</div>
-      </sc-if>
+      <div style="font-size:13.5px;color:#5A5E6B;line-height:1.7;text-wrap:pretty;">把模板发给 AI（DeepSeek / Gemini 等），改最后一行的角色描述，让它生成 JSON；再把 AI 返回的内容粘到下面，点「解析并新建」即可。音色稍后在角色里设置。</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;">
+        <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;">① 复制模板给 AI</div>
+        <div onClick="{{ copyImportTpl }}" style="font-size:12.5px;font-weight:600;color:#6E5CFF;cursor:pointer;background:rgba(110,92,255,.08);border-radius:8px;padding:5px 12px;transition:transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.96)">复制模板</div>
+      </div>
+      <div style="background:#16161A;border-radius:12px;padding:14px 15px;max-height:200px;overflow:auto;"><pre style="margin:0;font-size:11.5px;line-height:1.6;font-family:ui-monospace,monospace;color:#D8DEE9;white-space:pre-wrap;word-break:break-word;">{{ importTemplate }}</pre></div>
+      <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 8px;">② 粘贴 AI 返回的 JSON</div>
+      <textarea value="{{ importText }}" onInput="{{ onImportText }}" placeholder='粘贴形如 {"name":"沈渡","tagline":"…", …} 的 JSON' style="width:100%;box-sizing:border-box;height:180px;border:1px solid #E6E7EB;border-radius:11px;padding:12px 14px;font-size:12.5px;line-height:1.6;font-family:ui-monospace,monospace;color:#16161A;background:#fff;resize:vertical;outline:none;" style-focus="border-color:#6E5CFF"></textarea>
+      <div onClick="{{ runImport }}" style="margin-top:18px;text-align:center;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;border-radius:11px;padding:12px;cursor:pointer;box-shadow:0 6px 16px rgba(110,92,255,.28);transition:transform .12s cubic-bezier(.4,0,.2,1);" style-active="transform:scale(.98)">解析并新建角色</div>
     </div>
   </sc-if>
 

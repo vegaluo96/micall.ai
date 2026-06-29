@@ -34,6 +34,42 @@ export function hueFromId(id: string): number {
   return h;
 }
 
+// 「导入角色」给 AI 的提示词模板：发给任意 AI、改最后一行描述 → 它输出 JSON → 粘回下框自动解析新建。
+// 字段名与后台「新建角色」一致（列表用顿号分隔；解析时数组也兼容）。
+const IMPORT_TEMPLATE = `你是顶尖虚拟角色设定师，为中文「语音陪伴」App 设计可打电话聊天的角色。
+只输出一个 JSON 对象，不要解释、不要 markdown 代码框，字段（全部中文，MBTI 除外；列表用顿号、分隔）：
+{
+  "name": "中文名 2-3 字",
+  "tagline": "一句话简介",
+  "gender": "男 或 女",
+  "age": 数字,
+  "nationality": "国籍，如 中国",
+  "race": "种族，如 东亚人",
+  "occupation": "具体职业",
+  "residence": "现居城市",
+  "mbti": "四字母 MBTI",
+  "height": 身高cm数字,
+  "weight": 体重kg数字,
+  "birthday": "YYYY-MM-DD（与年龄一致）",
+  "appearance": "外貌一句话，可画面化",
+  "traits": "核心性格 3-4 个，顿号分隔",
+  "summary": "性子速写一句话（用户卡片展示）",
+  "speaking_style": "说话风格：语速/尾音/用词习惯",
+  "catchphrases": "口头禅 2-3 个，顿号分隔",
+  "quirks": "小动作/小习惯 2-3 个，顿号分隔",
+  "hobbies": "兴趣爱好 3-4 个，顿号分隔",
+  "likes": "喜欢 3-5 个，顿号分隔",
+  "dislikes": "不喜欢 3-5 个，顿号分隔",
+  "background_story": "来历 2-3 句",
+  "hidden_layer": "未必明说、但会流露的内里",
+  "soft_spot": "软肋：一戳就破的那处 + 最想听到的一句话",
+  "values": "价值观与边界一句话",
+  "core": "内核 2-4 句，第二人称『你…』：最在乎/最怕失去的一件事 + 守着的软处，让其它维度从这里长出来；show-not-tell，别报星座/MBTI",
+  "prompt_extra": "一句实时口吻提醒（如：用短句、少铺垫、别端着）"
+}
+硬性规则：core 是灵魂、要写出软处；不要写成完美/万能；不要出现『作为AI/语言模型』之类元设定。
+角色描述（改这一行）：温柔的深夜电台主播，话不多但很会听`;
+
 type State = Record<string, any>;
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -67,7 +103,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -271,6 +307,52 @@ export class AdminLogic {
       this.toastMsg("已导出 micall_characters.json");
     } catch {
       this.toastMsg("导出失败");
+    }
+  }
+
+  /** 导入角色：解析粘贴的 AI JSON（字段同「新建角色」；列表数组也兼容）→ 直接新建一个角色。 */
+  private async importChar() {
+    if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
+    const raw = (this.state.importText || "").trim();
+    if (!raw) { this.toastMsg("请先粘贴 AI 返回的 JSON"); return; }
+    let data: any;
+    try {
+      const m = raw.match(/\{[\s\S]*\}/);   // 容错：从可能带前后文的内容里抠出第一个 {…}
+      data = JSON.parse(m ? m[0] : raw);
+    } catch { this.toastMsg("解析失败：不是有效 JSON"); return; }
+    if (!data || typeof data !== "object") { this.toastMsg("解析失败：格式不对"); return; }
+    const name = String(data.name || "").trim();
+    if (!name) { this.toastMsg("缺少角色名（name）"); return; }
+    const lst = (v: any) => Array.isArray(v) ? v.join("、") : String(v ?? "");   // 列表字段：数组→顿号串
+    const str = (v: any) => String(v ?? "");
+    const p: any = {
+      name, tagline: str(data.tagline), gender: str(data.gender), age: str(data.age),
+      nationality: str(data.nationality), race: str(data.race), appearance: str(data.appearance),
+      occupation: str(data.occupation), residence: str(data.residence), mbti: str(data.mbti),
+      height: str(data.height), weight: str(data.weight), birthday: str(data.birthday),
+      traits: lst(data.traits), summary: str(data.summary), speaking_style: str(data.speaking_style),
+      background_story: str(data.background_story), hidden_layer: str(data.hidden_layer),
+      values: str(data.values), soft_spot: str(data.soft_spot), hobbies: lst(data.hobbies),
+      catchphrases: lst(data.catchphrases), quirks: lst(data.quirks), likes: lst(data.likes),
+      dislikes: lst(data.dislikes), core: str(data.core), prompt_extra: str(data.prompt_extra), voice_id: "",
+    };
+    if (this.state.savingChar) return;
+    this.setState({ savingChar: true });
+    this.toastMsg("解析成功，正在新建…");
+    try {
+      const res = await createCharacter(p);
+      if (!res.ok || !res.id) { this.toastMsg(res.error || "创建失败"); return; }
+      this.chars.push({ id: res.id, cid: res.id, name, desc: p.tagline, hue: hueFromId(res.id),
+        gender: p.gender || "女", age: p.age || "20", height: 160, weight: 48, birthday: "", nationality: "", race: "",
+        occupation: p.occupation, residence: p.residence, mbti: p.mbti, summary: p.summary, core: p.core,
+        hobbies: p.hobbies, catchphrases: p.catchphrases, quirks: p.quirks, soft_spot: p.soft_spot,
+        traits: this._splitList(p.traits), tags: [], slogan: "", likes: p.likes, dislikes: p.dislikes,
+        bio: p.background_story, speaking_style: p.speaking_style, prompt_extra: p.prompt_extra, voiceId: "",
+        reply_max_tokens: "", memory_depth: "", calls: "0", customVoices: 0, favs: "0", status: "上线" });
+      this.setState({ ioOpen: false, importText: "" });
+      this.toastMsg("已导入并新建「" + name + "」，记得去设置音色");
+    } finally {
+      this.setState({ savingChar: false });
     }
   }
 
@@ -975,8 +1057,7 @@ export class AdminLogic {
       : Object.values(matchedBy).reduce((a, b) => a + b, 0).toLocaleString();
     const ttsEngine = s.apiCfg.tts.model;
     const charTabs = ([["role", "角色"], ["voice", "音色"]] as [string, string][]).map(([k, label]) => ({ label, pick: () => this.setState({ charTab: k }), bg: s.charTab === k ? "#16161A" : "#fff", color: s.charTab === k ? "#fff" : "#5A5E6B", border: s.charTab === k ? "#16161A" : "#E6E7EB" }));
-    const exportSample = '{\n  "id": "c1",\n  "name": "林晚",\n  "gender": "女", "age": 18, "height": 156, "weight": 44,\n  "birthday": "2006年1月1日", "nationality": "中国", "race": "东亚人",\n  "desc": "温柔的深夜倾听者",\n  "traits": ["温柔", "耐心", "共情"],\n  "tags": ["治愈系", "深夜", "倾听", "温柔"],\n  "slogan": "今天也辛苦了，想聊点什么都可以。",\n  "bio": "深夜电台主播出身……",\n  "likes": "安静的深夜、下雨天……",\n  "dislikes": "被敷衍、嘈杂的人群……",\n  "voice": { "engine": "MiniMax", "voice_id": "female-shaonv-01", "file": "c1__voice.wav" },\n  "status": "上线"\n}';
-    const mkKpi = (label: string, value: string, delta: string, dc: string, db: string, note: string) => ({ label, value, delta, deltaColor: dc, deltaBg: db, note });
+    const mkKpi =(label: string, value: string, delta: string, dc: string, db: string, note: string) => ({ label, value, delta, deltaColor: dc, deltaBg: db, note });
     const istat = this.realInviteStats || { total_invites: 0, reward_minutes: 0 };   // 全真实，无演示回退
     const inviteKpis = [
       mkKpi("累计邀请", (istat.total_invites || 0).toLocaleString(), "实时", "#1FA971", "rgba(31,169,113,.1)", "成功注册数"),
@@ -1279,9 +1360,12 @@ export class AdminLogic {
       testSources: () => this.testSources(), srcTesting: !!s.srcTesting,
       srcTestLabel: s.srcTesting ? "测试中…" : "测试热点源",
       hasSrcTest, srcErr, srcRows,
-      ioOpen: s.ioOpen, exportSample,
-      openExport: () => this.setState({ ioOpen: true, ioMode: "export" }), closeIO: () => this.setState({ ioOpen: false }),
-      runExport: () => this.exportChars(),
+      ioOpen: s.ioOpen,
+      openImport: () => this.setState({ ioOpen: true, importText: "" }), closeIO: () => this.setState({ ioOpen: false }),
+      importTemplate: IMPORT_TEMPLATE,
+      importText: s.importText || "", onImportText: (e: any) => this.setState({ importText: e.target.value }),
+      copyImportTpl: () => { try { navigator.clipboard.writeText(IMPORT_TEMPLATE); this.toastMsg("模板已复制，去 AI（DeepSeek/Gemini）粘贴"); } catch { this.toastMsg("复制失败，请手动全选复制"); } },
+      runImport: () => this.importChar(),
       voicePresetCount, voiceCloneCount, voiceMatchTotal, ttsEngine, voicesView, apiCards,
       secTitle: titles[s.section][0], secSub: titles[s.section][1],
       query: s.query, onQuery: (e: any) => this.setState({ query: e.target.value }),
