@@ -70,13 +70,13 @@
       <div onClick="{{ openLogin }}" style="text-align:center;padding:12px;border-radius:14px;background:#6E5CFF;color:#fff;font-size:15px;font-weight:600;cursor:pointer;" style-active="transform:scale(.98)">登录 / 注册</div>
     </sc-if>
     <sc-if value="{{ loggedIn }}" hint-placeholder-val="{{ false }}">
-      <div onClick="{{ logout }}" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:15px;background:rgba(0,0,0,.05);cursor:pointer;" style-active="transform:scale(.98)">
+      <div onClick="{{ logout }}" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:15px;background:var(--ctrl);cursor:pointer;" style-active="transform:scale(.98)">
         <div style="width:36px;height:36px;border-radius:50%;flex:none;background:radial-gradient(circle at 38% 30%,#dbe6ff,#6E5CFF 60%);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:600;">{{ accountInitial }}</div>
         <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
-          <span style="font-size:14.5px;font-weight:500;color:#2A2A2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ accountEmail }}</span>
-          <span style="font-size:12px;color:rgba(0,0,0,.45);">点此退出登录</span>
+          <span style="font-size:14.5px;font-weight:500;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ accountEmail }}</span>
+          <span style="font-size:12px;color:var(--dim);">点此退出登录</span>
         </div>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,.26)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </div>
     </sc-if>
   </div>
@@ -1121,10 +1121,10 @@
     <div style="display:flex;align-items:center;justify-content:space-between;padding:0 10px 14px;flex:none;">
       <span style="font-size:20px;font-weight:600;">通话记录</span>
       <sc-if value="{{ histShowSelect }}" hint-placeholder-val="{{ false }}">
-        <span onClick="{{ enterHistSel }}" style="font-size:13.5px;font-weight:500;color:#E0594F;cursor:pointer;padding:4px 6px;" style-active="opacity:.6">删除</span>
+        <span onClick="{{ enterHistSel }}" style="font-size:13.5px;font-weight:500;color:#E0594F;cursor:pointer;padding:4px 0 4px 16px;" style-active="opacity:.6">删除</span>
       </sc-if>
       <sc-if value="{{ histSelMode }}" hint-placeholder-val="{{ false }}">
-        <span onClick="{{ exitHistSel }}" style="font-size:13.5px;font-weight:500;color:var(--dim);cursor:pointer;padding:4px 6px;" style-active="opacity:.6">取消</span>
+        <span onClick="{{ exitHistSel }}" style="font-size:13.5px;font-weight:500;color:var(--dim);cursor:pointer;padding:4px 0 4px 16px;" style-active="opacity:.6">取消</span>
       </sc-if>
     </div>
     <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;">
