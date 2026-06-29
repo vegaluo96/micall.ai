@@ -1044,9 +1044,13 @@ export class AdminLogic {
       total: _allTopics.length, cats: _catKeys.length,
       byCat: _catKeys.map((c) => `${c} ${_catCount[c]}`).join(" · "),
       weatherCities: ((wl && wl.weather) || []).length };
-    // 源管理：当前热点源清单 + 各源单测结果（带简介样例，证明真抓到原文）。
-    const worldEndpointRows = (s.worldEndpoints || []).map((u: string) => {
-      const r = (s.srcOne || {})[u];
+    // 源管理：当前热点源清单 + 测试结果。结果两路合并：单测(srcOne[url]) 优先，否则用「测试热点源」批量体检里
+    // 这一条的结果(_batch[url]) —— 这样点【任一个】测试按钮，状态都直接显示在对应源那一行。
+    const _eps = (s.worldEndpoints || []);
+    const _epsSet = new Set(_eps);
+    const _batch: Record<string, any> = {};
+    (((s.srcTest && s.srcTest.sources) || []) as any[]).forEach((r) => { if (r && r.source) _batch[r.source] = r; });
+    const _rowFrom = (u: string, r: any) => {
       const testing = !!(r && r.testing);
       const tested = !!(r && !r.testing);
       const ok = !!(r && r.ok);
@@ -1056,9 +1060,14 @@ export class AdminLogic {
         statusText: testing ? "测试中…" : (tested ? (ok ? `可用 · ${r.count || 0} 条（安全 ${r.safe || 0}）` : ("失败：" + (r.error || "未知"))) : ""),
         statusColor: ok ? "#1FA971" : (tested ? "#E0594F" : "#9A9DA7"),
         sampleText: samp ? (samp.text || "") : "", hasSample: !!(samp && samp.text),
-        sampleDesc: samp ? (samp.desc || "") : "", hasDesc: !!(samp && samp.desc),
-        test: () => this.testOne(u), remove: () => this.removeSource(u) };
-    });
+        sampleDesc: samp ? (samp.desc || "") : "", hasDesc: !!(samp && samp.desc) };
+    };
+    const worldEndpointRows = _eps.map((u: string) => ({
+      ..._rowFrom(u, (s.srcOne || {})[u] || _batch[u]),
+      test: () => this.testOne(u), remove: () => this.removeSource(u) }));
+    // 固定源（代码内置：Hacker News + 维基中英，不在可编辑清单里）——「测试热点源」体检它们的结果单独列出，不丢。
+    const fixedSrcRows = Object.keys(_batch).filter((src) => !_epsSet.has(src)).map((src) => _rowFrom(src, _batch[src]));
+    const hasFixedSrc = fixedSrcRows.length > 0;
     const worldWeather = (wl && wl.weather) || [];               // 后端已给 [{city,line}]
     const worldHasResult = !!(wl && (worldTopics.length || worldWeather.length));
     const worldErr = (wp && wp.ok === false) ? (wp.error || "拉取失败") : "";
@@ -1202,7 +1211,7 @@ export class AdminLogic {
       nav: navView, navConfig: navConfigView,
       charTabs, isRoleTab: s.charTab === "role", isVoiceTab: s.charTab === "voice", isApi: s.section === "api", isCost: s.section === "cost", isWorld: s.section === "world",
       // 世界库菜单：源管理 + 完整池子 + 统计 + 领域筛选 + 单条删/置顶
-      worldEndpointRows, catChips, worldStats, hasCatFilter: !!s.catFilter, catFilterLabel: s.catFilter || "",
+      worldEndpointRows, fixedSrcRows, hasFixedSrc, catChips, worldStats, hasCatFilter: !!s.catFilter, catFilterLabel: s.catFilter || "",
       clearCatFilter: () => this.setCatFilter(s.catFilter || ""),
       newSource: s.newSource || "", onNewSource: (e: any) => this.setNewSource(e.target.value), addSource: () => this.addSource(),
       linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, limitItems, warnItems,
