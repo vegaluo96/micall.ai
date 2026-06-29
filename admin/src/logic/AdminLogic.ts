@@ -145,7 +145,7 @@ export class AdminLogic {
     this.voices = [];
     this.apiSections = [
       { key: "asr", name: "ASR · 语音识别", chain: "快链路", desc: "实时把用户语音转写为文字 · 默认 Qwen3-ASR-Flash（阿里百炼）", icon: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8", req: "快 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "lang", label: "识别语言" }] },
-      { key: "fast", name: "LLM · 快脑（通话中）", chain: "快链路", desc: "通话中实时生成简短回复 · 默认 deepseek-v4-flash（DeepSeek 直连，小写；deepseek-chat 是其旧别名，2026-07-24 停用）", icon: "M13 2L3 14h7l-1 8 10-12h-7l1-8z", req: "快 · 短 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "temp", label: "温度" }, { k: "maxTokens", label: "回复上限 Token" }] },
+      { key: "fast", name: "LLM · 快脑（通话中）", chain: "快链路", desc: "通话中实时生成简短回复 · 默认 deepseek-v4-flash（DeepSeek 直连，小写；deepseek-chat 是其旧别名，2026-07-24 停用）", icon: "M13 2L3 14h7l-1 8 10-12h-7l1-8z", req: "快 · 短 · 低延迟 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "temp", label: "温度" }] },
       { key: "tts", name: "TTS · 语音合成", chain: "快链路", desc: "合成角色语音，voice_id 决定音色 · 默认 MiniMax TTS（官方直连，支持 emotion）", icon: "M11 5 6 9H3v6h3l5 4V5zM15.5 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11", req: "快 · 自然 · 可打断", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "voiceId", label: "默认 voice_id" }, { k: "sampleRate", label: "采样率" }] },
       { key: "memory", name: "LLM · 长记忆脑（通话后）", chain: "慢链路", desc: "通话后总结、提取长期记忆、生成开场白 · 默认 qwen-max（经 apiyi，可在「模型」改 qwen-plus 等；离线不要求快）", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20", req: "准 · 稳 · 长上下文（不要求快）", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型（如 qwen-max / qwen-plus）" }, { k: "maxContext", label: "最大上下文" }] },
       { key: "embed", name: "Embedding · 记忆检索", chain: "慢链路", desc: "向量化记忆并快速检索相关片段 · 存储 Postgres + pgvector", icon: "M21 5c0 1.66-4 3-9 3S3 6.66 3 5s4-3 9-3 9 1.34 9 3zM3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3", req: "快检索 · 高召回", fields: [{ k: "endpoint", label: "接口地址", full: true }, { k: "key", label: "API Key", pw: true }, { k: "model", label: "模型" }, { k: "vectorDB", label: "向量数据库" }, { k: "topK", label: "检索 Top-K" }] },
@@ -1099,11 +1099,9 @@ export class AdminLogic {
     // 全真实：有用量埋点的显真实成本/今日通话；首句响应/失败率暂无埋点 → 「—」。无演示数字。
     const healthKpis = [
       { label: "整体健康", value: "正常", sub: "服务运行中", vc: "#1FA971" },
-      { label: "首句响应", value: "—", sub: "需埋点", vc: "#878B95" },
+      { label: "今日通话", value: callsToday.toLocaleString(), sub: "次", vc: "#16161A" },
       { label: "每小时成本", value: usd((cost || {}).per_hour_micros), sub: "今日均摊", vc: "#16161A" },
       { label: "每 100 分钟成本", value: usd((cost || {}).per_100min_micros), sub: "时长摊薄", vc: "#16161A" },
-      { label: "今日失败率", value: "—", sub: "需埋点", vc: "#878B95" },
-      { label: "今日通话", value: callsToday.toLocaleString(), sub: "次", vc: "#16161A" },
     ];
     const byNode = (cost && cost.by_node) || {};   // 今日各节点成本（micros）
     const nodeCost = (k: string) => usd(byNode[k] || 0);
@@ -1140,7 +1138,6 @@ export class AdminLogic {
       ["通话时长上限", "按余额扣到 0 自动挂断（无固定时长上限）"],
       ["静音自动挂断", "用户端设置 · 默认 3 分钟"],
     ] : [["运行限流", "接入后端后显示真实生效值"]]).map(([k, v]) => ({ k, v }));
-    const warnItems = ["单用户今日成本 > $20", "某模型失败率 > 5%", "TTS 成本环比上涨 > 30%", "通话平均时长异常波动", "单个 voice_id 调用量激增"];
 
     // 世界库（持久化）常驻面板：主体读【已保存】的 worldLib（重启/重拉都在）；错误/未配提示沿用最近一次拉取结果。
     const wl = s.worldLib;
@@ -1346,7 +1343,7 @@ export class AdminLogic {
       worldEndpointRows, fixedSrcRows, hasFixedSrc, catChips, worldStats, hasCatFilter: !!s.catFilter, catFilterLabel: s.catFilter || "",
       clearCatFilter: () => this.setCatFilter(s.catFilter || ""),
       newSource: s.newSource || "", onNewSource: (e: any) => this.setNewSource(e.target.value), addSource: () => this.addSource(),
-      linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, limitItems, warnItems,
+      linkFlow, healthKpis, nodeCards, costKpis, costByProvider, memoryRecent, limitItems,
       ccCpt: s.costCfg.chars_per_token, onCcCpt: (e: any) => this.setCost("chars_per_token", e.target.value),
       ccLlmFast: s.costCfg.llm_fast, onCcLlmFast: (e: any) => this.setCost("llm_fast", e.target.value),
       ccLlmSlow: s.costCfg.llm_slow, onCcLlmSlow: (e: any) => this.setCost("llm_slow", e.target.value),
@@ -1393,8 +1390,6 @@ export class AdminLogic {
       inviteReward: s.inviteReward, onInviteReward: (e: any) => this.setState({ inviteReward: e.target.value, inviteeReward: e.target.value }),
       registerGift: s.registerGift, onRegisterGift: (e: any) => this.setState({ registerGift: e.target.value }),
       inviteeReward: s.inviteReward, onInviteeReward: (e: any) => this.setState({ inviteReward: e.target.value, inviteeReward: e.target.value }),
-      inviteRuleOn: s.inviteRuleOn, toggleInviteRule: () => this.setState((p) => ({ inviteRuleOn: !p.inviteRuleOn })),
-      ruleTrackBg: s.inviteRuleOn ? "#6E5CFF" : "#D8D9DE", ruleKnobLeft: s.inviteRuleOn ? "20px" : "2px",
       saveInviteRule: () => this.saveInvite(),
       notifs: this.realStats ? (this.tickets.filter((t: any) => t.status === "待处理").length > 0 ? [{ title: this.tickets.filter((t: any) => t.status === "待处理").length + " 条工单待处理", time: "实时", dot: "#E0594F" }] : []) : this.notifs,
       notifOpen: s.notifOpen, notifUnread: this.realStats ? this.tickets.some((t: any) => t.status === "待处理") : !s.notifRead,

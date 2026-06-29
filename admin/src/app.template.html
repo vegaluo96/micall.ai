@@ -402,7 +402,7 @@
         <div style="animation:adRise .3s ease;display:flex;flex-direction:column;gap:16px;">
           <div style="display:contents;">
           <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-            <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:15px;font-weight:600;">总链路状态</div><div style="font-size:12.5px;color:#9A9DA7;margin-top:2px;">AI 运行链路 · 通话中(快脑) → 通话后(慢脑·记忆检索) → 离线每日(真实热点·改写脑·评测脑)</div></div><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#1FA971;background:rgba(31,169,113,.1);border-radius:8px;padding:5px 12px;"><span style="width:7px;height:7px;border-radius:50%;background:#1FA971;"></span>整体正常</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:15px;font-weight:600;">总链路状态</div><div style="font-size:12.5px;color:#9A9DA7;margin-top:2px;">AI 运行链路 · 通话中(快脑) → 通话后(慢脑·记忆检索) → 离线每日(真实热点·改写脑·评测脑)</div></div></div>
             <div style="margin-top:14px;border:1px solid #E7E3FF;background:rgba(110,92,255,.04);border-radius:12px;padding:13px 15px;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span style="font-size:12.5px;font-weight:600;color:#6E5CFF;background:rgba(110,92,255,.1);border-radius:7px;padding:2px 9px;">快链路 · 通话中</span><span style="font-size:11.5px;color:#A8ABB5;">快 · 短 · 低延迟 · 可打断</span></div>
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
@@ -440,19 +440,17 @@
                 <span style="font-size:12px;font-weight:600;color:#9277F5;background:rgba(146,119,245,.1);border-radius:8px;padding:4px 9px;">评测脑</span><span style="font-size:11.5px;color:#A8ABB5;">AI 生成角色/内核 · 图灵测试裁判 · 偶发离线调用 · 留空回退慢脑</span>
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;">
-              <sc-for list="{{ healthKpis }}" as="k" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px;">
+              <sc-for list="{{ healthKpis }}" as="k" hint-placeholder-count="4">
                 <div style="background:#FAFAFB;border-radius:11px;padding:12px 14px;"><div style="font-size:11.5px;color:#9A9DA7;">{{ k.label }}</div><div style="font-size:16px;font-weight:700;margin-top:3px;color:{{ k.vc }};">{{ k.value }}</div><div style="font-size:11px;color:#B8BBC4;margin-top:1px;">{{ k.sub }}</div></div>
               </sc-for>
             </div>
             <div style="font-size:12px;font-weight:600;color:#A8ABB5;letter-spacing:1px;margin:18px 0 9px;">节点状态</div>
             <div style="display:flex;flex-direction:column;gap:8px;">
               <sc-for list="{{ nodeCards }}" as="n" hint-placeholder-count="5">
-                <div style="display:grid;grid-template-columns:1.7fr .8fr .7fr .8fr .7fr 52px;gap:8px;align-items:center;background:#FAFAFB;border-radius:11px;padding:10px 14px;">
+                <div style="display:grid;grid-template-columns:1.7fr .8fr .7fr 52px;gap:8px;align-items:center;background:#FAFAFB;border-radius:11px;padding:10px 14px;">
                   <div style="min-width:0;"><div style="font-size:13px;font-weight:600;">{{ n.name }}</div><div style="font-size:11px;color:#9A9DA7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ n.role }}</div></div>
                   <span style="justify-self:start;font-size:11px;font-weight:600;color:{{ n.stColor }};background:{{ n.stBg }};border-radius:7px;padding:3px 8px;">{{ n.status }}</span>
-                  <span style="font-size:12px;color:#5A5E6B;font-variant-numeric:tabular-nums;">{{ n.latency }}</span>
-                  <span style="font-size:12px;color:#5A5E6B;">{{ n.calls }}</span>
                   <span style="font-size:12px;font-weight:600;color:#16161A;font-variant-numeric:tabular-nums;">{{ n.cost }}</span>
                   <span></span>
                 </div>
@@ -682,14 +680,6 @@
                 </sc-for>
               </div>
             </div>
-            <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
-              <div style="font-size:15px;font-weight:600;margin-bottom:14px;">预警规则</div>
-              <div style="display:flex;flex-direction:column;gap:9px;">
-                <sc-for list="{{ warnItems }}" as="w" hint-placeholder-count="5">
-                  <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:#3A3D47;"><span style="width:7px;height:7px;border-radius:50%;flex:none;background:#E0954F;"></span>{{ w }}</div>
-                </sc-for>
-              </div>
-            </div>
           </div>
         </div>
       </sc-if>
@@ -710,7 +700,6 @@
             <div style="background:#fff;border:1px solid #EBECEF;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.03);">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                 <div style="font-size:15px;font-weight:600;">邀请奖励规则</div>
-                <div onClick="{{ toggleInviteRule }}" style="width:42px;height:24px;border-radius:12px;background:{{ ruleTrackBg }};position:relative;cursor:pointer;transition:background .2s cubic-bezier(.2,.8,.4,1);"><div style="position:absolute;top:2px;left:{{ ruleKnobLeft }};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s cubic-bezier(.2,.8,.4,1);"></div></div>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
                 <span style="font-size:12.5px;font-weight:500;color:#878B95;">注册赠送（分钟）· 新用户注册即送</span>
