@@ -71,5 +71,37 @@ class TestCallTranscript(unittest.TestCase):
         self.assertEqual(len(s._call_transcript(sess)), 1)   # 开关开 → 取到对话
 
 
+class TestGuestCallRecord(unittest.TestCase):
+    """游客（未注册）通话也要落记录：挂到匿名用户名下、带 guest_ip 归属地，供后台通话详情查看。"""
+
+    def test_guest_call_recorded_with_ip(self):
+        from types import SimpleNamespace
+        from micall.config import load_config
+        from micall.server.wsserver import SignalingServer
+        r = InMemoryRepository()
+        s = SignalingServer(load_config(), repo=r)
+        sess = SimpleNamespace(
+            history=[{"role": "user", "content": "你好"}, {"role": "assistant", "content": "在的"}],
+            character_id="shen_du", scenario="chat",
+            billing=SimpleNamespace(elapsed=42, exhausted=False),
+        )
+        s._record_guest_call("203.0.113.7", sess)
+        row = r.list_all_calls()[0]
+        self.assertEqual(row["guest_ip"], "203.0.113.7")
+        self.assertEqual(row["user_email"], "")          # 游客无邮箱（_ANON 没邮箱）
+        self.assertEqual(len(row["transcript"]), 2)       # 游客对话内容也留存
+
+    def test_guest_call_skipped_when_zero_duration(self):
+        from types import SimpleNamespace
+        from micall.config import load_config
+        from micall.server.wsserver import SignalingServer
+        r = InMemoryRepository()
+        s = SignalingServer(load_config(), repo=r)
+        sess = SimpleNamespace(history=[], character_id="shen_du", scenario="",
+                               billing=SimpleNamespace(elapsed=0, exhausted=False))
+        s._record_guest_call("203.0.113.7", sess)
+        self.assertEqual(r.list_all_calls(), [])          # 没真通话（0 秒）→ 不记
+
+
 if __name__ == "__main__":
     unittest.main()

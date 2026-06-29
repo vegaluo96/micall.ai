@@ -203,9 +203,9 @@ class MemoryRepository(ABC):
     # ── 通话记录 / 账单（P3）──
     def add_call(self, user_id: str, character_id: str, scenario: str,
                  duration_seconds: int, ended_reason: str,
-                 transcript: list[dict] | None = None) -> None:
+                 transcript: list[dict] | None = None, guest_ip: str = "") -> None:
         """通话结束写一条记录（前端「通话历史」数据源）。transcript=本通对话逐句（[{role,content}]），
-        供后台查看对话内容；None/空=不留存（隐私关时）。"""
+        供后台查看对话内容；None/空=不留存（隐私关时）。guest_ip=游客通话的来访 IP（登录用户留空）。"""
 
     def list_calls(self, user_id: str, *, limit: int = 30) -> list[dict]:
         """该用户最近通话，新→旧。每条 {id,character_id,scenario,duration_seconds,ended_reason,started_at}。
@@ -539,13 +539,13 @@ class InMemoryRepository(MemoryRepository):
         self._guest_trials[ip or ""] = self._guest_trials.get(ip or "", 0) + max(0, int(seconds))
 
     def add_call(self, user_id, character_id, scenario, duration_seconds, ended_reason,
-                 transcript=None) -> None:
+                 transcript=None, guest_ip="") -> None:
         self._calls.append({
             "id": len(self._calls) + 1,
             "user_id": user_id, "character_id": character_id, "scenario": scenario or "",
             "duration_seconds": int(duration_seconds), "ended_reason": ended_reason or "ended",
             "started_at": _now_iso(), "hidden_by_user": False,
-            "transcript": transcript or [],
+            "transcript": transcript or [], "guest_ip": guest_ip or "",
         })
 
     def list_calls(self, user_id, *, limit=30) -> list[dict]:
@@ -613,7 +613,7 @@ class InMemoryRepository(MemoryRepository):
             "user_email": email.get(c["user_id"], ""), "character_id": c["character_id"],
             "scenario": c["scenario"], "duration_seconds": c["duration_seconds"],
             "ended_reason": c["ended_reason"], "started_at": c["started_at"],
-            "transcript": c.get("transcript") or [],
+            "transcript": c.get("transcript") or [], "guest_ip": c.get("guest_ip") or "",
         } for c in rows]
 
     def list_all_orders(self, *, limit=200) -> list[dict]:

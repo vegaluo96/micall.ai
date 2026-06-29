@@ -493,7 +493,7 @@ export class AdminLogic {
             };
           });
         return {
-          id: "rk" + i, char: cn, user: c.user_email || "—",
+          id: "rk" + i, char: cn, user: c.user_email || (c.guest_ip ? "游客 " + c.guest_ip : "游客"),
           scene: c.scenario || "随便聊聊", dur: fmtDur(c.duration_seconds),
           ended: REASON[c.ended_reason] || (c.ended_reason || "正常结束"),
           time: fmtTime(c.started_at),

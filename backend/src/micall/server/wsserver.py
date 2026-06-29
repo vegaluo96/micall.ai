@@ -179,6 +179,23 @@ class SignalingServer:
         except Exception as e:
             log.warning("通话记录失败 user=%s：%r", user_id, e)
 
+    def _record_guest_call(self, client_ip: str, session: "CallSession") -> None:
+        """游客挂断 → 也落一条通话记录，挂到匿名用户 _ANON 名下、用 guest_ip 标来源（测试阶段要看游客对话）。
+        计费上游客不入账（_consume_balance 已跳过），这里只为「后台通话详情」留存内容与归属地 IP。"""
+        if not session:
+            return
+        meter = getattr(session, "billing", None)
+        dur = int(getattr(meter, "elapsed", 0) or 0)
+        if dur <= 0:
+            return
+        reason = "out_of_minutes" if getattr(meter, "exhausted", False) else "ended"
+        try:
+            self.repo.ensure_user(_ANON)   # calls.user_id 有外键，先确保匿名用户行存在
+            self.repo.add_call(_ANON, session.character_id, getattr(session, "scenario", ""), dur, reason,
+                               transcript=self._call_transcript(session), guest_ip=client_ip)
+        except Exception as e:
+            log.warning("游客通话记录失败 ip=%s：%r", client_ip, e)
+
     def _record_usage(self, user_id: str, session: "CallSession") -> None:
         """挂断 → 按整通实际用量写 usage_log（成本看板数据源）。游客也记（成本与计费无关）。"""
         try:
@@ -200,6 +217,7 @@ class SignalingServer:
                     self.repo.consume_guest_trial(client_ip, consumed)
                 except Exception as e:
                     log.warning("游客试用扣减失败：%r", e)
+            self._record_guest_call(client_ip, session)   # 游客对话也记一条（带归属地 IP），供后台通话详情查看
         else:
             self._consume_balance(user_id, session)
             self._record_call(user_id, session)
