@@ -1714,6 +1714,8 @@ export class MiCallLogic {
             pick: () => { if (this.state.histSelMode) this.toggleHistSel(h.id); else this.switchTo(h.idx, h.sceneKey); } };
         });
       })(),
+      // 通话记录为空（游客/新用户）：桌面右栏与历史抽屉据此显空状态，不再像「空栏残影」。
+      noHistory: (this.realHistory ?? this.history).length === 0,
       // 删除通话记录（单选/多选 + 二次确认；账号级软删除，跨设备一致；后台统计不受影响）
       histSelMode: !!this.state.histSelMode,
       // 选择入口仅登录用户可见（删除走后端、跨设备同步）；未登录看到的是空/演示历史
