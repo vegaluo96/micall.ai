@@ -24,6 +24,7 @@ import {
 } from "./signaling";
 import { AudioPlayer, MicCapture } from "./audio";
 import * as authApi from "./authService";
+import { uiLangOf, tr } from "./i18n";
 import type { Vals } from "../dc/resolve";
 
 export interface MiCallProps {
@@ -247,6 +248,10 @@ export class MiCallLogic {
       // 或戴耳机后 ?duplex=full。外放强开全双工会"自己打断自己"(AI 录到自己的声音)，故不设默认。
       //   ?duplex=half（默认，稳）  ?duplex=full（麦克风全程开可插话；外放有回声，建议配耳机）
       const qs = new URLSearchParams(location.search);
+      // ?lang= 深链直达某语言（en→英文界面+英文通话；zh→中文）：方便分享/二维码定向，也覆盖本地持久化。
+      const lp = (qs.get("lang") || "").trim().toLowerCase();
+      const langMap: Record<string, string> = { en: "English", english: "English", zh: "中文", cn: "中文", chinese: "中文", ja: "日本語", jp: "日本語", ko: "한국어", es: "Español", fr: "Français" };
+      if (langMap[lp]) this.state.lang = langMap[lp];
       const dux = qs.get("duplex");
       if (dux === "half" || dux === "full") localStorage.setItem("micall_duplex", dux);
       this.halfDuplex = localStorage.getItem("micall_duplex") !== "full";  // 缺省即半双工（稳）
@@ -704,6 +709,10 @@ export class MiCallLogic {
     }
   }
   selectLang(l: string) { this.setState({ lang: l, langOpen: false }); this.savePrefs(); }
+  /** UI 语言（跟随语言选择器）：中文=zh、其余=en。给 renderVals 注入，模板/属性渲染期据此查表翻译。 */
+  uiLang(): "zh" | "en" { return uiLangOf(this.state.lang); }
+  /** 含数字/名字拼接的复合句直接给英文（不走查表）：英文界面时返回 en，否则中文原文。 */
+  private tt(zh: string, en: string): string { return this.uiLang() === "en" ? en : zh; }
   selectChar(i: number) { this.rememberChar(i); this.setState({ charIndex: i, charOpen: false }); }
   /** 记住用户选的角色（按 id 存，列表换序也不丢）：刷新后 loadCharacters/构造器优先恢复它，不每次回默认。 */
   private rememberChar(i: number) {
@@ -1308,7 +1317,7 @@ export class MiCallLogic {
 
     const remainMin = Math.max(0, Math.round((this.state.remaining || 0) / 60));
     // 真实余额/试用拉到后才显示「剩余 X 分钟」；拉到前留空，不再闪一个写死的「剩余 1 分钟」。
-    const remainLabel = this.state.remainingLoaded ? ("剩余 " + remainMin + " 分钟") : "";
+    const remainLabel = this.state.remainingLoaded ? this.tt("剩余 " + remainMin + " 分钟", remainMin + " min left") : "";
     let hint = "";
     if (p === "idle") hint = remainLabel;
     else if (p === "ended") hint = "已保存";
@@ -1441,7 +1450,11 @@ export class MiCallLogic {
       bg: "var(--ctrl)",
       border: this.state.scenario === d.key ? "2px solid #6E5CFF" : "2px solid transparent",
       check: this.state.scenario === d.key ? 1 : 0,
-      prompt: d.prompt || d.desc,
+      // 场景展开预览的描述文字：英文界面给一句由【已翻译的名字/简介】拼的英文（发给 LLM 的提示词仍按原文，
+      // AI 已被语言指令要求用英语回应，二者不冲突）。
+      prompt: this.uiLang() === "en"
+        ? `Let's settle into "${tr("en", d.name)}": ${tr("en", d.desc)}. Respond naturally in a fitting tone, attentive to my feelings and pace, keeping the whole chat immersive and warm — like we're really there together.`
+        : (d.prompt || d.desc),
       expanded: this.state.expandedScene === d.key,
       clamp: this.state.expandedScene === d.key ? "none" : 2,
       toggleLabel: this.state.expandedScene === d.key ? "收起" : "展开",
@@ -1544,6 +1557,7 @@ export class MiCallLogic {
       memoryDot: this.hasDot("mem", this.characterId(this.state.charIndex)),
       statusDot: this.hasDot("status", this.characterId(this.state.charIndex)),
       ticketDot: this.hasTicketDot(),   // 工单被客服回复且未读 → 菜单/「联系我们」红点（H5 服务端真实未读）
+      uiLang: this.uiLang(),   // UI 语言（zh/en）：模板/属性渲染期据此查表把界面文案翻成英文（跟随语言选择器）
       statusOpen: !!this.state.statusOpen,
       closeStatus: () => this.closeStatus(),
       memoryOpen: !!this.state.memoryOpen,
@@ -1558,7 +1572,7 @@ export class MiCallLogic {
         if (d && d.energy) items.push({ label: "此刻精力", value: d.energy });
         if (d && d.anticipating) items.push({ label: "在期待", value: d.anticipating });
         return { name, loading: false, items, empty: items.length === 0,
-                 emptyText: `${name}现在状态挺好，随时可以接你电话～` };
+                 emptyText: this.tt(`${name}现在状态挺好，随时可以接你电话～`, `${name} is doing well and ready to take your call～`) };
       })(),
       memoryView: (() => {
         const name = this.chars[this.state.charIndex]?.name || "TA";
@@ -1573,8 +1587,11 @@ export class MiCallLogic {
         const facts = (d && Array.isArray(d.facts)) ? d.facts : [];
         const empty = items.length === 0 && facts.length === 0;
         return { name, loading: false, items, facts, hasFacts: facts.length > 0, empty,
-                 emptyText: `你和${name}还没什么回忆，打个电话开始吧～` };
+                 emptyText: this.tt(`你和${name}还没什么回忆，打个电话开始吧～`, `No memories with ${name} yet — give them a call to start～`) };
       })(),
+      // 回忆/状态面板标题、邀请计数：含角色名/数字的复合句，直接给英文（不走查表）。
+      memoryTitle: this.tt(`和 ${charName} 的回忆`, `Memories with ${charName}`),
+      statusTitle: this.tt(`${charName} 现在`, `${charName} now`),
       subline,
       underOrb,
       underOpacity: underOrb ? 1 : 0,
@@ -1757,13 +1774,13 @@ export class MiCallLogic {
       langOpen: this.state.langOpen,
       langFromSettings: () => this.setState({ ...this.sheets(), settingsOpen: false, langOpen: true }),
       // 无人说话自动挂断（设置菜单内，默认 3 分钟，可改）：通话中持续静默达此时长自动结束。
-      autoHangupLabel: this.state.autoHangupMin <= 0 ? "关闭" : (this.state.autoHangupMin + " 分钟"),
+      autoHangupLabel: this.state.autoHangupMin <= 0 ? this.tt("关闭", "Off") : this.tt(this.state.autoHangupMin + " 分钟", this.state.autoHangupMin + " min"),
       autoHangupOpen: this.state.autoHangupOpen,
       autoHangupOpenSheet: () => this.setState({ ...this.sheets(), settingsOpen: false, autoHangupOpen: true }),
       autoHangupClose: () => this.setState({ autoHangupOpen: false }),
       autoHangupOpts: [0, 1, 2, 3, 5, 10, 15, 30].map((m) => {
         const sel = this.state.autoHangupMin === m;
-        return { name: m <= 0 ? "关闭" : (m + " 分钟"), sel,
+        return { name: m <= 0 ? this.tt("关闭", "Off") : this.tt(m + " 分钟", m + " min"), sel,
           bg: sel ? "rgba(110,92,255,.12)" : "var(--ctrl)", border: sel ? "1px solid rgba(110,92,255,.35)" : "1px solid transparent",
           color: sel ? "#6E5CFF" : "var(--fg)", check: sel ? 1 : 0,
           pick: () => { this.setState({ autoHangupMin: m, autoHangupOpen: false }); this.savePrefs(); this.armAutoHangup(); } };
@@ -1773,9 +1790,9 @@ export class MiCallLogic {
       dismissFail: () => this.setState({ callFailed: false }),
       outOfMins: this.state.outOfMins,
       // 时长用完弹层：游客没账号、充不了值——引导注册（注册即送 60 分钟）；登录用户照旧走充值。
-      outTitle: this.state.loggedIn ? "通话时长已用完" : "试用时长用完了",
-      outBody: this.state.loggedIn ? "本月的通话时长用完了。充值后可以继续和 TA 聊。" : ("注册即送 " + this.giftMin() + " 分钟免费时长，继续和 TA 聊。"),
-      outPrimaryLabel: this.state.loggedIn ? "去充值" : ("注册领 " + this.giftMin() + " 分钟"),
+      outTitle: this.state.loggedIn ? this.tt("通话时长已用完", "You're out of minutes") : this.tt("试用时长用完了", "Free trial used up"),
+      outBody: this.state.loggedIn ? this.tt("本月的通话时长用完了。充值后可以继续和 TA 聊。", "You've used up this month's minutes. Top up to keep chatting.") : this.tt("注册即送 " + this.giftMin() + " 分钟免费时长，继续和 TA 聊。", "Sign up for " + this.giftMin() + " free minutes and keep chatting."),
+      outPrimaryLabel: this.state.loggedIn ? this.tt("去充值", "Top up") : this.tt("注册领 " + this.giftMin() + " 分钟", "Get " + this.giftMin() + " min"),
       outPrimary: () => { if (this.state.loggedIn) this.setState({ outOfMins: false, rechargeOpen: true }); else this.goRegister({ outOfMins: false }); },
       dismissOut: () => this.setState({ outOfMins: false }),
       settingsFromMenu: () => this.setState({ ...this.sheets(), menuOpen: false, settingsOpen: true }),
@@ -1808,7 +1825,7 @@ export class MiCallLogic {
       authOpen: this.state.authOpen,
       // 登录/注册共用一个弹窗：输入一样，一个按钮搞定——已注册→登录，未注册→自动创建账号并赠送时长。
       authTitle: "登录 / 注册",
-      authSubtitle: "注册即送 " + this.giftMin() + " 分钟免费通话时长",
+      authSubtitle: this.tt("注册即送 " + this.giftMin() + " 分钟免费通话时长", "Sign up for " + this.giftMin() + " free minutes of calls"),
       authSubmitLabel: "登录 / 注册",
       authEmail: this.state.authEmail,
       authPw: this.state.authPw,
@@ -1919,6 +1936,7 @@ export class MiCallLogic {
       copyInvite: () => this.copyInviteLink(),
       shareInvite: () => this.copyInviteLink(),
       inviteCount: this.realInvite ? this.realInvite.invited : this.invites.filter((i) => i.status === "已注册").length,
+      inviteDoneLabel: (() => { const n = this.realInvite ? this.realInvite.invited : this.invites.filter((i) => i.status === "已注册").length; return this.tt(`已成功 ${n} 位`, `${n} joined`); })(),
       inviteList: (this.realInvite ? [] : this.invites).map((iv) => ({
         name: iv.name, initial: iv.name[0], date: iv.date, status: iv.status, reward: iv.reward,
         done: iv.status === "已注册",

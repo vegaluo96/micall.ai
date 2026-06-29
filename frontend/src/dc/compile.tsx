@@ -16,6 +16,15 @@ import {
 import { resolve, type Vals } from "./resolve";
 import { cssToObj } from "./css";
 import { pseudoClass } from "./pseudo";
+import { tr } from "../logic/i18n";
+
+// 当前 UI 语言（zh/en）由 renderVals 注入 vals.uiLang；缺省按中文（基线零改动）。
+function uiLang(vals: Vals): string {
+  const l = (vals as Record<string, unknown>).uiLang;
+  return typeof l === "string" ? l : "zh";
+}
+// 这些属性的字符串值是给用户看的 → 跟随 UI 语言翻译（placeholder/无障碍标签/图片替代文字）。
+const I18N_ATTRS = new Set(["placeholder", "aria-label", "title", "alt"]);
 
 type Builder = (vals: Vals, key?: React.Key) => ReactNode;
 type AttrGetter = (vals: Vals) => unknown;
@@ -103,7 +112,8 @@ function walkText(node: Text): Builder | null {
   if (!txt.includes("{{")) {
     // Drop pure indentation/newlines (no space char), keep meaningful spaces.
     if (!txt.trim() && !txt.includes(" ")) return null;
-    return () => txt;
+    // 纯字面文案：按 UI 语言查表翻译（命中换英文、否则原样＝中文）。
+    return (vals) => tr(uiLang(vals), txt);
   }
   const parts = txt.split(/\{\{([\s\S]+?)\}\}/g);
   return (vals, key) =>
@@ -111,13 +121,15 @@ function walkText(node: Text): Builder | null {
       Fragment,
       { key },
       ...parts.map((p, i): ReactNode => {
-        if (!(i & 1)) return p;
+        if (!(i & 1)) return tr(uiLang(vals), p);   // 字面片段（如" 分钟"）也翻
         const v = resolve(vals, p);
         if (v === undefined || v === null || typeof v === "boolean") return null;
         if (isValidElement(v) || Array.isArray(v)) {
           return createElement(Fragment, { key: i }, v as ReactNode);
         }
-        return createElement("span", { key: i, className: "sc-interp" }, String(v));
+        // 插值出来的字符串（toast/场景名/标签等固定文案）也查表 → 动态文案一并英文化；
+        // 角色名/邮箱/用户输入不在表里 → 自动保持原样。
+        return createElement("span", { key: i, className: "sc-interp" }, tr(uiLang(vals), String(v)));
       }),
     );
 }
@@ -169,6 +181,7 @@ function walkElement(el: Element): Builder {
       if ((k === "value" || k === "checked") && v === undefined) {
         v = k === "checked" ? false : "";
       }
+      if (typeof v === "string" && I18N_ATTRS.has(k)) v = tr(uiLang(vals), v);   // placeholder/aria 等给用户看的属性跟随语言
       props[k] = v;
     }
     if (pseudoClassName) {
