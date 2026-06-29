@@ -613,13 +613,15 @@ def _bond_block(bond: Any, name: str) -> str:
 
 
 def _autonomous_block(s: AutonomousState) -> str:
+    """进 prefix 缓存的【氛围】部分：今天的心情/精力 + 现居地天气。
+    注意：具体近况(recent_experience)与盼头(anticipating)【不在这里】——它们太具体，若每轮都进系统前缀，
+    模型会反复把同一段端出来（用户实测「一直在重复」：开场说「茶楼发呆茶凉了」，下一轮又复读一遍）。
+    这两条改由 _autonomous_opening 只在【开场轮】折进末轮一次，之后模型再也看不到 → 没法逐轮复读。"""
     bits = [b for b in (
         f"今天的心情：{s.mood}" if s.mood else "",
-        f"你最近在经历：{s.recent_experience}" if s.recent_experience else "",
         f"此刻精力：{s.energy}" if s.energy else "",
-        f"你在期待/惦记着：{s.anticipating}" if s.anticipating else "",
     ) if b]
-    # 现居地此刻（季节/时令/天气感）：和上面四条「私事」不同——这是你身边的真实环境，可以自然当家常带出来。
+    # 现居地此刻（季节/时令/天气感）：是你身边的真实环境，可以自然当家常带出来。
     local = (
         "\n你现居地此刻（你身边的真实环境，可以自然地当家常带出来，比如「我们这边最近…」）：" + s.local_context
         if s.local_context else ""
@@ -633,15 +635,31 @@ def _autonomous_block(s: AutonomousState) -> str:
     ) if bits else "你今天的状态："
     return (
         head
-        + "\n（⚠上面这些【心情/经历/精力/盼头】是【你自己】私底下的事，电话那头的 TA 跟它毫无关系、根本不是其中的人。它只该悄悄影响你今天的心情和状态；"
-          "【整通最多带出来一次】、当自己的牢骚一笔带过（「最近忙得脚不沾地」）就够，提过就翻篇——别每轮都把同一段近况再端出来（这正是让人觉得『一直在重复』的根源）；"
-          "更【绝不能】把它变成你和 TA 之间的话题去推进——绝不问 TA"
-          "「档期敲定没」「项目进度怎么样了」「准备得怎么样」这类只有当事人才答得上的话，绝不把 TA 当成你这摊事里的"
-          "模特/客户/同事/经纪人，也绝不预设 TA 手里有跟你平行的活儿。TA 就是个普通打电话来的人、你对 TA 一无所知——"
-          "想聊就去聊 TA、问 TA，而不是拿你自己的事去套在 TA 头上。）"
+        + "\n（⚠上面这些【心情/精力】是【你自己】私底下的，只该悄悄影响你今天的状态，顶多当牢骚一笔带过，"
+          "别拿它去问 TA、别把 TA 当成你这摊事里的人——TA 就是个打电话来的人，你对 TA 一无所知。）"
         + local
         + ("\n（现居地这条是你所在城市此刻的真实季节/天气感，可以自然地聊起来当家常；但别假设 TA 也在这座城、别替 TA 安地点——"
            "TA 在哪你并不知道。）" if local else "")
+    )
+
+
+def _autonomous_opening(s: AutonomousState) -> str:
+    """开场轮【一次性】近况：你最近在经历的事 + 你在惦记的盼头。
+    只在第一轮折进末轮 user（不进 prefix 缓存、之后不再注入）→ 角色开场可自然带一句，
+    但【整通就这一次】，模型后面看不到它，从根上断掉「每轮复读同一段近况」。"""
+    bits = [b for b in (
+        f"你最近在经历：{s.recent_experience}" if s.recent_experience else "",
+        f"你在期待/惦记着：{s.anticipating}" if s.anticipating else "",
+    ) if b]
+    if not bits:
+        return ""
+    return (
+        "（你自己今天的近况，开场可以自然地像随口提一句、一笔带过就好——但【整通就提这一次，提过就翻篇，"
+        "之后别再反复端出来同一段】。\n"
+        "⚠这是【你自己】私底下的事，电话那头的 TA 跟它【毫无关系】、根本不是其中的人：【绝不能】把它变成你和 TA 之间的话题去推进——"
+        "绝不问 TA「档期敲定没」「项目进度怎么样了」「准备得怎么样」这类只有当事人才答得上的话，绝不把 TA 当成你这摊事里的"
+        "模特/客户/同事/经纪人，也绝不预设 TA 手里有跟你平行的活儿。想聊就去聊 TA、问 TA，而不是拿你自己的事去套在 TA 头上。）：\n"
+        + "\n".join(bits) + "\n"
     )
 
 
@@ -859,15 +877,17 @@ class ContextAssembler:
                     log.info("📰 注入时事话题池（%s 开场 · 按兴趣检索）", self.character.name)
             except Exception:
                 topics_line = ""
+        # 具体近况/盼头：只在开场轮折进一次（之后模型看不到它）→ 从根上断掉「每轮复读同一段近况」。
+        auto_open = _autonomous_opening(self.autonomous) if (opening and self.autonomous) else ""
         if hist and hist[-1].get("role") == "user":
             *head, last = hist
             messages.extend(head)
-            messages.append({"role": "user", "content": human + guard + "\n" + topics_line + recall_preamble + live + voice_emo + last["content"]})
+            messages.append({"role": "user", "content": human + guard + "\n" + topics_line + auto_open + recall_preamble + live + voice_emo + last["content"]})
         else:
-            # 开场轮（AI 先开口、history 为空）：把开场寒暄上下文 + 时事话题池一并给 → 角色【主动】挑一件对味的
+            # 开场轮（AI 先开口、history 为空）：把开场寒暄上下文 + 时事话题池 + 一次性近况一并给 → 角色【主动】挑一件对味的
             # 新鲜事带出来（这正是真人寒暄后自然分享的时机；此前 else 分支漏了 topics_line，开场从不提世界）。
             messages.extend(hist)
-            content = (human + guard if guard else human) + ("\n" + topics_line if topics_line else "")
+            content = (human + guard if guard else human) + ("\n" + topics_line if topics_line else "") + ("\n" + auto_open if auto_open else "")
             messages.append({"role": "system", "content": content})
         return messages
 

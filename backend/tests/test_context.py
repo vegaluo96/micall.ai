@@ -294,10 +294,20 @@ class TestAssembler(unittest.TestCase):
         from micall.context.models import AutonomousState
         char = CharacterRuntime.from_spec({"identity": {"character_id": "x", "name": "凌薇"}, "persona": {}})
         a = ContextAssembler(char, autonomous=AutonomousState(recent_experience="封面拍摄临时换模特"))
-        sysmsg = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])[0]["content"]
-        self.assertIn("【你自己】私底下的事", sysmsg)
-        self.assertIn("毫无关系", sysmsg)
-        self.assertIn("档期敲定没", sysmsg)   # 明确点名禁止的「把自己的事拿去问 TA」
+        # 具体近况只在【开场轮】折进末轮（不再每轮进系统前缀）→ 取全部 messages 合并校验。
+        msgs = a.build(character_id="x", scenario="", history=[{"role": "user", "content": "在吗"}])
+        allmsg = " ".join(m["content"] for m in msgs)
+        self.assertIn("封面拍摄临时换模特", allmsg)        # 近况开场注入一次
+        self.assertIn("【你自己】私底下的事", allmsg)
+        self.assertIn("毫无关系", allmsg)
+        self.assertIn("档期敲定没", allmsg)                # 明确点名禁止的「把自己的事拿去问 TA」
+        # 治「一直在重复」：非开场轮不再注入近况——系统前缀与本轮都不含它（之后模型看不到 → 不会逐轮复读）。
+        a2 = ContextAssembler(char, autonomous=AutonomousState(recent_experience="封面拍摄临时换模特"))
+        non_op = a2.build(character_id="x", scenario="", history=[
+            {"role": "user", "content": "在吗"}, {"role": "assistant", "content": "嗯"},
+            {"role": "user", "content": "还在？"}])
+        self.assertNotIn("封面拍摄", non_op[0]["content"])   # 系统前缀不含近况
+        self.assertNotIn("封面拍摄临时换模特", " ".join(m["content"] for m in non_op))  # 整轮都不再注入
 
     def test_within_call_learning_injected_into_turn(self):
         # 通话中现学：用户说了名字/在做，下一轮 system+user 里应带上，让角色当通就懂你（不进缓存）。
