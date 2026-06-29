@@ -256,7 +256,7 @@ class TestOpeningBrevity(unittest.TestCase):
         self.assertNotIn("路过河边", " ".join(ai))   # 没说完的下半句没被念出来
 
     def test_normal_turn_still_multi_sentence(self):
-        # 只收开场，正常对话仍可多句（别误伤正常回合）。
+        # 正常对话可多句（别误伤正常回合）：默认上限 2 句，两句都在。
         events: list[dict] = []
 
         async def emit(ev):
@@ -273,7 +273,72 @@ class TestOpeningBrevity(unittest.TestCase):
 
         asyncio.run(run())
         ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
-        self.assertGreaterEqual(len(ai), 2)      # 正常轮两句都在
+        self.assertEqual(len(ai), 2)             # 正常轮两句都在
+
+    def test_normal_turn_capped_at_max_sentences(self):
+        # 治「太长/越说越编」：正常轮封顶 _reply_max_sentences（默认2）句，多的不再起、干净停在句子边界。
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        llm = StubLLM(["[emotion:tender]第一句在这里。第二句也在这里。第三句不该出现。"])
+
+        async def run():
+            s = _make_session(emit, llm=llm)
+            await s.start()
+            events.clear()
+            await s._generate_turn("随便说点", opening=False)
+            await s.end()
+            return s
+
+        s = asyncio.run(run())
+        ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertEqual(len(ai), s._reply_max_sentences)       # 只说到上限句数
+        self.assertNotIn("第三句", " ".join(ai))                 # 超出的句子没出现
+
+    def test_half_sentence_fragment_not_spoken(self):
+        # 治「说到一半不说了」：被 token 上限拦腰切断的半句（无句末标点、还挺长）→ 绝不念出来。
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        # 一句完整 + 一截被切断的半句（没有句末标点）
+        llm = StubLLM(["[emotion:tender]这句是完整的。这后半截被切了没有句末"])
+
+        async def run():
+            s = _make_session(emit, llm=llm)
+            await s.start()
+            events.clear()
+            await s._generate_turn("嗯", opening=False)
+            await s.end()
+
+        asyncio.run(run())
+        ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertEqual(len(ai), 1)
+        self.assertIn("这句是完整的", ai[0])
+        self.assertNotIn("被切了", " ".join(ai))                 # 半句残尾被丢弃
+
+    def test_short_clean_tail_kept(self):
+        # 别误伤：短而干净的收口（像「你呢」没加标点）仍要说出来，不能当半句丢了。
+        events: list[dict] = []
+
+        async def emit(ev):
+            events.append(ev)
+
+        llm = StubLLM(["[emotion:tender]我也刚起来。你呢"])
+
+        async def run():
+            s = _make_session(emit, llm=llm)
+            await s.start()
+            events.clear()
+            await s._generate_turn("早", opening=False)
+            await s.end()
+
+        asyncio.run(run())
+        ai = [e["text"] for e in events if e["type"] == "subtitle" and e["role"] == "ai"]
+        self.assertIn("你呢", " ".join(ai))                      # 短收口保留
 
 
 class TestOrchestrator(unittest.TestCase):

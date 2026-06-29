@@ -299,10 +299,15 @@ class CallSession:
         _ro = (getattr(assembler.character, "runtime_overrides", None) or {})
         self._reply_max_tokens = int(_ro.get("reply_max_tokens")
                                      or config.global_defaults.get("reply_max_tokens", 400))
-        # 开场白上限：真正让开场短的是「说完完整的第一句就停」（见 _generate_turn 的 _opening_done）；
+        # 开场白上限：真正让开场短的是「说完完整的第一句就停」（见 _generate_turn 的句数封顶）；
         # 这个 token 上限只是兜底，要【足够大让第一句能完整成形】、不至把第一句本身截断（默认 96≈一句的余量）。
         self._opening_max_tokens = int(_ro.get("opening_max_tokens")
                                        or config.global_defaults.get("opening_max_tokens", 96))
+        # 每轮最多说几【完整句】：到上限就【干净停在句子边界】（绝不切半句），既治「太长/越说越编」，
+        # 又从根上断掉「被 token 上限拦腰切断、半句也念出来」的『说到一半』。开场恒为 1 句；正常轮默认 2 句
+        # （契合『话要短·一两句』铁律）。话痨型角色可 runtime_overrides.reply_max_sentences 调高、惜字调低。
+        self._reply_max_sentences = max(1, int(_ro.get("reply_max_sentences")
+                                               or config.global_defaults.get("reply_max_sentences", 2)))
         # 通话内历史滑窗条数：长聊时每轮喂快脑的历史越短→首字越快、不越聊越慢。默认 20 条(10 轮)，更久远
         # 上下文交给 L3 记忆召回兜底。想更连贯调大、想更快调小（global_defaults.incall_max_turns）。
         self._incall_max_turns = max(2, int(config.global_defaults.get("incall_max_turns", 20)))
@@ -664,7 +669,8 @@ class CallSession:
             return {"emotion": emo, "speed": speed, "pitch": pitch, "vol": vol, "tts": tts_text, "sub": sub_text}
 
         _first_token = True
-        _opening_done = False   # 开场只说【完整的第一句】就收住（用户打不断 → 短，但绝不切在句中）
+        _hit_cap = False        # 是否到了「本轮最多几句」的上限而主动停（开场=1句，正常=_reply_max_sentences）
+        _max_sentences = 1 if opening else self._reply_max_sentences
         _max_tokens = self._opening_max_tokens if opening else self._reply_max_tokens   # 开场更短（用户打不断）
         async with aclosing(self.llm.stream(messages, max_tokens=_max_tokens)) as llm_gen:
             _it = llm_gen.__aiter__()
@@ -700,19 +706,22 @@ class CallSession:
                         log.info("⏱ 首句成形 %.0fms", (time.monotonic() - _t0) * 1000)
                         await _open_speaking(job["emotion"])
                         play0 = asyncio.create_task(self._speak_job(job, None, spoke))  # 首句抢跑：流式合成
-                        if opening:
-                            _opening_done = True   # 开场：第一句一完整就停，别让模型再起第二句（会被截断成半句）
-                            break
                     else:
                         jobs.append(job)
                         prefetch.append(asyncio.create_task(self._synth_buffer(job)))   # 后续句：边播首句边预合成
-                if _opening_done:
+                    if len(jobs) >= _max_sentences:   # 到本轮句数上限 → 干净停在【句子边界】，不再起下一句（绝不切半句）
+                        _hit_cap = True
+                        break
+                if _hit_cap:
                     break
 
-        # 残留 buf 收尾成最后一句——但开场若已说完整的第一句(jobs 非空)就【绝不】再把没说完的下半句念出来
-        # （那正是「……我这人就是，风」被截断的来源）。开场没成完整句(jobs 空)才把这点内容说掉，避免开场静默。
+        # 残留 buf 收尾——【绝不把没说完的半句念出来】（治「说到一半不说了」）：
+        # ① 主动按句数封顶停下(_hit_cap)→丢；② 已经有完整句(jobs 非空)且这截还挺长(≥6字、明显是被 token
+        # 上限拦腰切断的半句)→丢。只有「整轮一句完整句都没成形(jobs 空)」或「短而干净的收口(像『你呢』)」才说掉，
+        # 避免整轮静默又不留半句尾巴。
         tail = buf.strip()
-        if tail and not self._interrupt.is_set() and not (opening and jobs):
+        _drop_tail = _hit_cap or (bool(jobs) and len(tail) >= 6)
+        if tail and not self._interrupt.is_set() and not _drop_tail:
             job = _make_job(tail)
             if job is not None:
                 if not jobs:
