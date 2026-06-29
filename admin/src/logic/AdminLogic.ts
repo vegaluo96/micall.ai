@@ -103,7 +103,7 @@ export class AdminLogic {
   private _tt: Timer[] = [];
 
   state: State = {
-    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, ioMode: "export", importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
+    section: "dashboard", detail: null, query: "", userFilter: "all", charBio: "", charEdit: {}, replyDraft: "", toast: "", ticketReplies: {}, inviteReward: "60", inviteeReward: "60", registerGift: "60", inviteRuleOn: true, notifOpen: false, notifRead: false, dateRange: "7d", charTab: "role", ioOpen: false, importText: "", apiStatus: {}, apiTestDetail: {}, worldPull: null, worldPulling: false, worldLib: null, srcTest: null, srcTesting: false, limitsCfg: null, worldEndpoints: [], newSource: "", srcOne: {}, catFilter: "",
     confirm: null, confirmBusy: false, savingChar: false, genCoreBusy: false,   // 二次确认弹层 / 异步写忙态（防误删、防连点）
     redeemCode: "", redeemUses: "1", redeemMinutes: "60", generatedCode: "",
     costCfg: { chars_per_token: "2", llm_fast: "0.0002", llm_slow: "0.0008", embedding: "0.00008", tts: "0.025", asr: "0.00192" },
@@ -296,13 +296,15 @@ export class AdminLogic {
     if (i < 0) return;
     const j = i + dir;
     if (j < 0 || j >= this.chars.length) return;
+    const prev = this.chars;                    // 落库失败要回滚，别把错误顺序留在屏幕上到刷新
     const arr = this.chars.slice();
     [arr[i], arr[j]] = [arr[j], arr[i]];
     this.chars = arr;
     this.setState({});                          // 先即时反映新顺序，再异步落库
     const ids = arr.map((x) => x.cid || x.id).filter(Boolean);
     const ok = await saveCharacterOrder(ids);
-    this.toastMsg(ok ? "顺序已保存（用户端发现列表同步）" : "顺序保存失败");
+    if (!ok) { this.chars = prev; this.setState({}); this.toastMsg("顺序保存失败"); return; }
+    this.toastMsg("顺序已保存（用户端发现列表同步）");
   }
 
   setCost(k: string, v: string) { this.setState((p) => ({ costCfg: { ...(p as any).costCfg, [k]: v } })); }
@@ -311,19 +313,6 @@ export class AdminLogic {
     if (!usingBackend()) { this.toastMsg("需接入后端"); return; }
     const ok = await saveCostConfig(this.state.costCfg);
     this.toastMsg(ok ? "单价已保存，下一通通话按新价估算" : "保存失败");
-  }
-
-  /** 导出角色为 JSON 文件（真实下载）。 */
-  private exportChars() {
-    try {
-      const data = JSON.stringify(this.chars.map((c) => ({ id: c.cid || c.id, name: c.name, tagline: c.desc, traits: c.traits, speaking_style: c.speaking_style, background_story: c.bio, likes: c.likes, dislikes: c.dislikes, voice_id: c.voiceId })), null, 2);
-      const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
-      const a = document.createElement("a"); a.href = url; a.download = "micall_characters.json"; a.click();
-      URL.revokeObjectURL(url);
-      this.toastMsg("已导出 micall_characters.json");
-    } catch {
-      this.toastMsg("导出失败");
-    }
   }
 
   /** 导入角色：解析粘贴的 AI JSON（字段同「新建角色」；列表数组也兼容）→ 直接新建一个角色。 */

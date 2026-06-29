@@ -1005,6 +1005,7 @@ export class MiCallLogic {
     this.clearTimers();
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });
     this.stopMic();
+    this.markUpdateDots();   // 中途换角色：先给刚聊完的【旧】角色补回忆/近况红点（此刻 charIndex 还是旧的），再切
     this.rememberChar(ps.idx);
     this.setState({ phase: "idle", seconds: 0, subtitle: "", lines: [], mute: false, speaker: false, textMode: false, charIndex: ps.idx, scenario: ps.sceneKey, pendingSwitch: null });
   }
@@ -1190,6 +1191,7 @@ export class MiCallLogic {
       case "out_of_minutes":
         this.clearTimers();
         this.stopMic();
+        this.markUpdateDots();   // 时长用完也是一通真聊过的电话：后端照样推进回忆/近况，前端补红点（自带 seconds>0 守卫）
         this.setState({ remaining: 0, remainingLoaded: true, outOfMins: true, phase: "idle", subtitle: "", lines: [] });
         break;
       case "asr_failed":
