@@ -225,8 +225,9 @@
             <div style="display:flex;gap:30px;justify-content:center;">
               <!-- 回忆：你和这个角色之间的关系/聊过的事 -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div onClick="{{ openMemory }}" role="button" aria-label="回忆" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
+                <div onClick="{{ openMemory }}" role="button" aria-label="回忆" style="position:relative;width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
                   <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                  <sc-if value="{{ memoryDot }}" hint-placeholder-val="{{ false }}"><div aria-label="有新回忆" style="position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:#FF4D4F;box-shadow:0 0 0 2px var(--ctrl);"></div></sc-if>
                 </div>
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">回忆</span>
               </div>
@@ -245,8 +246,10 @@
               </div>
               <!-- 状态：TA 当下的心情/近况/精力 -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                <div onClick="{{ openStatus }}" role="button" aria-label="状态·TA的近况" style="width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5z"/></svg>
+                <div onClick="{{ openStatus }}" role="button" aria-label="状态·TA的近况" style="position:relative;width:54px;height:54px;border-radius:50%;background:var(--ctrl);color:var(--fg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s ease,transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">
+                  <!-- 近况/心情：用闪烁的星芒（sparkle）替代原来的对话气泡，气泡太像「发言」不贴「状态」 -->
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l1.9 5.4 5.4 1.9-5.4 1.9L12 17.8l-1.9-5.4L4.7 10.5l5.4-1.9z"/><path d="M18.6 15.4l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></svg>
+                  <sc-if value="{{ statusDot }}" hint-placeholder-val="{{ false }}"><div aria-label="有新近况" style="position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:#FF4D4F;box-shadow:0 0 0 2px var(--ctrl);"></div></sc-if>
                 </div>
                 <span style="font-size:12px;color:var(--dim);letter-spacing:.3px;">状态</span>
               </div>
@@ -493,7 +496,7 @@
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">取消订阅</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
             </div>
-            <div onClick="{{ openPrivacy }}" style="display:flex;align-items:center;gap:13px;padding:14px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
+            <div onClick="{{ openLegal }}" style="display:flex;align-items:center;gap:13px;padding:14px 6px;cursor:pointer;transition:opacity .15s ease;" style-active="opacity:.6">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span style="flex:1;font-size:15.5px;font-weight:500;color:var(--fg);">隐私政策与用户协议</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>
@@ -932,22 +935,6 @@
         </div>
       </sc-if>
 
-      <sc-if value="{{ termsOpen }}" hint-placeholder-val="{{ false }}">
-        <div onClick="{{ termsClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
-        <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
-          <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
-          <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">用户协议</div>
-          <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
-            <p style="margin:0 0 14px;">欢迎使用 载思。注册或使用即表示你已阅读并同意本协议。</p>
-            <p style="margin:0 0 14px;">1. <b>服务内容</b>:载思 提供与 AI 角色的语音通话服务。AI 生成的内容仅供陪伴与娱乐,不构成任何专业(医疗、法律、心理等)建议。</p>
-            <p style="margin:0 0 14px;">2. <b>账户</b>:你需对账户与密码安全负责。请勿将账户用于违法或骚扰用途。</p>
-            <p style="margin:0 0 14px;">3. <b>时长与计费</b>:免费时长与会员时长按实际通话扣减;会员可随时取消,已消耗时长不退。</p>
-            <p style="margin:0 0 14px;">4. <b>行为规范</b>:禁止利用本服务生成违法、仇恨或侵犯他人权益的内容,我们有权暂停违规账户。</p>
-            <p style="margin:0;color:var(--dim);font-size:12.5px;">最近更新:2026 年 6 月</p>
-          </div>
-        </div>
-      </sc-if>
-
       <sc-if value="{{ contactOpen }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ contactClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
@@ -986,16 +973,23 @@
         </div>
       </sc-if>
 
-      <sc-if value="{{ privacyOpen }}" hint-placeholder-val="{{ false }}">
-        <div onClick="{{ privacyClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
+      <sc-if value="{{ legalOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ legalClose }}" style="position:absolute;inset:0;background:rgba(26,20,38,.18);backdrop-filter:blur(7px) saturate(1.08);-webkit-backdrop-filter:blur(7px) saturate(1.08);z-index:15;animation:backdropIn .3s ease;"></div>
         <div class="dcx-sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:82%;z-index:16;display:flex;flex-direction:column;background:var(--sheet);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);animation:sheetUp .34s cubic-bezier(.16,1,.3,1);border-radius:26px 26px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.14),0 -2px 8px rgba(0,0,0,.08),inset 0 0 0 .5px rgba(255,255,255,.18);padding:6px 22px 24px;box-sizing:border-box;">
           <div style="width:38px;height:5px;border-radius:3px;background:var(--faint);margin:8px auto 12px;flex:none;"></div>
-          <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">隐私政策</div>
+          <div style="font-size:19px;font-weight:600;color:var(--fg);text-align:center;padding-bottom:14px;flex:none;">隐私政策与用户协议</div>
           <div class="nobar" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.85;color:var(--fg);text-wrap:pretty;">
+            <div style="font-size:13px;font-weight:700;color:var(--fg);letter-spacing:.3px;padding:0 0 8px;">隐私政策</div>
             <p style="margin:0 0 14px;">我们非常重视你的隐私。载思 仅在通话进行时采集你的语音用于实时对话,<b>不会保存或用于训练</b>;通话结束即丢弃。</p>
             <p style="margin:0 0 14px;">账户信息仅包含邮箱与加密后的密码,用于登录与时长管理,绝不出售或分享给第三方。</p>
             <p style="margin:0 0 14px;">我们使用必要的 Cookie 维持登录状态与基本偏好(主题、语言),不用于跨站追踪或广告。</p>
-            <p style="margin:0 0 14px;">你可以随时在设置中退出登录、修改密码或注销账户,届时相关数据将被删除。</p>
+            <p style="margin:0 0 18px;">你可以随时在设置中退出登录、修改密码或注销账户,届时相关数据将被删除。</p>
+            <div style="font-size:13px;font-weight:700;color:var(--fg);letter-spacing:.3px;padding:6px 0 8px;border-top:1px solid var(--line);margin-top:2px;">用户协议</div>
+            <p style="margin:0 0 14px;">注册或使用即表示你已阅读并同意以下条款。</p>
+            <p style="margin:0 0 14px;">1. <b>服务内容</b>:载思 提供与 AI 角色的语音通话服务。AI 生成的内容仅供陪伴与娱乐,不构成任何专业(医疗、法律、心理等)建议。</p>
+            <p style="margin:0 0 14px;">2. <b>账户</b>:你需对账户与密码安全负责。请勿将账户用于违法或骚扰用途。</p>
+            <p style="margin:0 0 14px;">3. <b>时长与计费</b>:免费时长与会员时长按实际通话扣减;会员可随时取消,已消耗时长不退。</p>
+            <p style="margin:0 0 14px;">4. <b>行为规范</b>:禁止利用本服务生成违法、仇恨或侵犯他人权益的内容,我们有权暂停违规账户。</p>
             <p style="margin:0;color:var(--dim);font-size:12.5px;">最近更新:2026 年 6 月</p>
           </div>
         </div>
@@ -1005,8 +999,7 @@
         <div style="position:absolute;left:14px;right:14px;bottom:18px;z-index:18;box-sizing:border-box;max-width:calc(100% - 28px);display:flex;flex-direction:column;gap:12px;padding:16px 16px 14px;border-radius:18px;background:var(--sheet);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 14px 40px rgba(0,0,0,.22),inset 0 0 0 .5px rgba(255,255,255,.2);animation:sheetUp .4s cubic-bezier(.16,1,.3,1);">
           <div style="font-size:13.5px;line-height:1.6;color:var(--fg);text-wrap:pretty;">我们使用必要的 Cookie 维持登录与基本偏好,不用于广告追踪。继续使用即表示同意我们的隐私政策。</div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <div onClick="{{ openPrivacy }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">隐私政策</div>
-            <div onClick="{{ openTerms }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">用户协议</div>
+            <div onClick="{{ openLegal }}" style="flex:none;font-size:13px;color:var(--dim);cursor:pointer;padding:8px 4px;">隐私政策与用户协议</div>
             <div style="flex:1;"></div>
             <div onClick="{{ acceptCookie }}" style="flex:none;font-size:14px;font-weight:600;color:#fff;background:#6E5CFF;padding:9px 24px;border-radius:13px;cursor:pointer;transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.96)">同意</div>
           </div>
@@ -1097,7 +1090,6 @@
             <input value="{{ authEmail }}" onInput="{{ onAuthEmail }}" type="email" placeholder="邮箱" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
             <input value="{{ authPw }}" onInput="{{ onAuthPw }}" type="password" placeholder="密码（至少 6 位）" style="width:100%;box-sizing:border-box;border:none;outline:none;background:var(--ctrl);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--fg);font-family:inherit;" />
             <div onClick="{{ submitAuth }}" style="margin-top:4px;text-align:center;font-size:16px;font-weight:600;color:#fff;background:#6E5CFF;cursor:pointer;padding:14px 0;border-radius:16px;box-shadow:0 8px 20px rgba(110,92,255,.3);transition:transform .12s cubic-bezier(.2,0,.8,.1);" style-active="transform:scale(.98)">{{ authSubmitLabel }}</div>
-            <div style="text-align:center;font-size:12.5px;color:var(--dim);padding:8px;">{{ authHint }}</div>
           </div>
         </div>
       </sc-if>

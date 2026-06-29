@@ -96,7 +96,7 @@ export class MiCallLogic {
   charsReady = true;
   private _scenesBuilt = false;
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, privacyOpen: false, termsOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, legalOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
 
   t: Timer[] = [];
   i = 0;
@@ -433,6 +433,7 @@ export class MiCallLogic {
   async openStatus() {
     if (!authApi.authConfigured()) { this.toast("接入后端后可用"); return; }
     const cid = this.characterId(this.state.charIndex);
+    this.clearDot("status", cid);   // 看过即消红点
     this.setState({ statusOpen: true, statusData: undefined });   // undefined = 加载中
     const st = await authApi.getCharacterStatus(cid);
     this.setState({ statusData: st || null });
@@ -444,11 +445,29 @@ export class MiCallLogic {
     if (!authApi.authConfigured()) { this.toast("接入后端后可用"); return; }
     if (!this.state.loggedIn) { this.setState({ authOpen: true, authMode: "login", toast: "登录后可查看你们的回忆" }); return; }
     const cid = this.characterId(this.state.charIndex);
+    this.clearDot("mem", cid);      // 看过即消红点
     this.setState({ memoryOpen: true, memoryData: undefined });
     const m = await authApi.getMemories(cid);
     this.setState({ memoryData: m || null });
   }
   closeMemory() { this.setState({ memoryOpen: false }); }
+
+  // ── 回忆/状态「有更新」红点：每通通话后回忆与近况都很可能变化，给个红点提示去看；查看即清除。
+  // 按角色 id 持久化（localStorage），刷新不丢；回忆仅登录用户有持久记忆，故只对登录态标。
+  private dotKey(kind: string) { return kind === "mem" ? "micall_dot_mem" : "micall_dot_status"; }
+  private dotSet(kind: string): Set<string> {
+    try { const a = JSON.parse(localStorage.getItem(this.dotKey(kind)) || "[]"); return new Set(Array.isArray(a) ? a : []); } catch { return new Set(); }
+  }
+  private dotSave(kind: string, s: Set<string>) { try { localStorage.setItem(this.dotKey(kind), JSON.stringify([...s])); } catch { /* noop */ } }
+  hasDot(kind: string, cid: string): boolean { return !!cid && this.dotSet(kind).has(cid); }
+  private addDot(kind: string, cid: string) { if (!cid) return; const s = this.dotSet(kind); if (!s.has(cid)) { s.add(cid); this.dotSave(kind, s); } }
+  private clearDot(kind: string, cid: string) { const s = this.dotSet(kind); if (s.delete(cid)) { this.dotSave(kind, s); this.notify(); } }
+  private markUpdateDots() {
+    const cid = this.characterId(this.state.charIndex);
+    if (!cid || (this.state.seconds || 0) <= 0) return;   // 没真通起来不标
+    this.addDot("status", cid);                            // 近况每通后会推进（公开，不分登录）
+    if (this.state.loggedIn) this.addDot("mem", cid);      // 回忆仅登录用户持久
+  }
 
   /** 刷新后凭 localStorage 的 token 向后端核验登录态，拉回邮箱与真实余额。 */
   private async restoreSession() {
@@ -790,7 +809,7 @@ export class MiCallLogic {
     return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
   }
   sheets() {
-    return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, termsOpen: false, privacyOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false, autoHangupOpen: false };
+    return { favOpen: false, langOpen: false, settingsOpen: false, charDetailOpen: false, charOpen: false, scenarioOpen: false, billsOpen: false, inviteOpen: false, rechargeOpen: false, historyOpen: false, contactOpen: false, legalOpen: false, moreOpen: false, authOpen: false, pwResetOpen: false, autoHangupOpen: false };
   }
 
   // ── 手势驱动（侧栏滑入/滑出、底部弹窗下滑关闭）；纯 state 操作，零视觉/DOM 改动 ──
@@ -800,7 +819,7 @@ export class MiCallLogic {
     const sheetOpen =
       s.favOpen || s.langOpen || s.settingsOpen || s.charDetailOpen || s.charOpen ||
       s.scenarioOpen || s.billsOpen || s.inviteOpen || s.rechargeOpen || s.contactOpen ||
-      s.termsOpen || s.privacyOpen || s.moreOpen || s.authOpen || s.pwResetOpen || s.autoHangupOpen;
+      s.legalOpen || s.moreOpen || s.authOpen || s.pwResetOpen || s.autoHangupOpen;
     // 中心模态/对话框（权限、呼叫失败、时长耗尽、切换确认、删除确认…）期间不接管手势。
     const modal =
       s.callFailed || s.outOfMins || s.pendingSwitch ||
@@ -963,6 +982,7 @@ export class MiCallLogic {
     this.player.playHangup();   // 挂断音效，与接通提示音呼应（stopMic 的 flush 会停 AI 音频/接通音，但不影响它）
     if (this.isConnected() || this.state.phase === "calling") this.send({ type: "end_call" });
     this.stopMic(); // release the microphone on hang-up (turns off the mic indicator)
+    this.markUpdateDots();   // 这通聊过 → 回忆/近况红点，回到首页提示去看
     this.setState({ phase: "ended", textMode: false, rating: 0, feedback: [] });
   }
 
@@ -1480,6 +1500,9 @@ export class MiCallLogic {
       // 首页「状态 / 回忆」入口 + 弹层视图模型
       openStatus: () => this.openStatus(),
       openMemory: () => this.openMemory(),
+      // 当前角色「回忆/近况有更新」红点（通话后置位，查看即清；按角色 id 持久化）
+      memoryDot: this.hasDot("mem", this.characterId(this.state.charIndex)),
+      statusDot: this.hasDot("status", this.characterId(this.state.charIndex)),
       statusOpen: !!this.state.statusOpen,
       closeStatus: () => this.closeStatus(),
       memoryOpen: !!this.state.memoryOpen,
@@ -1745,9 +1768,8 @@ export class MiCallLogic {
       // 登录/注册共用一个弹窗：输入一样，一个按钮搞定——已注册→登录，未注册→自动创建账号并赠送时长。
       authIsRegister: true,
       authTitle: "登录 / 注册",
-      authSubtitle: "注册即送 " + this.giftMin() + " 分钟免费通话时长，老用户直接登录",
+      authSubtitle: "注册即送 " + this.giftMin() + " 分钟免费通话时长",
       authSubmitLabel: "登录 / 注册",
-      authHint: "未注册的邮箱会自动创建账号，已注册则直接登录",
       authEmail: this.state.authEmail,
       authPw: this.state.authPw,
       onAuthEmail: (e: any) => this.setState({ authEmail: e.target.value }),
@@ -1825,12 +1847,10 @@ export class MiCallLogic {
       cancelSub: () => { this.setState({ settingsOpen: false, toast: "订阅将在本周期结束后取消" }); this.clearToastSoon(2200); },
       cookieOpen: this.state.cookieOpen,
       acceptCookie: () => this.acceptCookie(),
-      privacyOpen: this.state.privacyOpen,
-      openPrivacy: () => this.setState({ settingsOpen: false, privacyOpen: true }),
-      privacyClose: () => this.setState({ privacyOpen: false }),
-      termsOpen: this.state.termsOpen,
-      openTerms: () => this.setState({ settingsOpen: false, termsOpen: true }),
-      termsClose: () => this.setState({ termsOpen: false }),
+      // 隐私政策 + 用户协议合并为一个「二合一」弹窗：设置入口与 Cookie 横幅都开它，永不再叠两层。
+      legalOpen: this.state.legalOpen,
+      openLegal: () => this.setState({ ...this.sheets(), legalOpen: true }),
+      legalClose: () => this.setState({ legalOpen: false }),
       regPromptVisible: this.state.regPromptShown && !this.state.loggedIn && !this.state.regPromptDismissed,
       giftLabel: "注册即送 " + this.giftMin() + " 分钟",
       settingsOpen: this.state.settingsOpen,
