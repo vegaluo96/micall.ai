@@ -299,6 +299,10 @@ class CallSession:
         _ro = (getattr(assembler.character, "runtime_overrides", None) or {})
         self._reply_max_tokens = int(_ro.get("reply_max_tokens")
                                      or config.global_defaults.get("reply_max_tokens", 400))
+        # 开场白单独、更短的上限：开场期 ASR 全程抑制、用户【打不断】——一长段只能干等，体验差。
+        # 故开场比正常回合更短（默认 64≈一句暖招呼的余量，只砍长篇，不至于中途截断）。角色级可覆盖。
+        self._opening_max_tokens = int(_ro.get("opening_max_tokens")
+                                       or config.global_defaults.get("opening_max_tokens", 64))
         # 通话内历史滑窗条数：长聊时每轮喂快脑的历史越短→首字越快、不越聊越慢。默认 20 条(10 轮)，更久远
         # 上下文交给 L3 记忆召回兜底。想更连贯调大、想更快调小（global_defaults.incall_max_turns）。
         self._incall_max_turns = max(2, int(config.global_defaults.get("incall_max_turns", 20)))
@@ -325,13 +329,14 @@ class CallSession:
             "若还不大认识 TA（初识），就带一点真想认识 TA 的好奇起个头——按你的性子轻轻起个话头/问一句，"
             "别审问、别太满；若是老相识，可自然带出你记得或惦记的某件事，让 TA 觉得被记着。"
             "但绝不要编造没真实发生过的共同经历或'上次谈过的事'——拿不准就只温暖地打个招呼。"
-            "别等 TA 先开口、别太长，一两句即可。）"))
+            "【务必短】这是开场、TA 这会儿还插不进话（打不断你）——就【一句话】、干脆利落，"
+            "别一口气说一大段、别连着抛好几个问题、别铺垫半天；把话头递出去就停，等 TA 接。）"))
         # 续接重拨开场：上一通刚因网络断了、TA 又拨回来（上面对话里就是你们刚聊的）。别重新开场。
         self._continuation_directive = str(turn.get("continuation_directive",
             "（你们这通电话刚因为网络断了、TA 又拨回来——上面就是你们断线前正聊着的话。"
             "【绝不要】重新打招呼、自我介绍、或问『你好/在吗/想聊点什么』；就当从没断过，"
             "自然接住刚才那个话茬继续说下去。最多极轻地带一句『刚信号断了下』，但别复述刚才说过的、"
-            "也别问『刚说到哪了』。一两句即可。）"))
+            "也别问『刚说到哪了』。【务必短】TA 这会儿还插不进话——就【一句】接住话茬即可，别长。）"))
 
     # ── 下行封装：状态未结束才发（结束后丢弃迟到事件）──
     async def _emit(self, ev: dict) -> None:
@@ -659,7 +664,8 @@ class CallSession:
             return {"emotion": emo, "speed": speed, "pitch": pitch, "vol": vol, "tts": tts_text, "sub": sub_text}
 
         _first_token = True
-        async with aclosing(self.llm.stream(messages, max_tokens=self._reply_max_tokens)) as llm_gen:
+        _max_tokens = self._opening_max_tokens if opening else self._reply_max_tokens   # 开场更短（用户打不断）
+        async with aclosing(self.llm.stream(messages, max_tokens=_max_tokens)) as llm_gen:
             _it = llm_gen.__aiter__()
             while True:
                 try:

@@ -190,6 +190,48 @@ class TestEchoGuard(unittest.TestCase):
         self.assertFalse(s._looks_like_echo("你好呀"))        # 没有基准 → 不是
 
 
+class _MaxTokensSpyLLM(StubLLM):
+    """记录每次 stream() 收到的 max_tokens，用于验证开场轮用更短的上限。"""
+    def __init__(self, replies=None):
+        super().__init__(replies)
+        self.caps: list[int] = []
+
+    async def stream(self, messages, *, temperature=0.8, max_tokens=256, response_format=None):
+        self.caps.append(max_tokens)
+        async for ch in super().stream(messages, temperature=temperature,
+                                       max_tokens=max_tokens, response_format=response_format):
+            yield ch
+
+
+class TestOpeningBrevity(unittest.TestCase):
+    def test_opening_uses_smaller_cap_than_reply(self):
+        # 开场期 ASR 抑制、用户打不断 → 开场必须短：开场轮的 max_tokens 比正常轮小。
+        spy = _MaxTokensSpyLLM(["嗨，在呢。"])
+
+        async def emit(ev):
+            pass
+
+        async def run():
+            s = _make_session(emit, llm=spy)
+            await s.start()
+            await s._generate_turn("（开场）", opening=True)    # 开场轮
+            await s._generate_turn("嗯", opening=False)         # 正常轮
+            await s.end()
+            return s
+
+        s = asyncio.run(run())
+        self.assertGreaterEqual(len(spy.caps), 2)
+        self.assertEqual(spy.caps[0], s._opening_max_tokens)    # 开场用更短上限
+        self.assertEqual(spy.caps[1], s._reply_max_tokens)      # 正常轮回到正常上限
+        self.assertLess(s._opening_max_tokens, s._reply_max_tokens)
+
+    def test_opening_directive_demands_brevity(self):
+        # 开场指令显式要求「短/一句/打不断」，让模型从语义上就收着说。
+        s = _make_session(lambda ev: None)
+        self.assertIn("插不进话", s._opening_directive)
+        self.assertIn("一句", s._opening_directive)
+
+
 class TestOrchestrator(unittest.TestCase):
     def test_turn_event_sequence(self):
         events: list[dict] = []
