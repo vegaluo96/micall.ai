@@ -189,6 +189,21 @@ class TestEchoGuard(unittest.TestCase):
         s._ai_said = ""
         self.assertFalse(s._looks_like_echo("你好呀"))        # 没有基准 → 不是
 
+    def test_two_char_exempt_so_it_hits(self):
+        import time
+        s = self._sess()
+        s._ai_said = "好的，那我们就这么定了"               # 含「好的」子串
+        s._audio_until = time.monotonic() + 5.0
+        # ≤2 字短附和：即便正好是 AI 原话的子串，也整体豁免回声判定 → 必命中（不被吞）
+        self.assertFalse(s._looks_like_echo("好的"))
+        self.assertFalse(s._looks_like_echo("对啊"))
+        # 3 字及以上仍照常判回声（子串）
+        self.assertTrue(s._looks_like_echo("我们就"))
+
+    def test_echo_overlap_default_068(self):
+        # 模糊重叠门槛默认 0.68（越高越不误杀顺着话题、与 AI 用词重合的真用户话）
+        self.assertEqual(self._sess()._echo_overlap, 0.68)
+
 
 class _MaxTokensSpyLLM(StubLLM):
     """记录每次 stream() 收到的 max_tokens，用于验证开场轮用更短的上限。"""

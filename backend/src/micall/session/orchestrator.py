@@ -268,9 +268,10 @@ class CallSession:
         #   echo_overlap  —— 音频播放中，识别文本与 AI 已说内容的字符重叠达此比例即判回声。
         turn = config.turn or {}
         # 拖尾窗放宽到 1.6s（原 1200）：全双工外放下，AI 话音回授常在播放刚结束的瞬间被 ASR 转写出来，
-        # 窗太短就漏成「自言自语」。重叠门槛 0.65（原 0.7）略松，多兜住转写不全的回声；真用户附和多不与 AI 原话重叠，误伤小。
+        # 窗太短就漏成「自言自语」。模糊重叠门槛 0.68：越高=越不容易把【顺着话题、跟 AI 用词有重合】的真用户话
+        # 误判成回声（少误杀）；回声主力判据仍是【逐字子串匹配】，此阈值只挡近乎逐字的残留。
         self._echo_tail = float(turn.get("echo_tail_ms", 1600)) / 1000.0
-        self._echo_overlap = float(turn.get("echo_overlap", 0.65))
+        self._echo_overlap = float(turn.get("echo_overlap", 0.68))
         # 下行播放延迟补偿：全双工(RTC)经 coturn 中继 + jitter buffer，AI 这句实际播得比合成时刻晚。
         # 把它加进 _audio_until，让「播放中」回声窗盖住外放回授时段 → 治「听到自己 / 屏幕冒出没说的话」。
         self._play_pad = float(turn.get("echo_play_pad_ms", 500)) / 1000.0
@@ -408,8 +409,8 @@ class CallSession:
         if now > self._audio_until + self._echo_tail:
             return False
         nt = _norm(text)
-        if len(nt) < 2:
-            return False
+        if len(nt) < 3:
+            return False   # ≤2 字（「好的」「对啊」「是吗」）整体豁免回声判定：短附和极易是 AI 原话的子串而被误杀→必命中
         said = _norm(self._ai_said)
         if nt in said:
             return True                     # AI 原话被原样转写回来：任何模式都判回声（高置信）
