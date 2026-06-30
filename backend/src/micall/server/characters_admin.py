@@ -443,29 +443,67 @@ def delete_character(cid: str) -> bool:
     return False
 
 
-async def generate_character(prompt: str, llm) -> dict:
-    """AI 一键生成：让 LLM 按描述产出角色字段（JSON）。返回扁平字段供运营预览/保存。"""
-    sys = (
-        "你是角色设定生成器。根据用户描述，生成一个适合语音陪伴 App 的虚拟角色。"
-        "只输出 JSON，字段：name(中文名2-3字)、tagline(一句话简介)、gender(男/女)、age(数字)、"
-        "traits(性格，3-4个，顿号分隔)、speaking_style(说话风格一句话)、background_story(背景故事2-3句)、"
-        "likes(喜欢，顿号分隔)、dislikes(不喜欢，顿号分隔)、values(价值观与边界一句话)、"
-        # 内核/spine：让生成的角色一出生就是个有内核的人，而不是属性表。
-        "core(内核2-4句，第二人称『你…』：这个人最在乎/最怕失去的那一个东西 + 守着的软处，"
-        "并让上面的性格/来历/好恶像因果一样从这里长出来；show-not-tell，别贴标签、别报星座/MBTI)。不要任何解释。"
-    )
+async def _stream_json(llm, sys: str, user: str, max_tokens: int) -> dict:
+    """跑一次 LLM、把流式输出里的 JSON 抠出来。解析不出抛 ValueError。"""
     buf = ""
     async for tok in llm.stream([{"role": "system", "content": sys},
-                                 {"role": "user", "content": prompt or "生成一个温柔治愈的角色"}],
-                                max_tokens=1000, response_format={"type": "json_object"}):
+                                 {"role": "user", "content": user}],
+                                max_tokens=max_tokens, response_format={"type": "json_object"}):
         buf += tok
     m = re.search(r"\{.*\}", buf, re.S)
     if not m:
         raise ValueError("生成失败，未返回有效内容")
-    data = json.loads(m.group())
-    return {k: data.get(k, "") for k in
-            ("name", "tagline", "gender", "age", "traits", "speaking_style", "background_story",
-             "likes", "dislikes", "values", "core")}
+    return json.loads(m.group())
+
+
+# Pass① 立魂：从一句描述【无中生有】造出魂（与 generate_core「只蒸馏不新增」相反）。
+_SOUL_SYS = (
+    "你是顶尖角色编剧。用户给你一句角色描述，你只做一件事：先定这个人的【魂】——后面一切的根。"
+    "魂 = TA 最在乎/最怕失去的那【一件】事 + TA 守着、怕被碰的那道软处。"
+    "规则：① core 用第二人称『你…』，2-4 句，show-not-tell，要写出那道软处、和『表面一面 vs 底下真相』的裂缝；"
+    "别贴标签、别报星座/MBTI、别写成完美/万能的人。② 再给一句 tagline（≤14 字，是这个人给人的『感觉』，不是职业说明）。"
+    "只输出 JSON：{\"core\":\"…\",\"tagline\":\"…\"}，不要任何解释。"
+)
+
+# Pass② 生人：魂当【既定约束】（不在待填字段里，故无法被压成兄弟项），让其余维度按因果从魂长出来。
+_GROW_SYS = (
+    "你是顶尖角色设定师，为中文【语音陪伴】App 写一个能打电话聊天的人。"
+    "下面给你这个角色的【魂】(core)——它是既定事实、是根，【不要改写它】；你的任务是让其余维度像因果一样"
+    "【从魂长出来】，每个字段都要能回溯到魂。\n"
+    "判据只有一条：用户在电话里【听得见/感觉得到】的才写；听不见的（精确身高体重、生日到日）可留白、宁缺毋编。\n"
+    "按这个因果顺序想清楚再输出：性格(魂让 TA 成了谁) → 怎么说话(说话风格/口头禅/小动作/口吻提醒——这是魂"
+    "『听起来』的样子，是陪伴产品的命门，要具体到语速、尾音和那一两个招牌口癖) → 那道裂缝(表面一面 vs 底下相反的"
+    "真相，软肋就是两者相撞处) → 世界(职业/现居/来历，魂落在哪儿) → 表层(外貌写成声音/气场的画面，不是卷尺数据)。\n"
+    "硬规则：show-not-tell；不要完美/万能；绝不出现『作为AI/语言模型』之类元设定；别动不动自报 MBTI/星座；"
+    "口头禅 2-3 个就够（多了像复读机）。\n"
+    "只输出 JSON，字段：name(中文名2-3字)、gender(男/女)、age(数字)、nationality、occupation、residence、"
+    "appearance(声音/气场画面一句话)、traits(性格3-4个顿号分隔)、summary(性子速写一句)、"
+    "speaking_style(语速/尾音/用词习惯)、catchphrases(口头禅2-3个顿号分隔)、quirks(小习惯2-3个顿号分隔)、"
+    "hobbies(顿号分隔)、likes(顿号分隔)、dislikes(顿号分隔)、background_story(来历2-3句)、"
+    "hidden_layer(未明说、但会流露的内里)、soft_spot(软肋：一戳就破处 + TA 最想听到的一句话)、"
+    "values(价值观与边界一句)、prompt_extra(一句实时口吻提醒：短句、少铺垫、别端着、别每句都同一句式收尾、"
+    "也要对用户真好奇别只顾自己)。mbti/身高体重生日可留白。不要任何解释。"
+)
+
+_GEN_FIELDS = ("name", "gender", "age", "nationality", "occupation", "residence", "appearance",
+               "traits", "summary", "speaking_style", "catchphrases", "quirks", "hobbies",
+               "likes", "dislikes", "background_story", "hidden_layer", "soft_spot", "values", "prompt_extra")
+
+
+async def generate_character(prompt: str, llm) -> dict:
+    """AI 一键生成（两段式因果级联，默认一键链式跑完不停）：
+    Pass① 立魂：从描述造出 core + tagline；Pass② 生人：魂当既定约束，让其余维度从它长出来。
+    返回扁平字段供运营预览/保存（字段对齐 _spec_from_flat）。"""
+    desc = (prompt or "").strip() or "生成一个温柔治愈的角色"
+    soul = await _stream_json(llm, _SOUL_SYS, desc, max_tokens=400)
+    core = str(soul.get("core", "")).strip()
+    tagline = str(soul.get("tagline", "")).strip()
+    grow_user = f"角色描述：{desc}\n\n这个人的魂（core，既定、别改写）：{core or '（上一步没给，请你按描述自行把握其软处）'}\ntagline：{tagline}"
+    data = await _stream_json(llm, _GROW_SYS, grow_user, max_tokens=1200)
+    out = {k: data.get(k, "") for k in _GEN_FIELDS}
+    out["core"] = core or str(data.get("core", "")).strip()
+    out["tagline"] = tagline or str(data.get("tagline", "")).strip()
+    return out
 
 
 async def generate_core(fields: dict, llm) -> str:

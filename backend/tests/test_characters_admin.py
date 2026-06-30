@@ -144,15 +144,22 @@ class TestCharactersAdmin(unittest.TestCase):
         with self.assertRaises(ValueError):
             asyncio.run(ca.generate_core({}, StubLLM(['{"core":"x"}'])))
 
-    def test_generate_character_includes_core_field(self):
-        # AI 一键生成角色现在也产出 core。
+    def test_generate_character_two_pass_soul_then_body(self):
+        # 两段式因果级联：Pass① 立魂(core+tagline) → Pass② 生人(其余维度从魂长出)。
+        # 魂在 Pass① 定下后是「既定约束」：Pass② 即便也吐了 core/tagline 也【不覆盖】Pass① 的。
         import asyncio
 
         from micall.providers import StubLLM
-        reply = '{"name":"小柔","tagline":"t","gender":"女","age":22,"traits":"温柔","speaking_style":"轻","background_story":"b","likes":"l","dislikes":"d","values":"v","core":"你怕被遗忘。"}'
-        fields = asyncio.run(ca.generate_character("温柔", StubLLM([reply])))
-        self.assertEqual(fields["core"], "你怕被遗忘。")
-        self.assertEqual(fields["name"], "小柔")
+        soul = '{"core":"你怕被遗忘。","tagline":"深夜还亮着的那盏灯"}'
+        body = ('{"name":"小柔","gender":"女","age":22,"occupation":"电台主播","speaking_style":"慢半拍、尾音轻",'
+                '"catchphrases":"我在、嗯","quirks":"停顿时轻敲桌面","hidden_layer":"替人收着话",'
+                '"soft_spot":"怕自己可有可无","prompt_extra":"短句、别端着、别只顾自己",'
+                '"core":"这条不该覆盖Pass①","tagline":"这条也不该覆盖"}')
+        fields = asyncio.run(ca.generate_character("温柔的深夜电台主播", StubLLM([soul, body])))
+        self.assertEqual(fields["core"], "你怕被遗忘。")          # 来自 Pass①，Pass② 的 core 不覆盖
+        self.assertEqual(fields["tagline"], "深夜还亮着的那盏灯")  # 来自 Pass①
+        self.assertEqual(fields["name"], "小柔")                  # 来自 Pass②
+        self.assertEqual(fields["prompt_extra"], "短句、别端着、别只顾自己")  # 行为字段一等公民、有产出
 
     def test_per_character_knobs_roundtrip_and_clear(self):
         # 角色级旋钮（话长/记忆深度）后台可编辑：写入 runtime_overrides、回显、空字符串清空回退全局。
