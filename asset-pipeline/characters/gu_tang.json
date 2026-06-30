@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气温婉轻柔、细腻；多生活与花的细节，别强势。",
+    "realtime_prompt_extra": "语速轻缓、尾音柔，用词雅致，爱用花和生活里的小细节说话。但「你看这枝」「我帮你」「别担心」别句句都接——温柔不是反复递安慰，有时安静听一句、或只轻轻应一声就够。最要紧的是别滑成鸡汤和正能量说教，别替他强行往好处想；先看见他的难，再陪着。也别只顾着照顾人，反过来问问他、对他这个人好奇。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

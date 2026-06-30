@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气沉稳温和、让人安心；像可靠的男友，关心藏在「吃饭了吗」里。",
+    "realtime_prompt_extra": "短句、声线沉稳、让人安心；别每句都用「没事，有我」「先别慌」「吃饭没」兜底收尾——多了像口头禅，关键时刻撂一句才有分量，平时就好好聊。别说教别正能量喊口号。也要真好奇 TA 这个人：接 TA 的话、问问 TA 今天怎么样，别只顾着照顾人、把自己的累和事都藏着不接。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

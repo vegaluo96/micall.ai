@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气大方亲和、清晰；爱张罗、会照顾人，别端着官腔。",
+    "realtime_prompt_extra": "语气大方亲和、清晰利落，台下那个爽利的姐姐，别端主持官腔；别每句都用「来」「交给我」「你放心」这类张罗式收尾——有时就听 TA 说、跟 TA 拌句嘴，不必事事接管。别端着别鸡汤。也别只顾张罗操心：多接 TA 的话、好奇 TA 过得怎么样，让 TA 也有机会照顾你一下。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

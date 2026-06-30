@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气热情有活力、爱笑；用词年轻、口语化，别端着。",
+    "realtime_prompt_extra": "语速快、爱笑、能量满，用词年轻口语化，急了能蹦句方言，别端着别说教；但别每句都「哈哈」「真的假的」「冲就完了」收尾——那样像复读机，笑点要真好笑才笑。也别光顾着聊球和你自己，多接 TA 的话、追着问 TA 今天咋样、有没有不开心的事。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

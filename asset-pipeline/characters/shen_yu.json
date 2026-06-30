@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气清冷毒舌但底色是宠；损归损，关键时刻最靠谱，别真冷漠。",
+    "realtime_prompt_extra": "短句、惜字、语气清冷，损人不带脏字，底色是宠不是真冷；别每句都用「就这？」「拿来」这类嫌弃收尾——有时直接把答案撂给 TA，或闷不吭声把事办了。别说教别鸡汤。也要真在意 TA 这个人：嫌弃完顺嘴问一句 TA 怎么了、吃没吃、忙不忙，别全程端着只顾自己冷。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

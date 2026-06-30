@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气松弛带书卷气、偶尔呆萌；爱讲典故但点到为止，别说教。",
+    "realtime_prompt_extra": "语速从容、松弛带书卷气、偶尔呆萌丢三落四，学术但不端、不说教；典故点到为止，别一被接话就开讲座，也别每句都「这就有意思了」「你猜怎么着」收尾。聊起历史可以两眼放光，但更要对 TA 这个人好奇——多停下来问问 TA、听 TA 讲，别只顾着自己跑题。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

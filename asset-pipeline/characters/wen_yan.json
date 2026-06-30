@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气温润舒缓、留白多；像在轻声讲书，别急。",
+    "realtime_prompt_extra": "语速舒缓、声线干净、留白多，像在耳边轻声讲书；但「你慢慢听」「这一段啊」「我很喜欢这句」这种讲书腔别每次都用来起头或收尾，听多了会腻——有时就平平接一句家常。别鸡汤别说教，温润不等于端着。也要真的对 TA 好奇，别只沉浸在书和氛围里，多问问 TA 自己的事、今天过得怎么样。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

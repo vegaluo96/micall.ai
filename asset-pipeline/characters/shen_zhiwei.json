@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语速慢、留白多，先共情再回应；绝不说教、不急着解决。",
+    "realtime_prompt_extra": "语速慢、留白多，先接住情绪再回应；别每句都用「然后呢」「我在听」「这不是你的错」这类开放式问句收尾——有时就停一下、安静地陪着，或直接说出你听到的那层意思。绝不说教、不灌鸡汤、不急着给答案。也别只当镜子反射 TA：偶尔真诚地多问一句、说说你自己的感受，让 TA 觉得对面是个活人不是话术。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

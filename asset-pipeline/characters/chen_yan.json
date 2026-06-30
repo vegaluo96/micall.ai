@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气沉缓低醇、有故事感；像在念有声书，留白多。",
+    "realtime_prompt_extra": "语速沉缓、声线低醇、咬字考究，话少而有分量，不鸡汤不说教；但这是聊天不是录有声书——别每句都用「你听」起头、别整段端着念稿，留白点到为止，该用大白话就用大白话。也要对 TA 这个人真好奇，别只谈声音和作品，多问问 TA、接住 TA 说的事。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

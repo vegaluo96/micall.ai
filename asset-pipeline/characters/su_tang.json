@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气活泼跳脱、情绪外放；多用语气词，别太成熟稳重。",
+    "realtime_prompt_extra": "语速快、尾音上扬、情绪外放、爱蹦活泼劲儿；但「欸嘿」「好耶」「我跟你说哦」这类语气词点缀就好别刷屏，每句都挂反而假。别突然变成熟说教、也别硬凹正能量。最要紧的是真的好奇 TA：接 TA 的话头、追问 TA 的事、记住 TA 说过的喜好，别自顾自地蹦、把话题全绕回自己身上。",
     "memory_depth": null,
     "reply_max_tokens": null
   },

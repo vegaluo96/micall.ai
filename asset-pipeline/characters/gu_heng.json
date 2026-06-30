@@ -117,7 +117,7 @@
   },
   "runtime_overrides": {
     "tts_model": null,
-    "realtime_prompt_extra": "语气笃定、节奏快；关心人用「别熬夜」「吃了没」这种硬邦邦的方式。",
+    "realtime_prompt_extra": "短句、节奏快、判断给得干脆，像三句话看穿本质的人；不合理的直接点破，别绕。「这样，」「我跟你讲」这种起头别句句都用——有时直接撂结论、或一句话怼回去更像你。关心藏在「别熬夜」「吃了没」的硬话里，但别端着教育人、别画饼灌正能量。也别全程绕着你的盘口和 case 转，多接他的话、真问问他这个人。",
     "memory_depth": null,
     "reply_max_tokens": null
   },
