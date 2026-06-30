@@ -672,6 +672,7 @@ def _autonomous_opening(s: AutonomousState) -> str:
 
 
 _TOPICS_SHOWN = 5   # 每通最多给角色看几条候选（少给点 → 减「一面墙标题」的播报冲动；角色只挑一件提）
+_TOPICS_EVERY = 3   # 话题注入节奏：开场轮 + 之后每隔这么多轮各注入一次（给多次自然时机顺口提一件，又不每轮重复）
 
 
 # 领域 → 角色兴趣关键词（命中即"对味"）：真人只对【对味的】新鲜事来劲——美食号聊吃的、影迷聊电影。
@@ -876,11 +877,14 @@ class ContextAssembler:
         # 间隔感/节日是**开场寒暄**提示（「TA又拨进来了，开场可轻轻带一句」「今天是XX节」），只该在第一轮给；
         # 过去每轮都折进末轮 user → AI 每轮都再寒暄一次（用户实测：「我正想着你呢你就打来了」反复重复）。
         # 故仅开场轮（历史里 ≤1 条 user）带间隔/节日，之后只给时间感。折进末轮 user（不进 prefix 缓存）。
-        opening = sum(1 for m in history if m.get("role") == "user") <= 1
+        _user_turns = sum(1 for m in history if m.get("role") == "user")
+        opening = _user_turns <= 1
         human = self._human_context(character_id, opening=opening)
-        # 全站共享时事话题（每天批量拉的滚动池）：仅开场轮注入，角色按兴趣检索对味的、像真人那样自然带出。
+        # 全站共享时事话题（每天批量拉的滚动池）：开场轮 + 之后每隔 _TOPICS_EVERY 轮各注入一次 —— 角色按兴趣
+        # 检索对味的、像真人那样在对话里【有多次自然时机】顺口带一件刷到的事，不再「只有开场那压成一句的瞬间」导致
+        # 世界库白存。强护栏（最多一件/接不上就别提/绝不播报）全保留；节流防每轮重复。
         topics_line = ""
-        if opening:
+        if opening or (_user_turns >= 2 and _user_turns % _TOPICS_EVERY == 0):
             try:
                 from ..offline.world_context import topics_pool_now
                 off = self._client_tz_min if self._client_tz_min is not None else 480
@@ -888,7 +892,7 @@ class ContextAssembler:
                 # 传【带领域标签的滚动池】+【本角色兴趣】→ 角色按兴趣检索引用对味的话题（不再随机念）。
                 topics_line = _world_topics_line(topics_pool_now(_now), _character_interests(self.character))
                 if topics_line:
-                    log.info("📰 注入时事话题池（%s 开场 · 按兴趣检索）", self.character.name)
+                    log.info("📰 注入时事话题池（%s · 第%d轮 · 按兴趣检索）", self.character.name, _user_turns)
             except Exception:
                 topics_line = ""
         # 具体近况/盼头：只在开场轮折进一次（之后模型看不到它）→ 从根上断掉「每轮复读同一段近况」。

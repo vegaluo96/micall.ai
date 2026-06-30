@@ -118,6 +118,36 @@ class TestAssembler(unittest.TestCase):
             wc._WORLD["topics_src"] = snap
             wc._WORLD["date"] = sdate
 
+    def test_topics_reinjected_periodically_not_just_opening(self):
+        # 「世界库角色没用到」修复：话题不再只在开场轮注入，开场之后每隔 _TOPICS_EVERY 轮也注入一次，
+        # 角色在对话里有多次自然时机顺口提一件刷到的事（强护栏仍在，节流防每轮重复）。
+        import datetime
+        import micall.offline.world_context as wc
+        from micall.context.assembler import _TOPICS_EVERY
+        snap = wc._WORLD.get("topics_src"); sdate = wc._WORLD.get("date")
+        try:
+            now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+            wc._WORLD["date"] = wc._date(now)
+            wc._WORLD["topics_src"] = [{"text": "新出的烤鸭店排到天亮", "url": "u", "cat": "美食",
+                                        "date": wc._date(now)}]
+            foodie = CharacterRuntime("c", "小馋", {"core_traits": ["吃货"], "hobbies": ["研究美食"]})
+            a = ContextAssembler(foodie); a.set_client_timezone(480)
+
+            def hist(n):   # n 个 user 轮，末轮是 user（非开场）
+                h = []
+                for i in range(n):
+                    h.append({"role": "user", "content": f"u{i}"})
+                    if i < n - 1:
+                        h.append({"role": "assistant", "content": f"a{i}"})
+                return h
+
+            on = a.build(character_id="c", scenario="", history=hist(_TOPICS_EVERY))     # 命中节流轮 → 注入
+            self.assertIn("新出的烤鸭店排到天亮", " ".join(m["content"] for m in on))
+            off = a.build(character_id="c", scenario="", history=hist(_TOPICS_EVERY + 1))  # 非命中轮 → 不注入
+            self.assertNotIn("新出的烤鸭店排到天亮", " ".join(m["content"] for m in off))
+        finally:
+            wc._WORLD["topics_src"] = snap; wc._WORLD["date"] = sdate
+
     def test_identity_injected_into_persona(self):
         # AI 要知道自己的基本资料（性别/年龄/外貌/生日），否则被问就不知道。
         char = CharacterRuntime.from_spec({
