@@ -189,16 +189,25 @@ class TestEchoGuard(unittest.TestCase):
         s._ai_said = ""
         self.assertFalse(s._looks_like_echo("你好呀"))        # 没有基准 → 不是
 
-    def test_two_char_exempt_so_it_hits(self):
+    def test_two_char_exempt_in_tail_so_it_hits(self):
         import time
         s = self._sess()
         s._ai_said = "好的，那我们就这么定了"               # 含「好的」子串
-        s._audio_until = time.monotonic() + 5.0
-        # ≤2 字短附和：即便正好是 AI 原话的子串，也整体豁免回声判定 → 必命中（不被吞）
+        # AI【已说完】(拖尾窗)：2 字短附和豁免回声 → 真用户的「好的/对啊」必命中、不被吞
+        s._audio_until = time.monotonic() - 0.3
         self.assertFalse(s._looks_like_echo("好的"))
         self.assertFalse(s._looks_like_echo("对啊"))
-        # 3 字及以上仍照常判回声（子串）
-        self.assertTrue(s._looks_like_echo("我们就"))
+
+    def test_two_char_substring_while_playing_is_echo(self):
+        import time
+        s = self._sess()
+        s._ai_said = "哎你问对人了"                          # AI 正说这句
+        s._audio_until = time.monotonic() + 5.0             # 音频还在播
+        # AI【正在说】时，它原话里的 2 字碎片回灌（「对人」「你问」）= 回声 → 必须挡住，防自我打断/卡住
+        self.assertTrue(s._looks_like_echo("对人"))
+        self.assertTrue(s._looks_like_echo("你问"))
+        # 3 字子串照常判回声
+        self.assertTrue(s._looks_like_echo("你问对"))
 
     def test_echo_overlap_default_068(self):
         # 模糊重叠门槛默认 0.68（越高越不误杀顺着话题、与 AI 用词重合的真用户话）

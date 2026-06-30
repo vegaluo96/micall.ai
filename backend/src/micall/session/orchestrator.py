@@ -409,14 +409,21 @@ class CallSession:
         if now > self._audio_until + self._echo_tail:
             return False
         nt = _norm(text)
-        if len(nt) < 3:
-            return False   # ≤2 字（「好的」「对啊」「是吗」）整体豁免回声判定：短附和极易是 AI 原话的子串而被误杀→必命中
+        if len(nt) < 2:
+            return False
+        now_playing = now <= self._audio_until
+        # 2 字短附和（好的/对啊/是吗）：只在 AI【已说完】(拖尾窗)豁免回声→真用户的短附和收得到、必命中；
+        # 但 AI【正在说】时【不】豁免——此刻 2 字极可能是 AI 自己语音回灌进麦克风的碎片（如它正说「你问对人」
+        # 漏回「对人」），若豁免会被当用户插话→「说到一半自我打断 / 经常卡住」(实测回归)。
+        if len(nt) < 3 and not now_playing:
+            return False
         said = _norm(self._ai_said)
         if nt in said:
-            return True                     # AI 原话被原样转写回来：任何模式都判回声（高置信）
+            return True                     # AI 原话被原样转写回来：任何模式都判回声（含 AI 正说时的 2 字碎片）
         # 即便全双工硬件 AEC 也【始终保留】模糊重叠判定：浏览器 AEC 外放下并不完美，会漏一点 AI 自己的
         # 声音进麦克风；若此时放开判定，漏进来的 AI 余音会被当插话 →「说到一半自我打断」(实测踩坑)。
-        if now <= self._audio_until:        # 音频还在播：模糊重叠也判回声（含 AEC，防自我打断）
+        # 模糊重叠只对【3 字以上】（2 字字符集太粗、易把真打断误挡），且仅音频在播时。
+        if now_playing and len(nt) >= 3:
             chars = set(nt)
             overlap = sum(1 for ch in chars if ch in said) / len(chars)
             return overlap >= self._echo_overlap
