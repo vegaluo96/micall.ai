@@ -223,8 +223,9 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"ok": True, "characters": public_characters()})
             except Exception as e:
                 return self._json(200, {"ok": False, "characters": [], "error": str(e)[:200]})
-        if route == "/api/guest-trial":      # 公开：本 IP 剩余试用秒（刷新不重置）
-            return self._json(200, {"ok": True, "remaining_seconds": _REPO.guest_trial_remaining(self._ip(), _guest_trial_seconds())})
+        if route == "/api/guest-trial":      # 公开：本 IP 剩余试用秒（刷新不重置）+ 配置的总试用秒（前端进度条/文案按真实值显示，不再写死 1 分钟）
+            _ts = _guest_trial_seconds()
+            return self._json(200, {"ok": True, "remaining_seconds": _REPO.guest_trial_remaining(self._ip(), _ts), "trial_seconds": _ts})
         if route == "/api/invite-reward":     # 公开：后台配置的邀请奖励 + 注册赠送（分钟），登录与否都拿真实值（不再写死 60）
             try:
                 from .auth import register_gift_seconds

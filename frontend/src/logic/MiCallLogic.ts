@@ -98,7 +98,7 @@ export class MiCallLogic {
   charsReady = false;
   private _scenesBuilt = false;
 
-  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, legalOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
+  state: State = { phase: "idle", seconds: 0, subtitle: "", theme: null, textMode: false, lines: [], scenario: null, scenarioOpen: false, mute: false, speaker: false, lang: "中文", langOpen: false, charIndex: 0, charOpen: false, charDetailOpen: false, rating: 0, feedback: [], menuOpen: false, favorites: [], favOpen: false, rechargeOpen: false, redeemCode: "", historyOpen: false, pendingSwitch: null, note: "", charTab: "rec", billing: "month", inviteOpen: false, billsOpen: false, sceneTab: "rec", customScene: null, customSceneText: "", expandedScene: null, customHistory: [], settingsOpen: false, toast: "", resetOpen: false, moreOpen: false, loggedIn: false, authOpen: false, authMode: "register", authEmail: "", authPw: "", regPromptShown: false, regPromptDismissed: false, pwResetOpen: false, newPw1: "", newPw2: "", cookieOpen: false, legalOpen: false, logoutConfirmOpen: false, contactOpen: false, contactType: "建议反馈", contactMsg: "", tickets: [], voiceByChar: {}, lowWarned: false, micGranted: false, callFailed: false, remaining: 0, remainingLoaded: false, trialSeconds: 600, outOfMins: false, searchQ: "", previewing: null, showGuide: false, emotion: "idle", autoHangupMin: 3, autoHangupOpen: false, histSelMode: false, histSel: [], histDelConfirm: false, justConnected: false };
 
   t: Timer[] = [];
   i = 0;
@@ -494,9 +494,9 @@ export class MiCallLogic {
       const u = await authApi.me();
       if (u) { this.setState({ loggedIn: true, authEmail: u.email, remaining: u.remaining_seconds, remainingLoaded: true }); this.loadHistory(); this.loadVoices(); this.syncFavorites(); this.loadNotifications(); return; }
     } catch { /* 离线/后端不可达：维持游客态 */ }
-    // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）。用完显示 0 → 通话即提示注册。
+    // 游客：按 IP 拉真实剩余试用（刷新不重置，防刷）+ 配置的总试用秒。用完显示 0 → 通话即提示注册。
     const g = await authApi.getGuestTrial();
-    if (g != null) this.setState({ remaining: g, remainingLoaded: true });
+    if (g != null) this.setState({ remaining: g.remaining, trialSeconds: g.total || 600, remainingLoaded: true });
   }
 
   /** 登录态变化后丢弃旧信令连接，下一通电话用新 token（或匿名）重连。仅在空闲时重置。 */
@@ -1247,13 +1247,13 @@ export class MiCallLogic {
         this.setState({ emotion: ev.tag });
         break;
       case "billing":
-        // 服务端权威余额：seconds=elapsed 驱动计时文案。游客通话中【不弹注册横幅】（先完整体验这 1 分钟试用），
+        // 服务端权威余额：seconds=elapsed 驱动计时文案。游客通话中【不弹注册横幅】（先完整体验这段免费试用），
         // 试用结束由 out_of_minutes 的用完弹层引导注册——故这里只更新计时/余额，没有横幅分支。
         this.setState({ seconds: ev.elapsed, remaining: ev.remaining_seconds, remainingLoaded: true });
         break;
       case "low_minutes":
-        // 仅对登录用户提示「快用完了」。游客试用就 1 分钟，阈值=60 秒会在第 1 秒就触发，
-        // 弹「仅剩 1 分钟」反而打断体验、显得催促——游客不提示，让他把 1 分钟用完再由用完弹层引导。
+        // 仅对登录用户提示「快用完了」。游客通话中不催促（先完整体验试用），
+        // 到点由 out_of_minutes 的用完弹层引导注册——故游客不弹这条。
         if (this.state.loggedIn) { this.setState({ lowWarned: true, toast: "时长仅剩 1 分钟" }); this.clearToastSoon(2400); }
         break;
       case "out_of_minutes":
@@ -1636,7 +1636,7 @@ export class MiCallLogic {
       hint,
       remainLabel,
       remainMinNum: Math.max(0, Math.round((this.state.remaining || 0) / 60)),
-      remainPct: Math.max(4, Math.min(100, Math.round((this.state.remaining || 0) / (this.state.loggedIn ? 3600 : 60) * 100))) + "%",
+      remainPct: Math.max(4, Math.min(100, Math.round((this.state.remaining || 0) / (this.state.loggedIn ? 3600 : (this.state.trialSeconds || 600)) * 100))) + "%",
       orbCursor: "pointer",
       orbTap: () => this.setState((s) => ({ charDetailOpen: !s.charDetailOpen })),
       actionTap: () => {

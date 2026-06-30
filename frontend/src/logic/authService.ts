@@ -75,13 +75,13 @@ export async function getCharacters(): Promise<any[] | null> {
   }
 }
 
-/** 本 IP 剩余游客试用秒（刷新不重置）。失败 → null。 */
-export async function getGuestTrial(): Promise<number | null> {
+/** 本 IP 剩余游客试用秒（刷新不重置）+ 配置的总试用秒（前端进度条/文案按真实值显示）。失败 → null。 */
+export async function getGuestTrial(): Promise<{ remaining: number; total: number } | null> {
   try {
     const r = await fetch(BASE + "/api/guest-trial");
     if (!r.ok) return null;
     const j = await r.json();
-    return j.ok ? (j.remaining_seconds as number) : null;
+    return j.ok ? { remaining: j.remaining_seconds as number, total: (j.trial_seconds as number) || 600 } : null;
   } catch {
     return null;
   }
